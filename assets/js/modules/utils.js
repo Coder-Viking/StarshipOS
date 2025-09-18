@@ -63,3 +63,10 @@ export function minutesToETA(minutes) {
 export function fractionToPercent(value) {
     return `${Math.round(value)}%`;
 }
+
+export function secondsToETA(seconds) {
+    const safeSeconds = Math.max(0, Math.floor(seconds));
+    const hrs = Math.floor(safeSeconds / 3600).toString().padStart(2, '0');
+    const mins = Math.floor((safeSeconds % 3600) / 60).toString().padStart(2, '0');
+    return `${hrs}:${mins}`;
+}
