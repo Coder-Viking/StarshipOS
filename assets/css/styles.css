@@ -405,6 +405,106 @@ body {
     margin: 0;
 }
 
+.detail-section {
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    padding-top: 0.75rem;
+    margin-top: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.detail-section h4 {
+    margin: 0;
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+
+.data-table th,
+.data-table td {
+    text-align: left;
+    padding: 0.35rem 0.4rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.data-table th {
+    color: var(--accent);
+    font-weight: 600;
+    letter-spacing: 0.05em;
+}
+
+.reactor-modes {
+    display: grid;
+    gap: 0.6rem;
+}
+
+.reactor-mode {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.reactor-mode header {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 0.5rem;
+}
+
+.reactor-mode h5 {
+    margin: 0;
+    font-size: 0.9rem;
+    letter-spacing: 0.05em;
+}
+
+.mode-output {
+    font-size: 0.8rem;
+    color: var(--accent-strong);
+    font-weight: 600;
+}
+
+.mode-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+.detail-list {
+    margin: 0;
+    padding-left: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.8rem;
+}
+
+.detail-list.ordered {
+    list-style: decimal;
+}
+
+.detail-list:not(.ordered) {
+    list-style: disc;
+}
+
+.detail-list li strong {
+    color: var(--accent);
+    font-weight: 600;
+}
+
 .app-footer {
     position: sticky;
     bottom: 0;
