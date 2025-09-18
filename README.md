@@ -19,6 +19,13 @@ Eine modulare Benutzeroberfläche zur Simulation eines Raumschiff-Betriebssystem
 2. `index.html` im Browser öffnen (moderne Browser empfohlen, da ES-Modul verwendet wird).
 3. Optional kann ein lokaler Webserver genutzt werden, um Audio/Video-Erweiterungen einzubinden.
 
+### Konfiguration & Hot-Reload
+
+- Die Anwendung lädt Schiffsdaten, Systeme, Missionen und Zufallsereignisse aus `assets/data/scenario-default.xml`.
+- Änderungen an dieser Datei werden automatisch erkannt und im laufenden Betrieb übernommen (Hot-Reload).
+- Über den Button **„Konfiguration neu laden“** im Footer kann die Spielleitung ein manuelles Reload erzwingen.
+- Bei Fehlern in der XML-Datei wird eine Meldung im Ereignislog angezeigt und die zuletzt funktionierende Konfiguration beibehalten.
+
 Alle Zustände werden nur im Browser gespeichert und lassen sich jederzeit neu initialisieren, indem die Seite neu geladen wird.
 
 ## Anpassung

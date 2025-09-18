@@ -1,15 +1,5 @@
-import {
-    SHIP_SYSTEMS,
-    SECTORS,
-    COMM_CHANNELS,
-    CREW,
-    OBJECTIVES,
-    SENSOR_BASELINES,
-    ALERT_STATES,
-    INITIAL_LOG,
-    RANDOM_EVENTS
-} from './modules/data.js';
-
+import { DEFAULT_SCENARIO } from './modules/data.js';
+import { loadScenario, ScenarioHotReloader } from './modules/xmlLoader.js';
 import {
     formatStardate,
     formatTime,
@@ -22,19 +12,41 @@ import {
 } from './modules/utils.js';
 import { Kernel } from './modules/kernel.js';
 
+/** === Szenario/Defaults === */
+const CONFIG_URL = 'assets/data/scenario-default.xml';
+const DEFAULT_INSPECTOR_MESSAGE = '<p>Wählen Sie ein System aus der linken Liste, um detaillierte Informationen zu erhalten.</p>';
+const FALLBACK_ALERT_STATES = DEFAULT_SCENARIO.alertStates ? { ...DEFAULT_SCENARIO.alertStates } : {
+    green: { label: 'Keine Warnungen', className: 'status-idle' },
+    yellow: { label: 'Alarmstufe Gelb', className: 'status-warning' },
+    red: { label: 'Alarmstufe Rot', className: 'status-critical' }
+};
+
+/** === Kernel-Status (szenario-getrieben) === */
 const initialState = {
-    systems: SHIP_SYSTEMS.map(system => ({ ...system })),
+    // Szenario-Metadaten
+    scenarioName: '',
+    scenarioId: '',
+    currentScenarioHash: null,
+    hotReloader: null,
+    reloadingScenario: false,
+
+    // Schiff & Daten aus XML
+    ship: { name: '', commander: '', registry: '', class: '' },
+    systems: [],
+    sectors: [],
+    commChannels: [],
+    crew: [],
+    objectives: [],
+    sensorBaselines: [],
+    alertStates: { ...FALLBACK_ALERT_STATES },
+    randomEvents: [],
+
+    // Laufzeit
+    logs: [],
     alert: 'green',
     navPlan: null,
-    logs: INITIAL_LOG.map(entry => createLogEntry(entry.type, entry.message)),
     sensorReadings: [],
-    simulationPaused: false,
-    savedSnapshots: [],
-    replay: {
-        timer: null,
-        entries: [],
-        index: 0
-    }
+    simulationPaused: false
 };
 
 const kernel = new Kernel(initialState, {
@@ -44,19 +56,25 @@ const kernel = new Kernel(initialState, {
 });
 
 const state = kernel.state;
-const STORAGE_KEY = 'starshipos:snapshots';
 
 const elements = {};
 
+/** === DOM Cache === */
 function cacheDom() {
+    elements.shipName = document.getElementById('ship-name');
+    elements.commanderName = document.getElementById('commander-name');
     elements.stardate = document.getElementById('stardate');
     elements.shipClock = document.getElementById('ship-clock');
+
     elements.systemGrid = document.getElementById('system-grid');
     elements.inspectorBody = document.getElementById('inspector-body');
     elements.inspectorStatus = document.getElementById('inspector-status');
+    elements.inspectorDefault = elements.inspectorBody ? elements.inspectorBody.innerHTML : DEFAULT_INSPECTOR_MESSAGE;
+
     elements.powerOutputs = document.querySelectorAll('.power-value');
     elements.powerSliders = document.querySelectorAll('.power-group input[type="range"]');
     elements.balancePower = document.getElementById('balance-power');
+
     elements.navSector = document.getElementById('nav-sector');
     elements.navStatus = document.getElementById('nav-status');
     elements.navCoordinates = document.getElementById('nav-coordinates');
@@ -66,45 +84,99 @@ function cacheDom() {
     elements.navEngage = document.getElementById('nav-engage');
     elements.navAbort = document.getElementById('nav-abort');
     elements.navEta = document.getElementById('nav-eta');
+
     elements.commsChannel = document.getElementById('comms-channel');
     elements.commsLog = document.getElementById('comms-log');
     elements.commsMessage = document.getElementById('comms-message');
     elements.commsSend = document.getElementById('comms-send');
+
     elements.sensorReadings = document.getElementById('sensor-readings');
     elements.sensorScan = document.getElementById('sensor-scan');
     elements.sensorScanStatus = document.getElementById('sensor-scan-status');
+
     elements.alertState = document.getElementById('alert-state');
     elements.alertYellow = document.getElementById('alert-yellow');
     elements.alertRed = document.getElementById('alert-red');
     elements.alertClear = document.getElementById('alert-clear');
+
     elements.eventLog = document.getElementById('event-log');
+
     elements.crewList = document.getElementById('crew-list');
     elements.crewStatus = document.getElementById('crew-status');
+
     elements.missionObjectives = document.getElementById('mission-objectives');
+
     elements.pauseSim = document.getElementById('pause-sim');
     elements.resumeSim = document.getElementById('resume-sim');
-    elements.snapshotStatus = document.getElementById('snapshot-status');
-    elements.snapshotName = document.getElementById('snapshot-name');
-    elements.snapshotSave = document.getElementById('snapshot-save');
-    elements.snapshotList = document.getElementById('snapshot-list');
-    elements.snapshotLoad = document.getElementById('snapshot-load');
-    elements.snapshotDelete = document.getElementById('snapshot-delete');
-    elements.logExport = document.getElementById('log-export');
-    elements.logReplay = document.getElementById('log-replay');
-    elements.logReplayStop = document.getElementById('log-replay-stop');
-    elements.replayOutput = document.getElementById('replay-output');
+
+    elements.reloadConfig = document.getElementById('reload-config');
 }
 
+/** === Hilfen für Szenario-Normalisierung === */
+function normalizeSystem(system) {
+    const rawDetails = system.details ?? {};
+    const sensors = Array.isArray(rawDetails.sensors)
+        ? rawDetails.sensors
+        : Array.isArray(rawDetails.sensoren)
+            ? rawDetails.sensoren
+            : [];
+    const status = typeof system.status === 'string' ? system.status.toLowerCase() : 'idle';
+    const normalizedStatus = ['online', 'idle', 'warning', 'offline', 'critical'].includes(status) ? status : 'idle';
+    const toNumber = (value, fallback = 0) => {
+        if (typeof value === 'number' && Number.isFinite(value)) return value;
+        const parsed = Number.parseInt(value, 10);
+        return Number.isNaN(parsed) ? fallback : parsed;
+    };
+
+    return {
+        id: system.id,
+        name: system.name ?? 'Unbekanntes System',
+        status: normalizedStatus,
+        power: clamp(toNumber(system.power, 0), 0, 100),
+        integrity: clamp(toNumber(system.integrity, 0), 0, 100),
+        load: clamp(toNumber(system.load, 0), 0, 100),
+        details: {
+            beschreibung: rawDetails.beschreibung ?? rawDetails.description ?? '',
+            redundanz: rawDetails.redundanz ?? rawDetails.redundancy ?? '',
+            letzteWartung: rawDetails.letzteWartung ?? rawDetails.lastService ?? '',
+            sensors: sensors.slice()
+        }
+    };
+}
+
+function prepareLogEntries(entries = []) {
+    if (!Array.isArray(entries)) return [];
+    return entries
+        .map(entry => {
+            const message = typeof entry.message === 'string' ? entry.message.trim() : '';
+            if (!message) return null;
+            const type = typeof entry.type === 'string' ? entry.type : 'log';
+            return createLogEntry(type, message);
+        })
+        .filter(Boolean);
+}
+
+function resetInspector() {
+    if (elements.inspectorStatus) {
+        elements.inspectorStatus.textContent = 'System wählen';
+        elements.inspectorStatus.className = 'status-pill status-idle';
+    }
+    if (elements.inspectorBody) {
+        elements.inspectorBody.innerHTML = elements.inspectorDefault ?? DEFAULT_INSPECTOR_MESSAGE;
+    }
+}
+
+/** === Kernel-Module (Zeit, Navigation, Random-Events) === */
 function configureKernelModules() {
     kernel.registerModule('timekeeping', {
         onStart() {
-            elements.stardate.textContent = formatStardate();
-            elements.shipClock.textContent = formatTime();
+            if (elements.stardate) elements.stardate.textContent = formatStardate();
+            if (elements.shipClock) elements.shipClock.textContent = formatTime();
         },
         onTick(context, tick) {
             if (context.state.simulationPaused) return;
-            elements.shipClock.textContent = formatTime();
-            if (tick % 60 === 0) {
+            if (elements.shipClock) elements.shipClock.textContent = formatTime();
+            if (tick % 60 === 0 && elements.stardate) {
                 elements.stardate.textContent = formatStardate();
             }
         }
@@ -116,9 +188,10 @@ function configureKernelModules() {
             context.locals.unsubscribe = [
                 context.on('navigation:engaged', () => {
                     if (context.state.navPlan) {
-                        // navPlan.remainingSeconds wird immer in Sekunden geführt
                         if (typeof context.state.navPlan.remainingSeconds !== 'number') {
-                            context.state.navPlan.remainingSeconds = Math.max(0, Math.round((context.state.navPlan.etaMinutes ?? 0) * 60));
+                            context.state.navPlan.remainingSeconds = Math.max(
+                                0, Math.round((context.state.navPlan.etaMinutes ?? 0) * 60)
+                            );
                         }
                     }
                 }),
@@ -140,13 +213,13 @@ function configureKernelModules() {
 
             const next = Math.max(0, current - 1);
             state.navPlan.remainingSeconds = next;
-            elements.navEta.textContent = secondsToETA(next);
+            if (elements.navEta) elements.navEta.textContent = secondsToETA(next);
 
             if (next <= 0) {
                 state.navPlan.status = 'arrived';
                 updateNavigationStatus('Ankunft bestätigt', 'status-online');
-                elements.navEngage.disabled = true;
-                elements.navAbort.disabled = true;
+                if (elements.navEngage) elements.navEngage.disabled = true;
+                if (elements.navAbort) elements.navAbort.disabled = true;
                 kernel.log('log', `Ziel ${state.navPlan.sector?.name ?? 'Ziel'} erreicht. Navigation abgeschlossen.`);
                 kernel.emit('navigation:arrived', { sector: state.navPlan.sector });
             }
@@ -174,8 +247,10 @@ function configureKernelModules() {
             if (state.simulationPaused) return;
             locals.cooldown -= 1;
             if (locals.cooldown <= 0) {
-                const event = RANDOM_EVENTS[randBetween(0, RANDOM_EVENTS.length - 1)];
-                applyRandomEvent(event);
+                if (Array.isArray(state.randomEvents) && state.randomEvents.length) {
+                    const event = state.randomEvents[randBetween(0, state.randomEvents.length - 1)];
+                    applyRandomEvent(event);
+                }
                 locals.cooldown = state.alert === 'red' ? 25 : 45;
             }
         },
@@ -186,8 +261,17 @@ function configureKernelModules() {
     });
 }
 
+/** === Rendering === */
 function renderSystems() {
+    if (!elements.systemGrid) return;
     elements.systemGrid.innerHTML = '';
+    if (state.systems.length === 0) {
+        const placeholder = document.createElement('p');
+        placeholder.className = 'empty-placeholder';
+        placeholder.textContent = 'Keine Systeme definiert.';
+        elements.systemGrid.appendChild(placeholder);
+        return;
+    }
     state.systems.forEach(system => {
         const card = document.createElement('article');
         card.className = 'system-card';
@@ -241,13 +325,14 @@ function translateStatus(status) {
 
 function showSystemDetails(systemId) {
     const system = state.systems.find(sys => sys.id === systemId);
-    if (!system) return;
+    if (!system || !elements.inspectorBody || !elements.inspectorStatus) return;
 
     elements.inspectorStatus.textContent = translateStatus(system.status);
     elements.inspectorStatus.className = `status-pill ${statusClass(system.status)}`;
+
     const { details = {} } = system;
-    const sensors = details.sensors ?? details.sensoren;
-    const sensorDisplay = Array.isArray(sensors) ? sensors.join(', ') : (sensors ?? '—');
+    const sensors = Array.isArray(details.sensors) ? details.sensors : (Array.isArray(details.sensoren) ? details.sensoren : []);
+    const sensorDisplay = sensors.length ? sensors.join(', ') : '–';
 
     let inspectorHtml = `
         <h3>${system.name}</h3>
@@ -256,9 +341,9 @@ function showSystemDetails(systemId) {
             <dt>Integrität</dt><dd>${system.integrity}%</dd>
             <dt>Auslastung</dt><dd>${system.load}%</dd>
             <dt>Status</dt><dd>${translateStatus(system.status)}</dd>
-            <dt>Beschreibung</dt><dd>${details.beschreibung ?? '—'}</dd>
-            <dt>Redundanz</dt><dd>${details.redundanz ?? '—'}</dd>
-            <dt>Letzte Wartung</dt><dd>${details.letzteWartung ?? '—'}</dd>
+            <dt>Beschreibung</dt><dd>${details.beschreibung || '–'}</dd>
+            <dt>Redundanz</dt><dd>${details.redundanz || '–'}</dd>
+            <dt>Letzte Wartung</dt><dd>${details.letzteWartung || '–'}</dd>
             <dt>Sensoren</dt><dd>${sensorDisplay}</dd>
         </dl>
     `;
@@ -339,6 +424,7 @@ function showSystemDetails(systemId) {
     elements.inspectorBody.innerHTML = inspectorHtml;
 }
 
+/** === Power-Verteilung === */
 function updatePowerLabels() {
     elements.powerSliders.forEach(slider => {
         const output = document.querySelector(`.power-value[data-output="${slider.id}"]`);
@@ -364,7 +450,7 @@ function suggestPowerDistribution() {
             priorities.aux += 1;
         }
     });
-    const totalPriority = Object.values(priorities).reduce((acc, v) => acc + v, 0);
+    const totalPriority = Object.values(priorities).reduce((acc, value) => acc + value, 0) || 1;
     Object.entries(priorities).forEach(([key, value]) => {
         const slider = document.getElementById(`power-${key}`);
         if (slider) slider.value = Math.round((value / totalPriority) * 100);
@@ -395,33 +481,67 @@ function normalizePowerSliders() {
     }
 }
 
+/** === Navigation/Comms (szenario) === */
 function populateNavigation() {
-    SECTORS.forEach(sector => {
+    if (!elements.navSector) return;
+    elements.navSector.innerHTML = '';
+    if (state.sectors.length === 0) {
+        const option = document.createElement('option');
+        option.textContent = 'Keine Sektoren verfügbar';
+        option.disabled = true;
+        elements.navSector.appendChild(option);
+        elements.navSector.disabled = true;
+        return;
+    }
+    elements.navSector.disabled = false;
+    state.sectors.forEach(sector => {
         const option = document.createElement('option');
         option.value = sector.id;
         option.textContent = sector.name;
         elements.navSector.appendChild(option);
     });
-    elements.navSector.addEventListener('change', event => {
-        const sector = SECTORS.find(sec => sec.id === event.target.value);
-        if (sector) elements.navCoordinates.value = sector.defaultCoords;
-    });
-    elements.navSector.value = SECTORS[0].id;
-    elements.navCoordinates.value = SECTORS[0].defaultCoords;
+}
+
+function handleNavSectorChange(event) {
+    const sector = state.sectors.find(sec => sec.id === event.target.value);
+    if (sector && elements.navCoordinates) {
+        elements.navCoordinates.value = sector.defaultCoords ?? '';
+    }
 }
 
 function populateComms() {
-    COMM_CHANNELS.forEach(channel => {
+    if (!elements.commsChannel) return;
+    elements.commsChannel.innerHTML = '';
+    if (state.commChannels.length === 0) {
+        const option = document.createElement('option');
+        option.textContent = 'Keine Kanäle verfügbar';
+        option.disabled = true;
+        elements.commsChannel.appendChild(option);
+        elements.commsChannel.disabled = true;
+        return;
+    }
+    elements.commsChannel.disabled = false;
+    state.commChannels.forEach(channel => {
         const option = document.createElement('option');
         option.value = channel.id;
         option.textContent = channel.label;
         elements.commsChannel.appendChild(option);
     });
+    elements.commsChannel.value = state.commChannels[0].id;
 }
 
+/** === Crew, Objectives, Logs === */
 function renderCrew() {
+    if (!elements.crewList) return;
     elements.crewList.innerHTML = '';
-    CREW.forEach(member => {
+    if (state.crew.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'empty-placeholder';
+        li.textContent = 'Keine Crew-Daten verfügbar.';
+        elements.crewList.appendChild(li);
+        return;
+    }
+    state.crew.forEach(member => {
         const li = document.createElement('li');
         li.className = 'crew-member';
         li.innerHTML = `
@@ -433,8 +553,16 @@ function renderCrew() {
 }
 
 function renderObjectives() {
+    if (!elements.missionObjectives) return;
     elements.missionObjectives.innerHTML = '';
-    OBJECTIVES.forEach(objective => {
+    if (state.objectives.length === 0) {
+        const li = document.createElement('li');
+        li.className = 'empty-placeholder';
+        li.textContent = 'Keine Missionsziele definiert.';
+        elements.missionObjectives.appendChild(li);
+        return;
+    }
+    state.objectives.forEach(objective => {
         const li = document.createElement('li');
         li.className = `objective ${objective.completed ? 'completed' : ''}`;
         li.textContent = objective.text;
@@ -443,6 +571,7 @@ function renderObjectives() {
 }
 
 function renderLogs() {
+    if (!elements.eventLog || !elements.commsLog) return;
     elements.eventLog.innerHTML = '';
     elements.commsLog.innerHTML = '';
     state.logs.forEach(entry => {
@@ -455,6 +584,7 @@ function renderLogs() {
     });
 }
 
+/** === Logging/Fehler === */
 function handleKernelLog(entry) {
     if (!elements.eventLog || !elements.commsLog) return;
     const formatted = formatLogEntry(entry);
@@ -476,38 +606,69 @@ function addLog(type, message, meta) {
     return kernel.log(type, message, meta);
 }
 
+/** === Comms === */
 function handleCommsSend() {
-    const message = elements.commsMessage.value.trim();
+    const message = elements.commsMessage?.value.trim();
     if (!message) return;
-    const channel = COMM_CHANNELS.find(ch => ch.id === elements.commsChannel.value);
+    if (state.commChannels.length === 0) {
+        addLog('log', 'Keine Kommunikationskanäle verfügbar. Nachricht nicht gesendet.');
+        return;
+    }
+    const channel = state.commChannels.find(ch => ch.id === elements.commsChannel.value)
+        ?? { label: elements.commsChannel.value || 'Unbekannter Kanal' };
     addLog('comms', `${channel.label}: ${message}`);
     elements.commsMessage.value = '';
 }
 
+/** === Sensoren === */
+function updateSensorControls() {
+    if (!elements.sensorScan || !elements.sensorScanStatus) return;
+    if (state.sensorBaselines.length === 0) {
+        elements.sensorScan.disabled = true;
+        elements.sensorScanStatus.textContent = 'Keine Basiswerte';
+        elements.sensorScanStatus.className = 'status-pill status-warning';
+    } else {
+        elements.sensorScan.disabled = false;
+        elements.sensorScanStatus.textContent = 'Bereit';
+        elements.sensorScanStatus.className = 'status-pill status-online';
+    }
+}
+
 function performSensorScan() {
-    if (state.simulationPaused) return;
+    if (state.simulationPaused || !elements.sensorScan || !elements.sensorScanStatus) return;
+    if (state.sensorBaselines.length === 0) {
+        addLog('log', 'Keine Sensor-Basiswerte definiert. Scan übersprungen.');
+        updateSensorControls();
+        return;
+    }
     elements.sensorScan.disabled = true;
     elements.sensorScanStatus.textContent = 'Scan läuft...';
     elements.sensorScanStatus.className = 'status-pill status-warning';
     addLog('log', 'Aktiver Sensor-Scan initiiert. Ergebnisse folgen.');
 
     setTimeout(() => {
-        const readings = SENSOR_BASELINES.map(reading => ({
+        const readings = state.sensorBaselines.map(reading => ({
             label: reading.label,
             value: reading.base + randBetween(-reading.variance, reading.variance),
             unit: reading.unit
         }));
         kernel.setState('sensorReadings', readings);
         renderSensorReadings();
-        elements.sensorScan.disabled = false;
-        elements.sensorScanStatus.textContent = 'Bereit';
-        elements.sensorScanStatus.className = 'status-pill status-online';
+        updateSensorControls();
         addLog('log', 'Sensor-Scan abgeschlossen. Daten aktualisiert.');
     }, randBetween(1500, 3000));
 }
 
 function renderSensorReadings() {
+    if (!elements.sensorReadings) return;
     elements.sensorReadings.innerHTML = '';
+    if (state.sensorReadings.length === 0) {
+        const div = document.createElement('div');
+        div.className = 'sensor-empty';
+        div.textContent = 'Keine Sensordaten verfügbar.';
+        elements.sensorReadings.appendChild(div);
+        return;
+    }
     state.sensorReadings.forEach(reading => {
         const div = document.createElement('div');
         div.className = 'sensor-reading';
@@ -516,24 +677,26 @@ function renderSensorReadings() {
     });
 }
 
-function applyAlertVisual(level) {
-    const alertState = ALERT_STATES[level] ?? ALERT_STATES.green;
-    elements.alertState.textContent = alertState.label;
-    elements.alertState.className = `status-pill ${alertState.className}`;
-    updateCrewStatus(level);
+/** === Alarmzustände === */
+function updateAlertDisplay(level) {
+    if (!elements.alertState) return;
+    const entry = state.alertStates[level] ?? { label: level, className: 'status-idle' };
+    elements.alertState.textContent = entry.label ?? level;
+    elements.alertState.className = `status-pill ${entry.className ?? 'status-idle'}`;
 }
 
 function setAlertState(level) {
     kernel.setState('alert', level);
-    const { label, className } = ALERT_STATES[level];
-    elements.alertState.textContent = label;
-    elements.alertState.className = `status-pill ${className}`;
+    updateAlertDisplay(level);
+    const alertEntry = state.alertStates[level];
+    const label = alertEntry?.label ?? level;
     addLog('log', `Alarmstufe geändert: ${label}.`);
     updateCrewStatus(level);
     kernel.emit('alert:changed', { level });
 }
 
 function updateCrewStatus(alertLevel) {
+    if (!elements.crewStatus) return;
     let statusText = 'Stabil';
     let className = 'status-online';
     if (alertLevel === 'yellow') { statusText = 'Bereit'; className = 'status-warning'; }
@@ -542,12 +705,17 @@ function updateCrewStatus(alertLevel) {
     elements.crewStatus.className = `status-pill ${className}`;
 }
 
+/** === Navigation Aktionen === */
 function handleNavigationPlot() {
     if (state.simulationPaused) return;
-    const sector = SECTORS.find(sec => sec.id === elements.navSector.value);
-    const coordinates = elements.navCoordinates.value.trim();
-    const window = elements.navWindow.value;
-    const description = elements.navDescription.value.trim();
+    if (state.sectors.length === 0) {
+        addLog('log', 'Navigation fehlgeschlagen: keine Zielsektoren definiert.');
+        return;
+    }
+    const sector = state.sectors.find(sec => sec.id === elements.navSector.value);
+    const coordinates = elements.navCoordinates?.value.trim();
+    const window = elements.navWindow?.value;
+    const description = elements.navDescription?.value.trim();
 
     if (!sector || !coordinates) {
         addLog('log', 'Navigation fehlgeschlagen: Zielsektor oder Koordinaten fehlen.');
@@ -564,7 +732,7 @@ function handleNavigationPlot() {
     const etaSeconds = Math.max(0, Math.round(etaMinutes * 60));
 
     const navPlan = {
-        sector,                 // Objekt behalten (für Anzeigen/Logs)
+        sector,
         coordinates,
         window,
         description,
@@ -574,11 +742,10 @@ function handleNavigationPlot() {
     };
     kernel.setState('navPlan', navPlan);
 
-    elements.navStatus.textContent = `Kurs gesetzt (${sector.name})`;
-    elements.navStatus.className = 'status-pill status-online';
-    elements.navEngage.disabled = false;
-    elements.navAbort.disabled = false;
-    elements.navEta.textContent = secondsToETA(etaSeconds);
+    updateNavigationStatus(`Kurs gesetzt (${sector.name})`, 'status-online');
+    if (elements.navEngage) elements.navEngage.disabled = false;
+    if (elements.navAbort) elements.navAbort.disabled = false;
+    if (elements.navEta) elements.navEta.textContent = secondsToETA(etaSeconds);
 
     addLog('log', `Navigation: Kurs nach ${sector.name} gesetzt. ETA ${secondsToETA(etaSeconds)}.`);
 }
@@ -586,10 +753,9 @@ function handleNavigationPlot() {
 function handleNavigationEngage() {
     if (!state.navPlan || state.navPlan.status !== 'plotted') return;
     state.navPlan.status = 'engaged';
-    // remainingSeconds bleibt in Sekunden; der Navigation-Modul-Tick zählt herunter
     updateNavigationStatus('Sprung aktiv', 'status-warning');
-    elements.navEngage.disabled = true;
-    elements.navAbort.disabled = false;
+    if (elements.navEngage) elements.navEngage.disabled = true;
+    if (elements.navAbort) elements.navAbort.disabled = false;
     addLog('log', 'Sprungsequenz eingeleitet. Alle Crew an Stationen.');
     kernel.emit('navigation:engaged', { plan: state.navPlan });
 }
@@ -599,367 +765,38 @@ function handleNavigationAbort() {
     addLog('log', 'Navigation abgebrochen. Kurs zurückgesetzt.');
     kernel.emit('navigation:abort', { plan: state.navPlan });
     kernel.setState('navPlan', null);
-    resetNavigationUi();
+    resetNavigation();
 }
 
 function updateNavigationStatus(text, className) {
+    if (!elements.navStatus) return;
     elements.navStatus.textContent = text;
     elements.navStatus.className = `status-pill ${className}`;
 }
 
-// Alte Timer-APIs als No-Ops, damit Legacy-Calls nicht stören
-function startNavigationCountdown() {}
-function stopNavigationCountdown() {}
-
-function storageAvailable() {
-    try {
-        const testKey = '__starshipos_test__';
-        localStorage.setItem(testKey, testKey);
-        localStorage.removeItem(testKey);
-        return true;
-    } catch (error) {
-        console.warn('Lokaler Speicher nicht verfügbar:', error);
-        return false;
+function resetNavigation() {
+    if (elements.navStatus) {
+        elements.navStatus.textContent = 'Im Orbit';
+        elements.navStatus.className = 'status-pill status-idle';
     }
-}
+    if (elements.navEta) elements.navEta.textContent = '--:--';
+    if (elements.navEngage) elements.navEngage.disabled = true;
+    if (elements.navAbort) elements.navAbort.disabled = true;
 
-function updateSnapshotStatus(message, variant = 'status-idle') {
-    if (!elements.snapshotStatus) return;
-    elements.snapshotStatus.textContent = message;
-    elements.snapshotStatus.className = `status-pill ${variant}`;
-}
-
-function loadSnapshotsFromStorage() {
-    try {
-        const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) return [];
-        const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) return parsed;
-    } catch (error) {
-        console.error('Fehler beim Laden der Snapshots:', error);
-        updateSnapshotStatus('Fehler beim Laden der Snapshots', 'status-critical');
-    }
-    return [];
-}
-
-function persistSnapshots(snapshots) {
-    try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshots));
-    } catch (error) {
-        console.error('Fehler beim Speichern der Snapshots:', error);
-        updateSnapshotStatus('Speichern fehlgeschlagen', 'status-critical');
-    }
-}
-
-function refreshSnapshotList() {
-    if (!elements.snapshotList) return;
-    if (!storageAvailable()) {
-        state.savedSnapshots = [];
-        elements.snapshotList.innerHTML = '';
-        updateSnapshotButtons();
-        updateSnapshotStatus('Lokaler Speicher nicht verfügbar', 'status-critical');
-        return;
-    }
-    const snapshots = loadSnapshotsFromStorage();
-    state.savedSnapshots = snapshots
-        .map(snapshot => ({ ...snapshot }))
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    elements.snapshotList.innerHTML = '';
-    elements.snapshotList.value = '';
-    state.savedSnapshots.forEach(snapshot => {
-        const option = document.createElement('option');
-        option.value = snapshot.id;
-        const timestamp = new Date(snapshot.timestamp);
-        option.textContent = `${snapshot.name} – ${timestamp.toLocaleString('de-DE')}`;
-        elements.snapshotList.appendChild(option);
-    });
-    updateSnapshotButtons();
-}
-
-function updateSnapshotButtons() {
-    if (!elements.snapshotLoad || !elements.snapshotDelete || !elements.snapshotList) return;
-    const hasSelection = Boolean(elements.snapshotList.value);
-    elements.snapshotLoad.disabled = !hasSelection;
-    elements.snapshotDelete.disabled = !hasSelection;
-}
-
-function getSelectedSnapshot() {
-    if (!elements.snapshotList) return null;
-    const id = elements.snapshotList.value;
-    return state.savedSnapshots.find(snapshot => snapshot.id === id) ?? null;
-}
-
-function handleSnapshotSave() {
-    if (!elements.snapshotName) return;
-    if (!storageAvailable()) {
-        updateSnapshotStatus('Lokaler Speicher nicht verfügbar', 'status-critical');
-        return;
-    }
-    const nameInput = elements.snapshotName.value.trim();
-    const fallback = new Date().toLocaleString('de-DE');
-    const name = nameInput || `Snapshot ${fallback}`;
-    const snapshot = createSnapshot(name);
-    const snapshots = loadSnapshotsFromStorage();
-    snapshots.push(snapshot);
-    persistSnapshots(snapshots);
-    elements.snapshotName.value = '';
-    updateSnapshotStatus(`Snapshot "${name}" gespeichert.`, 'status-online');
-    refreshSnapshotList();
-}
-
-function handleSnapshotLoad() {
-    const snapshot = getSelectedSnapshot();
-    if (!snapshot) return;
-    restoreSnapshot(snapshot);
-}
-
-function handleSnapshotDelete() {
-    const snapshot = getSelectedSnapshot();
-    if (!snapshot) return;
-    if (!storageAvailable()) {
-        updateSnapshotStatus('Lokaler Speicher nicht verfügbar', 'status-critical');
-        return;
-    }
-    const filtered = state.savedSnapshots.filter(entry => entry.id !== snapshot.id);
-    persistSnapshots(filtered);
-    updateSnapshotStatus(`Snapshot "${snapshot.name}" gelöscht.`, 'status-warning');
-    refreshSnapshotList();
-}
-
-function createSnapshot(name) {
-    const systems = state.systems.map(system => ({
-        ...system,
-        details: { ...system.details }
-    }));
-    const logs = state.logs.map(entry => ({
-        ...entry,
-        timestamp: entry.timestamp instanceof Date ? entry.timestamp.toISOString() : entry.timestamp
-    }));
-    const navPlan = state.navPlan ? { ...state.navPlan } : null;
-    const sensorReadings = state.sensorReadings.map(reading => ({ ...reading }));
-    return {
-        id: crypto.randomUUID(),
-        name,
-        timestamp: new Date().toISOString(),
-        data: {
-            systems,
-            alert: state.alert,
-            navPlan,
-            logs,
-            sensorReadings,
-            simulationPaused: state.simulationPaused,
-            powerDistribution: getPowerDistribution()
-        }
-    };
-}
-
-function getPowerDistribution() {
-    const distribution = {};
-    elements.powerSliders.forEach(slider => {
-        distribution[slider.id] = Number(slider.value);
-    });
-    return distribution;
-}
-
-function applyPowerDistribution(distribution = {}) {
-    elements.powerSliders.forEach(slider => {
-        if (Object.prototype.hasOwnProperty.call(distribution, slider.id)) {
-            slider.value = distribution[slider.id];
-        }
-    });
-    updatePowerLabels();
-}
-
-function restoreSnapshot(snapshot) {
-    if (!snapshot) return;
-    const { data } = snapshot;
-    if (!data) return;
-
-    stopLogReplay();
-    // Keine JS-Timer Navigation mehr – Fortschritt läuft über Kernel-Tick
-    // stopNavigationCountdown(); // obsolete
-
-    state.systems = data.systems
-        ? data.systems.map(system => ({ ...system, details: { ...system.details } }))
-        : SHIP_SYSTEMS.map(system => ({ ...system }));
-    renderSystems();
-
-    state.alert = data.alert ?? 'green';
-    applyAlertVisual(state.alert);
-
-    state.sensorReadings = Array.isArray(data.sensorReadings)
-        ? data.sensorReadings.map(reading => ({ ...reading }))
-        : [];
-    renderSensorReadings();
-
-    state.logs = Array.isArray(data.logs)
-        ? data.logs.map(entry => ({
-              ...entry,
-              timestamp: entry.timestamp ? new Date(entry.timestamp) : new Date()
-          }))
-        : [];
-    renderLogs();
-
-    state.simulationPaused = Boolean(data.simulationPaused);
-    elements.pauseSim.disabled = state.simulationPaused;
-    elements.resumeSim.disabled = !state.simulationPaused;
-
-    if (data.powerDistribution) applyPowerDistribution(data.powerDistribution);
-    else updatePowerLabels();
-
-    if (data.navPlan) {
-        // Wenn vorhandene Snapshots alte Struktur hatten, vorsichtig mappen
-        const loadedPlan = { ...data.navPlan };
-        if (!loadedPlan.sector && loadedPlan.sectorId) {
-            const sector = SECTORS.find(sec => sec.id === loadedPlan.sectorId);
-            if (sector) loadedPlan.sector = sector;
-        }
-        if (typeof loadedPlan.remainingSeconds !== 'number') {
-            loadedPlan.remainingSeconds = Math.max(0, Math.round((loadedPlan.etaMinutes ?? 0) * 60));
-        }
-
-        state.navPlan = loadedPlan;
-
-        // UI anpassen
-        const sectorForUi = state.navPlan.sector ?? SECTORS[0];
-        elements.navSector.value = sectorForUi?.id ?? elements.navSector.value;
-        elements.navCoordinates.value = state.navPlan.coordinates ?? (sectorForUi?.defaultCoords ?? '');
-        elements.navWindow.value = state.navPlan.window ?? '';
-        elements.navDescription.value = state.navPlan.description ?? '';
-
-        const remainingSeconds = state.navPlan.remainingSeconds ?? 0;
-
-        if (state.navPlan.status === 'plotted') {
-            updateNavigationStatus(`Kurs gesetzt (${sectorForUi?.name ?? 'Ziel'})`, 'status-online');
-            elements.navEngage.disabled = false;
-            elements.navAbort.disabled = false;
-            elements.navEta.textContent = secondsToETA(remainingSeconds);
-        } else if (state.navPlan.status === 'engaged') {
-            updateNavigationStatus('Sprung aktiv', 'status-warning');
-            elements.navEngage.disabled = true;
-            elements.navAbort.disabled = false;
-            elements.navEta.textContent = secondsToETA(remainingSeconds);
-            // Kein Start eines Intervals – Kernel übernimmt den Countdown
-        } else if (state.navPlan.status === 'arrived') {
-            updateNavigationStatus('Ankunft bestätigt', 'status-online');
-            elements.navEngage.disabled = true;
-            elements.navAbort.disabled = true;
-            elements.navEta.textContent = secondsToETA(0);
-        } else {
-            resetNavigationUi();
-        }
-    } else {
-        state.navPlan = null;
-        resetNavigationUi();
-    }
-
-    updateSnapshotStatus(`Snapshot "${snapshot.name}" geladen.`, 'status-online');
-}
-
-function resetNavigationUi() {
-    const defaultSector = SECTORS[0];
-    elements.navStatus.textContent = 'Im Orbit';
-    elements.navStatus.className = 'status-pill status-idle';
-    elements.navEngage.disabled = true;
-    elements.navAbort.disabled = true;
-    elements.navEta.textContent = '--:--';
-    if (defaultSector) {
+    if (state.sectors.length > 0 && elements.navSector && elements.navCoordinates) {
+        const defaultSector = state.sectors[0];
         elements.navSector.value = defaultSector.id;
-        elements.navCoordinates.value = defaultSector.defaultCoords;
+        elements.navCoordinates.value = defaultSector.defaultCoords ?? '';
+    } else if (elements.navCoordinates) {
+        elements.navCoordinates.value = '';
     }
-    elements.navWindow.value = '';
-    elements.navDescription.value = '';
+    if (elements.navWindow) elements.navWindow.value = '';
+    if (elements.navDescription) elements.navDescription.value = '';
 }
 
-function exportLogs() {
-    if (!state.logs.length) {
-        updateSnapshotStatus('Keine Logeinträge zum Exportieren vorhanden.', 'status-warning');
-        return;
-    }
-    const payload = {
-        exportedAt: new Date().toISOString(),
-        stardate: elements.stardate?.textContent ?? '',
-        logs: state.logs.map(entry => ({
-            id: entry.id,
-            type: entry.type,
-            message: entry.message,
-            timestamp: entry.timestamp instanceof Date ? entry.timestamp.toISOString() : entry.timestamp
-        }))
-    };
-    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = `starshipos-log-${Date.now()}.json`;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
-    updateSnapshotStatus('Logbuch exportiert.', 'status-online');
-}
-
-function startLogReplay() {
-    if (!state.logs.length) {
-        if (elements.replayOutput) {
-            elements.replayOutput.textContent = 'Keine Logeinträge für Replay verfügbar.';
-        }
-        return;
-    }
-    stopLogReplay();
-    state.replay.entries = [...state.logs].sort((a, b) => a.timestamp - b.timestamp);
-    state.replay.index = 0;
-    if (elements.replayOutput) elements.replayOutput.innerHTML = '';
-    if (elements.logReplay) elements.logReplay.disabled = true;
-    if (elements.logReplayStop) elements.logReplayStop.disabled = false;
-    updateSnapshotStatus('Replay gestartet.', 'status-warning');
-    state.replay.timer = setInterval(() => {
-        const entry = state.replay.entries[state.replay.index];
-        elements.replayOutput?.insertAdjacentHTML('beforeend', formatLogEntry(entry));
-        if (elements.replayOutput) {
-            elements.replayOutput.scrollTop = elements.replayOutput.scrollHeight;
-        }
-        state.replay.index += 1;
-        if (state.replay.index >= state.replay.entries.length) {
-            stopLogReplay('Replay abgeschlossen.');
-        }
-    }, 1200);
-}
-
-function stopLogReplay(message) {
-    if (state.replay.timer) {
-        clearInterval(state.replay.timer);
-        state.replay.timer = null;
-    }
-    if (elements.logReplay) elements.logReplay.disabled = false;
-    if (elements.logReplayStop) elements.logReplayStop.disabled = true;
-    if (message) {
-        if (elements.replayOutput) {
-            const note = document.createElement('div');
-            note.className = 'replay-note';
-            note.textContent = message;
-            elements.replayOutput.appendChild(note);
-            elements.replayOutput.scrollTop = elements.replayOutput.scrollHeight;
-        }
-        updateSnapshotStatus(message, 'status-online');
-    }
-    state.replay.entries = [];
-    state.replay.index = 0;
-}
-
-function initTimekeeping() {
-    kernel.startModule('timekeeping');
-}
-
-function initLogFeed() {
-    renderLogs();
-    addLog('log', 'StarshipOS betriebsbereit.');
-}
-
-function initRandomEvents() {
-    kernel.startModule('random-events');
-}
-
+/** === Random Events anwenden === */
 function applyRandomEvent(event) {
+    if (!event) return;
     addLog('log', event.message);
     if (event.impact) {
         let systemsChanged = false;
@@ -969,16 +806,17 @@ function applyRandomEvent(event) {
                 systemsChanged = true;
                 const updated = { ...system };
                 updated.integrity = clamp(updated.integrity + impactValue, 0, 100);
-                if (updated.integrity < 40) {
-                    updated.status = 'warning';
-                }
+                if (updated.integrity < 40) updated.status = 'warning';
                 return updated;
             }
             return system;
         });
 
-        Object.entries(event.impact).forEach(([key]) => {
+        Object.entries(event.impact).forEach(([key, value]) => {
             if (key === 'crew') {
+                if (typeof value === 'string' && value.trim()) {
+                    addLog('log', `Crew-Meldung: ${value.trim()}`);
+                }
                 updateCrewStatus(state.alert);
             }
         });
@@ -991,14 +829,16 @@ function applyRandomEvent(event) {
     }
 }
 
+/** === Simulation Pause/Resume === */
 function toggleSimulation(paused) {
     kernel.setState('simulationPaused', paused);
-    elements.pauseSim.disabled = paused;
-    elements.resumeSim.disabled = !paused;
+    if (elements.pauseSim) elements.pauseSim.disabled = paused;
+    if (elements.resumeSim) elements.resumeSim.disabled = !paused;
     addLog('log', paused ? 'Simulation pausiert.' : 'Simulation fortgesetzt.');
     kernel.emit(paused ? 'simulation:paused' : 'simulation:resumed', { paused });
 }
 
+/** === Event Bindings === */
 function bindEvents() {
     elements.powerSliders.forEach(slider => {
         slider.addEventListener('input', () => {
@@ -1007,50 +847,186 @@ function bindEvents() {
             updatePowerLabels();
         });
     });
-    elements.balancePower.addEventListener('click', suggestPowerDistribution);
-    elements.commsSend.addEventListener('click', handleCommsSend);
-    elements.commsMessage.addEventListener('keydown', event => {
+    elements.balancePower?.addEventListener('click', suggestPowerDistribution);
+
+    elements.commsSend?.addEventListener('click', handleCommsSend);
+    elements.commsMessage?.addEventListener('keydown', event => {
         if (event.key === 'Enter') handleCommsSend();
     });
-    elements.sensorScan.addEventListener('click', performSensorScan);
-    elements.alertYellow.addEventListener('click', () => setAlertState('yellow'));
-    elements.alertRed.addEventListener('click', () => setAlertState('red'));
-    elements.alertClear.addEventListener('click', () => setAlertState('green'));
-    elements.navPlot.addEventListener('click', handleNavigationPlot);
-    elements.navEngage.addEventListener('click', handleNavigationEngage);
-    elements.navAbort.addEventListener('click', handleNavigationAbort);
-    elements.pauseSim.addEventListener('click', () => toggleSimulation(true));
-    elements.resumeSim.addEventListener('click', () => toggleSimulation(false));
-    elements.snapshotSave?.addEventListener('click', handleSnapshotSave);
-    elements.snapshotLoad?.addEventListener('click', handleSnapshotLoad);
-    elements.snapshotDelete?.addEventListener('click', handleSnapshotDelete);
-    elements.snapshotList?.addEventListener('change', updateSnapshotButtons);
-    elements.logExport?.addEventListener('click', exportLogs);
-    elements.logReplay?.addEventListener('click', startLogReplay);
-    elements.logReplayStop?.addEventListener('click', () => stopLogReplay('Replay gestoppt.'));
+
+    elements.sensorScan?.addEventListener('click', performSensorScan);
+
+    elements.alertYellow?.addEventListener('click', () => setAlertState('yellow'));
+    elements.alertRed?.addEventListener('click', () => setAlertState('red'));
+    elements.alertClear?.addEventListener('click', () => setAlertState('green'));
+
+    elements.navPlot?.addEventListener('click', handleNavigationPlot);
+    elements.navEngage?.addEventListener('click', handleNavigationEngage);
+    elements.navAbort?.addEventListener('click', handleNavigationAbort);
+    elements.navSector?.addEventListener('change', handleNavSectorChange);
+
+    elements.pauseSim?.addEventListener('click', () => toggleSimulation(true));
+    elements.resumeSim?.addEventListener('click', () => toggleSimulation(false));
+
+    elements.reloadConfig?.addEventListener('click', handleManualReload);
 }
 
-function init() {
-    cacheDom();
-    configureKernelModules();
+/** === Manuelles Reload & Hot-Reload === */
+async function handleManualReload() {
+    if (state.reloadingScenario) return;
+    state.reloadingScenario = true;
+    if (elements.reloadConfig) elements.reloadConfig.disabled = true;
+    try {
+        const result = await loadScenario(CONFIG_URL);
+        if (state.currentScenarioHash && state.currentScenarioHash === result.hash) {
+            addLog('log', 'Keine Änderungen an der Konfiguration erkannt.');
+        } else {
+            state.currentScenarioHash = result.hash;
+            initializeStateFromScenario(result.scenario, {
+                resetLogs: false,
+                includeBootLog: false,
+                logMessage: `Szenario "${result.scenario.name ?? result.scenario.id ?? 'Unbenannt'}" manuell neu geladen.`,
+                resetNavigation: true
+            });
+            state.hotReloader?.setBaselineHash(result.hash);
+        }
+    } catch (error) {
+        console.error('Konfiguration konnte nicht neu geladen werden', error);
+        addLog('error', `Konfiguration konnte nicht neu geladen werden: ${error.message}`);
+    } finally {
+        state.reloadingScenario = false;
+        if (elements.reloadConfig) elements.reloadConfig.disabled = false;
+    }
+}
+
+function startHotReload(initialHash) {
+    if (state.hotReloader) state.hotReloader.stop();
+    state.hotReloader = new ScenarioHotReloader(CONFIG_URL, {
+        interval: 5000,
+        onUpdate: result => {
+            state.currentScenarioHash = result.hash;
+            initializeStateFromScenario(result.scenario, {
+                resetLogs: false,
+                includeBootLog: false,
+                logMessage: `Szenario "${result.scenario.name ?? result.scenario.id ?? 'Unbenannt'}" aktualisiert (Hot-Reload).`,
+                resetNavigation: true
+            });
+        },
+        onError: error => {
+            console.error('Hot-Reload Fehler', error);
+            addLog('error', `Hot-Reload Fehler: ${error.message}`);
+        }
+    });
+    if (initialHash) state.hotReloader.setBaselineHash(initialHash);
+    state.hotReloader.start();
+}
+
+/** === Szenario -> State übernehmen === */
+function initializeStateFromScenario(scenario, {
+    resetLogs = false,
+    includeBootLog = false,
+    logMessage,
+    resetNavigation: resetNav = true
+} = {}) {
+    state.scenarioId = scenario.id ?? '';
+    state.scenarioName = scenario.name ?? '';
+    state.ship = {
+        name: scenario.ship?.name ?? 'Unbenanntes Schiff',
+        commander: scenario.ship?.commander ?? 'Unbekannt',
+        registry: scenario.ship?.registry ?? '',
+        class: scenario.ship?.class ?? ''
+    };
+    if (elements.shipName) elements.shipName.textContent = state.ship.name;
+    if (elements.commanderName) elements.commanderName.textContent = state.ship.commander;
+
+    state.systems = (scenario.systems ?? []).map(normalizeSystem);
+    state.sectors = (scenario.sectors ?? []).map(sector => ({ ...sector }));
+    state.commChannels = (scenario.commChannels ?? []).map(channel => ({ ...channel }));
+    state.crew = (scenario.crew ?? []).map(member => ({ ...member }));
+    state.objectives = (scenario.objectives ?? []).map(objective => ({ ...objective }));
+    state.sensorBaselines = (scenario.sensorBaselines ?? []).map(baseline => ({ ...baseline }));
+    const hasCustomAlerts = scenario.alertStates && Object.keys(scenario.alertStates).length > 0;
+    state.alertStates = hasCustomAlerts
+        ? { ...FALLBACK_ALERT_STATES, ...scenario.alertStates }
+        : { ...FALLBACK_ALERT_STATES };
+    state.randomEvents = (scenario.randomEvents ?? []).map(event => ({
+        ...event,
+        impact: event.impact ? { ...event.impact } : undefined
+    }));
+
+    if (resetLogs) {
+        state.logs = prepareLogEntries(scenario.initialLog);
+    }
+    resetInspector();
     renderSystems();
-    renderCrew();
-    renderObjectives();
-    renderSensorReadings();
     populateNavigation();
     populateComms();
-    updatePowerLabels();
-    initTimekeeping();
-    kernel.startModule('navigation');
-    initLogFeed();
-    initRandomEvents();
-    bindEvents();
-    refreshSnapshotList();
-    if (storageAvailable()) {
-        updateSnapshotStatus('Lokaler Speicher bereit.', 'status-idle');
+    renderCrew();
+    renderObjectives();
+
+    if (resetNav) {
+        resetNavigation();
+    } else if (elements.navSector) {
+        handleNavSectorChange({ target: elements.navSector });
     }
+
+    state.sensorReadings = [];
+    renderSensorReadings();
+    updateSensorControls();
+    renderLogs();
+    updateAlertDisplay(state.alert);
+    updateCrewStatus(state.alert);
+
+    if (resetLogs && includeBootLog) addLog('log', 'StarshipOS betriebsbereit.');
+    if (logMessage) addLog('log', logMessage);
+}
+
+/** === Init === */
+async function init() {
+    cacheDom();
+    bindEvents();
+    configureKernelModules();
+
+    // Grundzustand anzeigen
+    updateAlertDisplay(state.alert);
+    initializeStateFromScenario(DEFAULT_SCENARIO, {
+        resetLogs: true,
+        includeBootLog: true,
+        logMessage: 'Fallback-Szenario geladen.',
+        resetNavigation: true
+    });
+
+    // Kernel-Module starten
+    kernel.startModule('timekeeping');
+    kernel.startModule('navigation');
+    kernel.startModule('random-events');
+
+    updatePowerLabels();
     performSensorScan();
+
+    // XML laden + Hot-Reload starten
+    try {
+        const result = await loadScenario(CONFIG_URL);
+        state.currentScenarioHash = result.hash;
+        initializeStateFromScenario(result.scenario, {
+            resetLogs: true,
+            includeBootLog: true,
+            logMessage: `Szenario "${result.scenario.name ?? 'Unbenannt'}" geladen.`,
+            resetNavigation: true
+        });
+        performSensorScan();
+        startHotReload(result.hash);
+    } catch (error) {
+        console.error('Fehler beim Laden der XML-Konfiguration', error);
+        addLog('error', `XML-Konfiguration konnte nicht geladen werden: ${error.message}`);
+    }
+
     kernel.boot();
 }
 
-document.addEventListener('DOMContentLoaded', init);
+document.addEventListener('DOMContentLoaded', () => {
+    init().catch(error => {
+        console.error('Initialisierung fehlgeschlagen', error);
+        addLog('error', `Initialisierung fehlgeschlagen: ${error.message}`);
+    });
+});

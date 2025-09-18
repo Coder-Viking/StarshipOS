@@ -1,0 +1,219 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<scenario id="default" name="Delta-Nebel Expedition" version="1.1">
+    <ship name="NV-01 Phoenix" registry="NV-01" class="Langstrecken-Explorer" commander="Captain Mira Sol">
+        <systems>
+            <system id="life-support">
+                <name>Lebenserhaltung</name>
+                <status>online</status>
+                <power>75</power>
+                <integrity>96</integrity>
+                <load>35</load>
+                <beschreibung>Verantwortlich für Atmosphärenkontrolle, Temperatur und Recycling.</beschreibung>
+                <redundanz>Doppelt redundant</redundanz>
+                <letzteWartung>Stardate 4521.4</letzteWartung>
+                <sensoren>
+                    <sensor>CO₂-Level stabil</sensor>
+                    <sensor>O₂-Level 20.9%</sensor>
+                    <sensor>Feuchtigkeit 40%</sensor>
+                </sensoren>
+            </system>
+            <system id="engines">
+                <name>Antrieb</name>
+                <status>online</status>
+                <power>80</power>
+                <integrity>89</integrity>
+                <load>62</load>
+                <beschreibung>Fusionstriebwerke für Unterlicht- und Überlichtreisen.</beschreibung>
+                <redundanz>Primär + Hilfsaggregat</redundanz>
+                <letzteWartung>Stardate 4519.1</letzteWartung>
+                <sensoren>
+                    <sensor>Plasmadrücke stabil</sensor>
+                    <sensor>Temperatur 620K</sensor>
+                    <sensor>Warpfeld kalibriert</sensor>
+                </sensoren>
+            </system>
+            <system id="shields">
+                <name>Schilde</name>
+                <status>idle</status>
+                <power>60</power>
+                <integrity>72</integrity>
+                <load>44</load>
+                <beschreibung>Defensives Deflektorfeld gegen Projektil- und Energieangriffe.</beschreibung>
+                <redundanz>Segmentiert in 6 Quadranten</redundanz>
+                <letzteWartung>Stardate 4515.7</letzteWartung>
+                <sensoren>
+                    <sensor>Front 82%</sensor>
+                    <sensor>Backbord 75%</sensor>
+                    <sensor>Steuerbord 78%</sensor>
+                </sensoren>
+            </system>
+            <system id="weapons">
+                <name>Waffensysteme</name>
+                <status>idle</status>
+                <power>45</power>
+                <integrity>88</integrity>
+                <load>20</load>
+                <beschreibung>Phaserbänke und Torpedowerfer.</beschreibung>
+                <redundanz>Autarkes Backup-Steuerungssystem</redundanz>
+                <letzteWartung>Stardate 4510.9</letzteWartung>
+                <sensoren>
+                    <sensor>Phaserleistung 85%</sensor>
+                    <sensor>Torpedoarsenal 12/16</sensor>
+                    <sensor>Kalibrierung ok</sensor>
+                </sensoren>
+            </system>
+            <system id="communications">
+                <name>Kommunikation</name>
+                <status>online</status>
+                <power>35</power>
+                <integrity>94</integrity>
+                <load>28</load>
+                <beschreibung>Langstrecken- und Kurzstreckentransmitter.</beschreibung>
+                <redundanz>Triangulierte Relaisstationen</redundanz>
+                <letzteWartung>Stardate 4520.2</letzteWartung>
+                <sensoren>
+                    <sensor>Signal-Rausch-Verhältnis 92%</sensor>
+                    <sensor>Bandbreite 11.2 Gbps</sensor>
+                </sensoren>
+            </system>
+            <system id="sensors">
+                <name>Sensoren</name>
+                <status>online</status>
+                <power>55</power>
+                <integrity>91</integrity>
+                <load>47</load>
+                <beschreibung>Aktive und passive Arrays für wissenschaftliche und taktische Daten.</beschreibung>
+                <redundanz>Adaptive Netzstruktur</redundanz>
+                <letzteWartung>Stardate 4522.6</letzteWartung>
+                <sensoren>
+                    <sensor>Gravitationsspitzen normal</sensor>
+                    <sensor>Partikelstreuung niedrig</sensor>
+                </sensoren>
+            </system>
+            <system id="science">
+                <name>Wissenschaftslabore</name>
+                <status>online</status>
+                <power>40</power>
+                <integrity>99</integrity>
+                <load>32</load>
+                <beschreibung>Labore zur Probenanalyse, Forschung und Datenverarbeitung.</beschreibung>
+                <redundanz>Dedizierter Notstromkreis</redundanz>
+                <letzteWartung>Stardate 4518.4</letzteWartung>
+                <sensoren>
+                    <sensor>Reaktorabschirmung nominal</sensor>
+                    <sensor>Biolab steril</sensor>
+                </sensoren>
+            </system>
+            <system id="medical">
+                <name>Medizinische Abteilung</name>
+                <status>online</status>
+                <power>30</power>
+                <integrity>97</integrity>
+                <load>18</load>
+                <beschreibung>MedBay mit Autodoc, Quarantäne und Nanitenversorgung.</beschreibung>
+                <redundanz>Mobiles Feldhospital verfügbar</redundanz>
+                <letzteWartung>Stardate 4523.3</letzteWartung>
+                <sensoren>
+                    <sensor>Patienten stabil</sensor>
+                    <sensor>Biobett 2 in Nutzung</sensor>
+                </sensoren>
+            </system>
+        </systems>
+    </ship>
+    <sectors>
+        <sector id="alpha" name="Alpha Quadrant" defaultCoords="A-12-17" baseEta="38" />
+        <sector id="beta" name="Beta Quadrant" defaultCoords="B-04-33" baseEta="72" />
+        <sector id="gamma" name="Gamma Sektor" defaultCoords="G-21-05" baseEta="96" />
+        <sector id="delta" name="Delta Nebel" defaultCoords="D-08-49" baseEta="54" />
+        <sector id="frontier" name="Grenzzone Theta" defaultCoords="T-17-90" baseEta="120" />
+    </sectors>
+    <communications>
+        <channel id="fleet">Flottenkommando</channel>
+        <channel id="science">Wissenschaftsnetz</channel>
+        <channel id="colony">Koloniekontakt</channel>
+        <channel id="civilian">Zivile Frequenz</channel>
+        <channel id="distress">Notrufkanal</channel>
+    </communications>
+    <crew>
+        <member>
+            <name>Lt. Aris Venn</name>
+            <role>Navigation</role>
+            <status>Dienstbereit</status>
+        </member>
+        <member>
+            <name>Cmdr. Talin Roe</name>
+            <role>Erster Offizier</role>
+            <status>Brücke</status>
+        </member>
+        <member>
+            <name>Dr. Ilya Chen</name>
+            <role>Chefarzt</role>
+            <status>MedBay</status>
+        </member>
+        <member>
+            <name>Lt. Cmdr. Sora Kade</name>
+            <role>Chefingenieur</role>
+            <status>Maschinenraum</status>
+        </member>
+        <member>
+            <name>Ensign Lira Nael</name>
+            <role>Kommunikation</role>
+            <status>Brücke</status>
+        </member>
+    </crew>
+    <mission>
+        <objective id="1" completed="false">Anomalie im Delta-Nebel untersuchen</objective>
+        <objective id="2" completed="false">Lieferung medizinischer Vorräte an Kolonie Hestia Prime</objective>
+        <objective id="3" completed="true">Kontakt zur Forschungsstation V-12 halten</objective>
+    </mission>
+    <sensorBaselines>
+        <baseline label="Subraumaktivität" unit="mHz" variance="5" base="120" />
+        <baseline label="Radiation" unit="mSv" variance="2" base="18" />
+        <baseline label="Graviton Flux" unit="μg" variance="12" base="64" />
+        <baseline label="Lebensformen" unit="Spuren" variance="20" base="4" />
+    </sensorBaselines>
+    <alertStates>
+        <state level="green" label="Keine Warnungen" class="status-idle" />
+        <state level="yellow" label="Alarmstufe Gelb" class="status-warning" />
+        <state level="red" label="Alarmstufe Rot" class="status-critical" />
+    </alertStates>
+    <initialLog>
+        <entry type="log">Systemstart abgeschlossen. Alle Kernsysteme online.</entry>
+        <entry type="comms">Signalprüfung abgeschlossen. Verbindung zum Flottenkommando stabil.</entry>
+    </initialLog>
+    <randomEvents>
+        <event>
+            <message>Sensoren melden eine unerklärliche Energiefluktuation im Vorderquadranten.</message>
+            <impact>
+                <system id="sensors" delta="-5" />
+                <system id="shields" delta="-3" />
+            </impact>
+        </event>
+        <event>
+            <message>Energieumleitung erfolgreich. Antriebseffizienz kurzfristig erhöht.</message>
+            <impact>
+                <system id="engines" delta="4" />
+                <system id="aux" delta="-2" />
+            </impact>
+        </event>
+        <event>
+            <message>Kommunikationsrauschen erkannt. Automatischer Filter aktiviert.</message>
+            <impact>
+                <system id="communications" delta="-2" />
+            </impact>
+        </event>
+        <event>
+            <message>Crew meldet erhöhte moralische Stimmung nach gelungenem Manöver.</message>
+            <impact>
+                <crew status="positiv" />
+            </impact>
+        </event>
+        <event>
+            <message>Minor-Hüllenstress detektiert. Schilde werden automatisch verstärkt.</message>
+            <impact>
+                <system id="shields" delta="5" />
+                <system id="engines" delta="-3" />
+            </impact>
+        </event>
+    </randomEvents>
+</scenario>
