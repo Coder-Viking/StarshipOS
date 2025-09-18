@@ -20,13 +20,13 @@ import {
     calculateEta,
     secondsToETA
 } from './modules/utils.js';
+import { Kernel } from './modules/kernel.js';
 
-const state = {
+const initialState = {
     systems: SHIP_SYSTEMS.map(system => ({ ...system })),
     alert: 'green',
     navPlan: null,
-    navTimer: null,
-    logs: INITIAL_LOG.map(entry => ({ ...entry, id: crypto.randomUUID(), timestamp: new Date() })),
+    logs: INITIAL_LOG.map(entry => createLogEntry(entry.type, entry.message)),
     sensorReadings: [],
     simulationPaused: false,
     savedSnapshots: [],
@@ -37,6 +37,13 @@ const state = {
     }
 };
 
+const kernel = new Kernel(initialState, {
+    ticksPerSecond: 1,
+    onLog: handleKernelLog,
+    onError: handleKernelError
+});
+
+const state = kernel.state;
 const STORAGE_KEY = 'starshipos:snapshots';
 
 const elements = {};
@@ -88,6 +95,97 @@ function cacheDom() {
     elements.replayOutput = document.getElementById('replay-output');
 }
 
+function configureKernelModules() {
+    kernel.registerModule('timekeeping', {
+        onStart() {
+            elements.stardate.textContent = formatStardate();
+            elements.shipClock.textContent = formatTime();
+        },
+        onTick(context, tick) {
+            if (context.state.simulationPaused) return;
+            elements.shipClock.textContent = formatTime();
+            if (tick % 60 === 0) {
+                elements.stardate.textContent = formatStardate();
+            }
+        }
+    });
+
+    kernel.registerModule('navigation', {
+        onStart(context) {
+            context.locals.unsubscribe?.forEach(unsub => unsub());
+            context.locals.unsubscribe = [
+                context.on('navigation:engaged', () => {
+                    if (context.state.navPlan) {
+                        // navPlan.remainingSeconds wird immer in Sekunden geführt
+                        if (typeof context.state.navPlan.remainingSeconds !== 'number') {
+                            context.state.navPlan.remainingSeconds = Math.max(0, Math.round((context.state.navPlan.etaMinutes ?? 0) * 60));
+                        }
+                    }
+                }),
+                context.on('navigation:abort', () => {
+                    if (context.state.navPlan) {
+                        context.state.navPlan.status = 'aborted';
+                    }
+                })
+            ];
+        },
+        onTick(context) {
+            const { state } = context;
+            if (!state.navPlan || state.navPlan.status !== 'engaged') return;
+            if (state.simulationPaused) return;
+
+            const current = typeof state.navPlan.remainingSeconds === 'number'
+                ? state.navPlan.remainingSeconds
+                : Math.max(0, Math.round((state.navPlan.etaMinutes ?? 0) * 60));
+
+            const next = Math.max(0, current - 1);
+            state.navPlan.remainingSeconds = next;
+            elements.navEta.textContent = secondsToETA(next);
+
+            if (next <= 0) {
+                state.navPlan.status = 'arrived';
+                updateNavigationStatus('Ankunft bestätigt', 'status-online');
+                elements.navEngage.disabled = true;
+                elements.navAbort.disabled = true;
+                kernel.log('log', `Ziel ${state.navPlan.sector?.name ?? 'Ziel'} erreicht. Navigation abgeschlossen.`);
+                kernel.emit('navigation:arrived', { sector: state.navPlan.sector });
+            }
+        },
+        onStop(context) {
+            context.locals.unsubscribe?.forEach(unsub => unsub());
+            context.locals.unsubscribe = [];
+        }
+    });
+
+    kernel.registerModule('random-events', {
+        onStart(context) {
+            context.locals.unsubscribe?.forEach(unsub => unsub());
+            context.locals.cooldown = 45;
+            context.locals.unsubscribe = [
+                context.on('alert:changed', ({ payload }) => {
+                    if (payload.level === 'red') {
+                        context.locals.cooldown = Math.min(context.locals.cooldown, 10);
+                    }
+                })
+            ];
+        },
+        onTick(context) {
+            const { state, locals } = context;
+            if (state.simulationPaused) return;
+            locals.cooldown -= 1;
+            if (locals.cooldown <= 0) {
+                const event = RANDOM_EVENTS[randBetween(0, RANDOM_EVENTS.length - 1)];
+                applyRandomEvent(event);
+                locals.cooldown = state.alert === 'red' ? 25 : 45;
+            }
+        },
+        onStop(context) {
+            context.locals.unsubscribe?.forEach(unsub => unsub());
+            context.locals.unsubscribe = [];
+        }
+    });
+}
+
 function renderSystems() {
     elements.systemGrid.innerHTML = '';
     state.systems.forEach(system => {
@@ -121,17 +219,12 @@ function renderSystems() {
 
 function statusClass(status) {
     switch (status) {
-        case 'online':
-            return 'status-online';
-        case 'idle':
-            return 'status-idle';
-        case 'warning':
-            return 'status-warning';
+        case 'online': return 'status-online';
+        case 'idle': return 'status-idle';
+        case 'warning': return 'status-warning';
         case 'offline':
-        case 'critical':
-            return 'status-critical';
-        default:
-            return 'status-idle';
+        case 'critical': return 'status-critical';
+        default: return 'status-idle';
     }
 }
 
@@ -148,9 +241,8 @@ function translateStatus(status) {
 
 function showSystemDetails(systemId) {
     const system = state.systems.find(sys => sys.id === systemId);
-    if (!system) {
-        return;
-    }
+    if (!system) return;
+
     elements.inspectorStatus.textContent = translateStatus(system.status);
     elements.inspectorStatus.className = `status-pill ${statusClass(system.status)}`;
     const { details = {} } = system;
@@ -160,22 +252,14 @@ function showSystemDetails(systemId) {
     let inspectorHtml = `
         <h3>${system.name}</h3>
         <dl>
-            <dt>Leistung</dt>
-            <dd>${system.power}%</dd>
-            <dt>Integrität</dt>
-            <dd>${system.integrity}%</dd>
-            <dt>Auslastung</dt>
-            <dd>${system.load}%</dd>
-            <dt>Status</dt>
-            <dd>${translateStatus(system.status)}</dd>
-            <dt>Beschreibung</dt>
-            <dd>${details.beschreibung ?? '—'}</dd>
-            <dt>Redundanz</dt>
-            <dd>${details.redundanz ?? '—'}</dd>
-            <dt>Letzte Wartung</dt>
-            <dd>${details.letzteWartung ?? '—'}</dd>
-            <dt>Sensoren</dt>
-            <dd>${sensorDisplay}</dd>
+            <dt>Leistung</dt><dd>${system.power}%</dd>
+            <dt>Integrität</dt><dd>${system.integrity}%</dd>
+            <dt>Auslastung</dt><dd>${system.load}%</dd>
+            <dt>Status</dt><dd>${translateStatus(system.status)}</dd>
+            <dt>Beschreibung</dt><dd>${details.beschreibung ?? '—'}</dd>
+            <dt>Redundanz</dt><dd>${details.redundanz ?? '—'}</dd>
+            <dt>Letzte Wartung</dt><dd>${details.letzteWartung ?? '—'}</dd>
+            <dt>Sensoren</dt><dd>${sensorDisplay}</dd>
         </dl>
     `;
 
@@ -184,20 +268,10 @@ function showSystemDetails(systemId) {
             <section class="detail-section">
                 <h4>Output-Kurve</h4>
                 <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Lastbereich</th>
-                            <th>Netto-Output</th>
-                            <th>Bemerkung</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>Lastbereich</th><th>Netto-Output</th><th>Bemerkung</th></tr></thead>
                     <tbody>
                         ${details.outputCurve.map(point => `
-                            <tr>
-                                <td>${point.load}</td>
-                                <td>${point.output}</td>
-                                <td>${point.notes}</td>
-                            </tr>
+                            <tr><td>${point.load}</td><td>${point.output}</td><td>${point.notes}</td></tr>
                         `).join('')}
                     </tbody>
                 </table>
@@ -210,22 +284,10 @@ function showSystemDetails(systemId) {
             <section class="detail-section">
                 <h4>Effizienz &amp; Hitzeabfuhr</h4>
                 <table class="data-table">
-                    <thead>
-                        <tr>
-                            <th>Modus</th>
-                            <th>Effizienz</th>
-                            <th>Hitze</th>
-                            <th>Kühlung</th>
-                        </tr>
-                    </thead>
+                    <thead><tr><th>Modus</th><th>Effizienz</th><th>Hitze</th><th>Kühlung</th></tr></thead>
                     <tbody>
                         ${details.efficiencyHeat.map(entry => `
-                            <tr>
-                                <td>${entry.mode}</td>
-                                <td>${entry.efficiency}</td>
-                                <td>${entry.heat}</td>
-                                <td>${entry.coolant}</td>
-                            </tr>
+                            <tr><td>${entry.mode}</td><td>${entry.efficiency}</td><td>${entry.heat}</td><td>${entry.coolant}</td></tr>
                         `).join('')}
                     </tbody>
                 </table>
@@ -240,15 +302,9 @@ function showSystemDetails(systemId) {
                 <div class="reactor-modes">
                     ${details.modes.map(mode => `
                         <article class="reactor-mode">
-                            <header>
-                                <h5>${mode.name}</h5>
-                                <span class="mode-output">${mode.output}</span>
-                            </header>
+                            <header><h5>${mode.name}</h5><span class="mode-output">${mode.output}</span></header>
                             <p>${mode.description}</p>
-                            <div class="mode-meta">
-                                <span>Dauer: ${mode.duration}</span>
-                                <span>${mode.advisories}</span>
-                            </div>
+                            <div class="mode-meta"><span>Dauer: ${mode.duration}</span><span>${mode.advisories}</span></div>
                         </article>
                     `).join('')}
                 </div>
@@ -262,9 +318,7 @@ function showSystemDetails(systemId) {
                 <h4>Ausfälle &amp; Gegenmaßnahmen</h4>
                 <ul class="detail-list">
                     ${details.failureScenarios.map(item => `
-                        <li>
-                            <strong>${item.title}:</strong> ${item.mitigation}
-                        </li>
+                        <li><strong>${item.title}:</strong> ${item.mitigation}</li>
                     `).join('')}
                 </ul>
             </section>
@@ -276,9 +330,7 @@ function showSystemDetails(systemId) {
             <section class="detail-section">
                 <h4>Startsequenz</h4>
                 <ol class="detail-list ordered">
-                    ${details.startSequence.map(step => `
-                        <li>${step}</li>
-                    `).join('')}
+                    ${details.startSequence.map(step => `<li>${step}</li>`).join('')}
                 </ol>
             </section>
         `;
@@ -290,9 +342,7 @@ function showSystemDetails(systemId) {
 function updatePowerLabels() {
     elements.powerSliders.forEach(slider => {
         const output = document.querySelector(`.power-value[data-output="${slider.id}"]`);
-        if (output) {
-            output.textContent = `${slider.value}%`;
-        }
+        if (output) output.textContent = `${slider.value}%`;
     });
 }
 
@@ -301,12 +351,7 @@ function suggestPowerDistribution() {
     if (total !== 100) {
         addLog('log', `Aktuelle Energieverteilung bei ${total}%. Automatischer Ausgleich wird vorbereitet.`);
     }
-    const priorities = {
-        engines: 0,
-        shields: 0,
-        weapons: 0,
-        aux: 0
-    };
+    const priorities = { engines: 0, shields: 0, weapons: 0, aux: 0 };
     state.systems.forEach(system => {
         if (system.id === 'engines') priorities.engines += 2;
         if (system.id === 'shields') priorities.shields += 2;
@@ -319,12 +364,10 @@ function suggestPowerDistribution() {
             priorities.aux += 1;
         }
     });
-    const totalPriority = Object.values(priorities).reduce((acc, value) => acc + value, 0);
+    const totalPriority = Object.values(priorities).reduce((acc, v) => acc + v, 0);
     Object.entries(priorities).forEach(([key, value]) => {
         const slider = document.getElementById(`power-${key}`);
-        if (slider) {
-            slider.value = Math.round((value / totalPriority) * 100);
-        }
+        if (slider) slider.value = Math.round((value / totalPriority) * 100);
     });
     normalizePowerSliders();
     updatePowerLabels();
@@ -347,7 +390,7 @@ function normalizePowerSliders() {
     while (total !== 100 && index < 20) {
         const slider = sliders[index % sliders.length];
         slider.value = clamp(Number(slider.value) + Math.sign(100 - total), 0, 100);
-        total = sliders.reduce((sum, s) => sum + Number(s.value), 0);
+        total = sliders.reduce((s, sl) => s + Number(sl.value), 0);
         index += 1;
     }
 }
@@ -361,9 +404,7 @@ function populateNavigation() {
     });
     elements.navSector.addEventListener('change', event => {
         const sector = SECTORS.find(sec => sec.id === event.target.value);
-        if (sector) {
-            elements.navCoordinates.value = sector.defaultCoords;
-        }
+        if (sector) elements.navCoordinates.value = sector.defaultCoords;
     });
     elements.navSector.value = SECTORS[0].id;
     elements.navCoordinates.value = SECTORS[0].defaultCoords;
@@ -384,10 +425,7 @@ function renderCrew() {
         const li = document.createElement('li');
         li.className = 'crew-member';
         li.innerHTML = `
-            <span>
-                <strong>${member.name}</strong><br>
-                <small>${member.rolle}</small>
-            </span>
+            <span><strong>${member.name}</strong><br><small>${member.rolle}</small></span>
             <span>${member.status}</span>
         `;
         elements.crewList.appendChild(li);
@@ -417,14 +455,25 @@ function renderLogs() {
     });
 }
 
-function addLog(type, message) {
-    const entry = createLogEntry(type, message);
-    state.logs.push(entry);
-    if (type === 'comms') {
-        elements.commsLog.insertAdjacentHTML('afterbegin', formatLogEntry(entry));
+function handleKernelLog(entry) {
+    if (!elements.eventLog || !elements.commsLog) return;
+    const formatted = formatLogEntry(entry);
+    if (entry.type === 'comms') {
+        elements.commsLog.insertAdjacentHTML('afterbegin', formatted);
     } else {
-        elements.eventLog.insertAdjacentHTML('afterbegin', formatLogEntry(entry));
+        elements.eventLog.insertAdjacentHTML('afterbegin', formatted);
     }
+}
+
+function handleKernelError(errorState) {
+    const { moduleId, phase, error } = errorState;
+    const scope = moduleId ? `Modul '${moduleId}'` : 'Kernel';
+    const message = `${scope} Fehler (${phase ?? 'unbekannt'}): ${error.message}`;
+    kernel.log('error', message, { moduleId, phase });
+}
+
+function addLog(type, message, meta) {
+    return kernel.log(type, message, meta);
 }
 
 function handleCommsSend() {
@@ -448,7 +497,7 @@ function performSensorScan() {
             value: reading.base + randBetween(-reading.variance, reading.variance),
             unit: reading.unit
         }));
-        state.sensorReadings = readings;
+        kernel.setState('sensorReadings', readings);
         renderSensorReadings();
         elements.sensorScan.disabled = false;
         elements.sensorScanStatus.textContent = 'Bereit';
@@ -475,22 +524,20 @@ function applyAlertVisual(level) {
 }
 
 function setAlertState(level) {
-    state.alert = level;
-    applyAlertVisual(level);
-    const { label } = ALERT_STATES[level] ?? ALERT_STATES.green;
+    kernel.setState('alert', level);
+    const { label, className } = ALERT_STATES[level];
+    elements.alertState.textContent = label;
+    elements.alertState.className = `status-pill ${className}`;
     addLog('log', `Alarmstufe geändert: ${label}.`);
+    updateCrewStatus(level);
+    kernel.emit('alert:changed', { level });
 }
 
 function updateCrewStatus(alertLevel) {
     let statusText = 'Stabil';
     let className = 'status-online';
-    if (alertLevel === 'yellow') {
-        statusText = 'Bereit';
-        className = 'status-warning';
-    } else if (alertLevel === 'red') {
-        statusText = 'Gefechtsstationen';
-        className = 'status-critical';
-    }
+    if (alertLevel === 'yellow') { statusText = 'Bereit'; className = 'status-warning'; }
+    else if (alertLevel === 'red') { statusText = 'Gefechtsstationen'; className = 'status-critical'; }
     elements.crewStatus.textContent = statusText;
     elements.crewStatus.className = `status-pill ${className}`;
 }
@@ -514,12 +561,10 @@ function handleNavigationPlot() {
         systemIntegrity: engineSystem?.integrity
     };
     const etaMinutes = calculateEta(sector.baseEta, modifiers);
+    const etaSeconds = Math.max(0, Math.round(etaMinutes * 60));
 
-    const etaSeconds = etaMinutes * 60;
-
-    state.navPlan = {
-        sectorId: sector.id,
-        sectorName: sector.name,
+    const navPlan = {
+        sector,                 // Objekt behalten (für Anzeigen/Logs)
         coordinates,
         window,
         description,
@@ -527,6 +572,7 @@ function handleNavigationPlot() {
         remainingSeconds: etaSeconds,
         status: 'plotted'
     };
+    kernel.setState('navPlan', navPlan);
 
     elements.navStatus.textContent = `Kurs gesetzt (${sector.name})`;
     elements.navStatus.className = 'status-pill status-online';
@@ -539,28 +585,21 @@ function handleNavigationPlot() {
 
 function handleNavigationEngage() {
     if (!state.navPlan || state.navPlan.status !== 'plotted') return;
-
     state.navPlan.status = 'engaged';
+    // remainingSeconds bleibt in Sekunden; der Navigation-Modul-Tick zählt herunter
     updateNavigationStatus('Sprung aktiv', 'status-warning');
+    elements.navEngage.disabled = true;
+    elements.navAbort.disabled = false;
     addLog('log', 'Sprungsequenz eingeleitet. Alle Crew an Stationen.');
-
-    state.navPlan.remainingSeconds = Math.max(
-        typeof state.navPlan.remainingSeconds === 'number' ? state.navPlan.remainingSeconds : state.navPlan.etaMinutes * 60,
-        0
-    );
-    startNavigationCountdown();
+    kernel.emit('navigation:engaged', { plan: state.navPlan });
 }
 
 function handleNavigationAbort() {
     if (!state.navPlan) return;
-    stopNavigationCountdown();
     addLog('log', 'Navigation abgebrochen. Kurs zurückgesetzt.');
-    state.navPlan = null;
-    elements.navStatus.textContent = 'Im Orbit';
-    elements.navStatus.className = 'status-pill status-idle';
-    elements.navEta.textContent = '--:--';
-    elements.navEngage.disabled = true;
-    elements.navAbort.disabled = true;
+    kernel.emit('navigation:abort', { plan: state.navPlan });
+    kernel.setState('navPlan', null);
+    resetNavigationUi();
 }
 
 function updateNavigationStatus(text, className) {
@@ -568,33 +607,9 @@ function updateNavigationStatus(text, className) {
     elements.navStatus.className = `status-pill ${className}`;
 }
 
-function startNavigationCountdown() {
-    if (!state.navPlan || state.navPlan.status !== 'engaged') return;
-    stopNavigationCountdown();
-    elements.navEngage.disabled = true;
-    elements.navAbort.disabled = false;
-    elements.navEta.textContent = secondsToETA(state.navPlan.remainingSeconds);
-    state.navTimer = setInterval(() => {
-        if (state.simulationPaused) return;
-        state.navPlan.remainingSeconds = Math.max(0, state.navPlan.remainingSeconds - 1);
-        elements.navEta.textContent = secondsToETA(state.navPlan.remainingSeconds);
-        if (state.navPlan.remainingSeconds <= 0) {
-            stopNavigationCountdown();
-            state.navPlan.status = 'arrived';
-            updateNavigationStatus('Ankunft bestätigt', 'status-online');
-            elements.navEngage.disabled = true;
-            elements.navAbort.disabled = true;
-            addLog('log', `Ziel ${state.navPlan.sectorName} erreicht. Navigation abgeschlossen.`);
-        }
-    }, 1000);
-}
-
-function stopNavigationCountdown() {
-    if (state.navTimer) {
-        clearInterval(state.navTimer);
-        state.navTimer = null;
-    }
-}
+// Alte Timer-APIs als No-Ops, damit Legacy-Calls nicht stören
+function startNavigationCountdown() {}
+function stopNavigationCountdown() {}
 
 function storageAvailable() {
     try {
@@ -617,13 +632,9 @@ function updateSnapshotStatus(message, variant = 'status-idle') {
 function loadSnapshotsFromStorage() {
     try {
         const raw = localStorage.getItem(STORAGE_KEY);
-        if (!raw) {
-            return [];
-        }
+        if (!raw) return [];
         const parsed = JSON.parse(raw);
-        if (Array.isArray(parsed)) {
-            return parsed;
-        }
+        if (Array.isArray(parsed)) return parsed;
     } catch (error) {
         console.error('Fehler beim Laden der Snapshots:', error);
         updateSnapshotStatus('Fehler beim Laden der Snapshots', 'status-critical');
@@ -724,9 +735,7 @@ function createSnapshot(name) {
         ...entry,
         timestamp: entry.timestamp instanceof Date ? entry.timestamp.toISOString() : entry.timestamp
     }));
-    const navPlan = state.navPlan
-        ? { ...state.navPlan }
-        : null;
+    const navPlan = state.navPlan ? { ...state.navPlan } : null;
     const sensorReadings = state.sensorReadings.map(reading => ({ ...reading }));
     return {
         id: crypto.randomUUID(),
@@ -765,14 +774,13 @@ function restoreSnapshot(snapshot) {
     if (!snapshot) return;
     const { data } = snapshot;
     if (!data) return;
+
     stopLogReplay();
-    stopNavigationCountdown();
+    // Keine JS-Timer Navigation mehr – Fortschritt läuft über Kernel-Tick
+    // stopNavigationCountdown(); // obsolete
 
     state.systems = data.systems
-        ? data.systems.map(system => ({
-              ...system,
-              details: { ...system.details }
-          }))
+        ? data.systems.map(system => ({ ...system, details: { ...system.details } }))
         : SHIP_SYSTEMS.map(system => ({ ...system }));
     renderSystems();
 
@@ -796,41 +804,47 @@ function restoreSnapshot(snapshot) {
     elements.pauseSim.disabled = state.simulationPaused;
     elements.resumeSim.disabled = !state.simulationPaused;
 
-    if (data.powerDistribution) {
-        applyPowerDistribution(data.powerDistribution);
-    } else {
-        updatePowerLabels();
-    }
+    if (data.powerDistribution) applyPowerDistribution(data.powerDistribution);
+    else updatePowerLabels();
 
     if (data.navPlan) {
-        const sector = SECTORS.find(sec => sec.id === data.navPlan.sectorId);
-        state.navPlan = {
-            ...data.navPlan,
-            sectorName: sector?.name ?? data.navPlan.sectorName ?? data.navPlan.sectorId
-        };
-        elements.navSector.value = state.navPlan.sectorId ?? elements.navSector.value;
-        elements.navCoordinates.value = state.navPlan.coordinates ?? '';
+        // Wenn vorhandene Snapshots alte Struktur hatten, vorsichtig mappen
+        const loadedPlan = { ...data.navPlan };
+        if (!loadedPlan.sector && loadedPlan.sectorId) {
+            const sector = SECTORS.find(sec => sec.id === loadedPlan.sectorId);
+            if (sector) loadedPlan.sector = sector;
+        }
+        if (typeof loadedPlan.remainingSeconds !== 'number') {
+            loadedPlan.remainingSeconds = Math.max(0, Math.round((loadedPlan.etaMinutes ?? 0) * 60));
+        }
+
+        state.navPlan = loadedPlan;
+
+        // UI anpassen
+        const sectorForUi = state.navPlan.sector ?? SECTORS[0];
+        elements.navSector.value = sectorForUi?.id ?? elements.navSector.value;
+        elements.navCoordinates.value = state.navPlan.coordinates ?? (sectorForUi?.defaultCoords ?? '');
         elements.navWindow.value = state.navPlan.window ?? '';
         elements.navDescription.value = state.navPlan.description ?? '';
-        const remainingSeconds = typeof state.navPlan.remainingSeconds === 'number'
-            ? state.navPlan.remainingSeconds
-            : state.navPlan.etaMinutes * 60;
+
+        const remainingSeconds = state.navPlan.remainingSeconds ?? 0;
+
         if (state.navPlan.status === 'plotted') {
-            updateNavigationStatus(`Kurs gesetzt (${state.navPlan.sectorName})`, 'status-online');
+            updateNavigationStatus(`Kurs gesetzt (${sectorForUi?.name ?? 'Ziel'})`, 'status-online');
             elements.navEngage.disabled = false;
             elements.navAbort.disabled = false;
             elements.navEta.textContent = secondsToETA(remainingSeconds);
-            state.navPlan.remainingSeconds = remainingSeconds;
         } else if (state.navPlan.status === 'engaged') {
             updateNavigationStatus('Sprung aktiv', 'status-warning');
-            state.navPlan.remainingSeconds = remainingSeconds;
-            startNavigationCountdown();
+            elements.navEngage.disabled = true;
+            elements.navAbort.disabled = false;
+            elements.navEta.textContent = secondsToETA(remainingSeconds);
+            // Kein Start eines Intervals – Kernel übernimmt den Countdown
         } else if (state.navPlan.status === 'arrived') {
             updateNavigationStatus('Ankunft bestätigt', 'status-online');
             elements.navEngage.disabled = true;
             elements.navAbort.disabled = true;
             elements.navEta.textContent = secondsToETA(0);
-            state.navPlan.remainingSeconds = 0;
         } else {
             resetNavigationUi();
         }
@@ -894,15 +908,9 @@ function startLogReplay() {
     stopLogReplay();
     state.replay.entries = [...state.logs].sort((a, b) => a.timestamp - b.timestamp);
     state.replay.index = 0;
-    if (elements.replayOutput) {
-        elements.replayOutput.innerHTML = '';
-    }
-    if (elements.logReplay) {
-        elements.logReplay.disabled = true;
-    }
-    if (elements.logReplayStop) {
-        elements.logReplayStop.disabled = false;
-    }
+    if (elements.replayOutput) elements.replayOutput.innerHTML = '';
+    if (elements.logReplay) elements.logReplay.disabled = true;
+    if (elements.logReplayStop) elements.logReplayStop.disabled = false;
     updateSnapshotStatus('Replay gestartet.', 'status-warning');
     state.replay.timer = setInterval(() => {
         const entry = state.replay.entries[state.replay.index];
@@ -922,12 +930,8 @@ function stopLogReplay(message) {
         clearInterval(state.replay.timer);
         state.replay.timer = null;
     }
-    if (elements.logReplay) {
-        elements.logReplay.disabled = false;
-    }
-    if (elements.logReplayStop) {
-        elements.logReplayStop.disabled = true;
-    }
+    if (elements.logReplay) elements.logReplay.disabled = false;
+    if (elements.logReplayStop) elements.logReplayStop.disabled = true;
     if (message) {
         if (elements.replayOutput) {
             const note = document.createElement('div');
@@ -943,18 +947,7 @@ function stopLogReplay(message) {
 }
 
 function initTimekeeping() {
-    elements.stardate.textContent = formatStardate();
-    elements.shipClock.textContent = formatTime();
-    setInterval(() => {
-        if (!state.simulationPaused) {
-            elements.shipClock.textContent = formatTime();
-        }
-    }, 1000);
-    setInterval(() => {
-        if (!state.simulationPaused) {
-            elements.stardate.textContent = formatStardate();
-        }
-    }, 60000);
+    kernel.startModule('timekeeping');
 }
 
 function initLogFeed() {
@@ -963,36 +956,47 @@ function initLogFeed() {
 }
 
 function initRandomEvents() {
-    setInterval(() => {
-        if (state.simulationPaused) return;
-        const event = RANDOM_EVENTS[randBetween(0, RANDOM_EVENTS.length - 1)];
-        applyRandomEvent(event);
-    }, 45000);
+    kernel.startModule('random-events');
 }
 
 function applyRandomEvent(event) {
     addLog('log', event.message);
     if (event.impact) {
-        Object.entries(event.impact).forEach(([key, value]) => {
+        let systemsChanged = false;
+        const updatedSystems = state.systems.map(system => {
+            const impactValue = event.impact[system.id];
+            if (typeof impactValue === 'number') {
+                systemsChanged = true;
+                const updated = { ...system };
+                updated.integrity = clamp(updated.integrity + impactValue, 0, 100);
+                if (updated.integrity < 40) {
+                    updated.status = 'warning';
+                }
+                return updated;
+            }
+            return system;
+        });
+
+        Object.entries(event.impact).forEach(([key]) => {
             if (key === 'crew') {
                 updateCrewStatus(state.alert);
-            } else {
-                const system = state.systems.find(sys => sys.id === key);
-                if (system) {
-                    system.integrity = clamp(system.integrity + value, 0, 100);
-                    system.status = system.integrity < 40 ? 'warning' : system.status;
-                }
             }
         });
-        renderSystems();
+
+        if (systemsChanged) {
+            kernel.setState('systems', updatedSystems);
+            renderSystems();
+            kernel.emit('systems:updated', { reason: 'random-event', event });
+        }
     }
 }
 
 function toggleSimulation(paused) {
-    state.simulationPaused = paused;
+    kernel.setState('simulationPaused', paused);
     elements.pauseSim.disabled = paused;
     elements.resumeSim.disabled = !paused;
     addLog('log', paused ? 'Simulation pausiert.' : 'Simulation fortgesetzt.');
+    kernel.emit(paused ? 'simulation:paused' : 'simulation:resumed', { paused });
 }
 
 function bindEvents() {
@@ -1006,9 +1010,7 @@ function bindEvents() {
     elements.balancePower.addEventListener('click', suggestPowerDistribution);
     elements.commsSend.addEventListener('click', handleCommsSend);
     elements.commsMessage.addEventListener('keydown', event => {
-        if (event.key === 'Enter') {
-            handleCommsSend();
-        }
+        if (event.key === 'Enter') handleCommsSend();
     });
     elements.sensorScan.addEventListener('click', performSensorScan);
     elements.alertYellow.addEventListener('click', () => setAlertState('yellow'));
@@ -1030,6 +1032,7 @@ function bindEvents() {
 
 function init() {
     cacheDom();
+    configureKernelModules();
     renderSystems();
     renderCrew();
     renderObjectives();
@@ -1038,6 +1041,7 @@ function init() {
     populateComms();
     updatePowerLabels();
     initTimekeeping();
+    kernel.startModule('navigation');
     initLogFeed();
     initRandomEvents();
     bindEvents();
@@ -1046,6 +1050,7 @@ function init() {
         updateSnapshotStatus('Lokaler Speicher bereit.', 'status-idle');
     }
     performSensorScan();
+    kernel.boot();
 }
 
 document.addEventListener('DOMContentLoaded', init);
