@@ -135,7 +135,11 @@ function showSystemDetails(systemId) {
     }
     elements.inspectorStatus.textContent = translateStatus(system.status);
     elements.inspectorStatus.className = `status-pill ${statusClass(system.status)}`;
-    elements.inspectorBody.innerHTML = `
+    const { details = {} } = system;
+    const sensors = details.sensors ?? details.sensoren;
+    const sensorDisplay = Array.isArray(sensors) ? sensors.join(', ') : (sensors ?? '—');
+
+    let inspectorHtml = `
         <h3>${system.name}</h3>
         <dl>
             <dt>Leistung</dt>
@@ -147,15 +151,122 @@ function showSystemDetails(systemId) {
             <dt>Status</dt>
             <dd>${translateStatus(system.status)}</dd>
             <dt>Beschreibung</dt>
-            <dd>${system.details.beschreibung}</dd>
+            <dd>${details.beschreibung ?? '—'}</dd>
             <dt>Redundanz</dt>
-            <dd>${system.details.redundanz}</dd>
+            <dd>${details.redundanz ?? '—'}</dd>
             <dt>Letzte Wartung</dt>
-            <dd>${system.details.letzteWartung}</dd>
+            <dd>${details.letzteWartung ?? '—'}</dd>
             <dt>Sensoren</dt>
-            <dd>${system.details.sensors ? system.details.sensors.join(', ') : system.details.sensoren?.join(', ')}</dd>
+            <dd>${sensorDisplay}</dd>
         </dl>
     `;
+
+    if (Array.isArray(details.outputCurve) && details.outputCurve.length) {
+        inspectorHtml += `
+            <section class="detail-section">
+                <h4>Output-Kurve</h4>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Lastbereich</th>
+                            <th>Netto-Output</th>
+                            <th>Bemerkung</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${details.outputCurve.map(point => `
+                            <tr>
+                                <td>${point.load}</td>
+                                <td>${point.output}</td>
+                                <td>${point.notes}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </section>
+        `;
+    }
+
+    if (Array.isArray(details.efficiencyHeat) && details.efficiencyHeat.length) {
+        inspectorHtml += `
+            <section class="detail-section">
+                <h4>Effizienz &amp; Hitzeabfuhr</h4>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Modus</th>
+                            <th>Effizienz</th>
+                            <th>Hitze</th>
+                            <th>Kühlung</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${details.efficiencyHeat.map(entry => `
+                            <tr>
+                                <td>${entry.mode}</td>
+                                <td>${entry.efficiency}</td>
+                                <td>${entry.heat}</td>
+                                <td>${entry.coolant}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </section>
+        `;
+    }
+
+    if (Array.isArray(details.modes) && details.modes.length) {
+        inspectorHtml += `
+            <section class="detail-section">
+                <h4>Betriebsmodi</h4>
+                <div class="reactor-modes">
+                    ${details.modes.map(mode => `
+                        <article class="reactor-mode">
+                            <header>
+                                <h5>${mode.name}</h5>
+                                <span class="mode-output">${mode.output}</span>
+                            </header>
+                            <p>${mode.description}</p>
+                            <div class="mode-meta">
+                                <span>Dauer: ${mode.duration}</span>
+                                <span>${mode.advisories}</span>
+                            </div>
+                        </article>
+                    `).join('')}
+                </div>
+            </section>
+        `;
+    }
+
+    if (Array.isArray(details.failureScenarios) && details.failureScenarios.length) {
+        inspectorHtml += `
+            <section class="detail-section">
+                <h4>Ausfälle &amp; Gegenmaßnahmen</h4>
+                <ul class="detail-list">
+                    ${details.failureScenarios.map(item => `
+                        <li>
+                            <strong>${item.title}:</strong> ${item.mitigation}
+                        </li>
+                    `).join('')}
+                </ul>
+            </section>
+        `;
+    }
+
+    if (Array.isArray(details.startSequence) && details.startSequence.length) {
+        inspectorHtml += `
+            <section class="detail-section">
+                <h4>Startsequenz</h4>
+                <ol class="detail-list ordered">
+                    ${details.startSequence.map(step => `
+                        <li>${step}</li>
+                    `).join('')}
+                </ol>
+            </section>
+        `;
+    }
+
+    elements.inspectorBody.innerHTML = inspectorHtml;
 }
 
 function updatePowerLabels() {
