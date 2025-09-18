@@ -18,7 +18,7 @@ import {
     createLogEntry,
     formatLogEntry,
     calculateEta,
-    minutesToETA
+    secondsToETA
 } from './modules/utils.js';
 
 const state = {
@@ -28,8 +28,16 @@ const state = {
     navTimer: null,
     logs: INITIAL_LOG.map(entry => ({ ...entry, id: crypto.randomUUID(), timestamp: new Date() })),
     sensorReadings: [],
-    simulationPaused: false
+    simulationPaused: false,
+    savedSnapshots: [],
+    replay: {
+        timer: null,
+        entries: [],
+        index: 0
+    }
 };
+
+const STORAGE_KEY = 'starshipos:snapshots';
 
 const elements = {};
 
@@ -68,6 +76,16 @@ function cacheDom() {
     elements.missionObjectives = document.getElementById('mission-objectives');
     elements.pauseSim = document.getElementById('pause-sim');
     elements.resumeSim = document.getElementById('resume-sim');
+    elements.snapshotStatus = document.getElementById('snapshot-status');
+    elements.snapshotName = document.getElementById('snapshot-name');
+    elements.snapshotSave = document.getElementById('snapshot-save');
+    elements.snapshotList = document.getElementById('snapshot-list');
+    elements.snapshotLoad = document.getElementById('snapshot-load');
+    elements.snapshotDelete = document.getElementById('snapshot-delete');
+    elements.logExport = document.getElementById('log-export');
+    elements.logReplay = document.getElementById('log-replay');
+    elements.logReplayStop = document.getElementById('log-replay-stop');
+    elements.replayOutput = document.getElementById('replay-output');
 }
 
 function renderSystems() {
@@ -449,13 +467,18 @@ function renderSensorReadings() {
     });
 }
 
+function applyAlertVisual(level) {
+    const alertState = ALERT_STATES[level] ?? ALERT_STATES.green;
+    elements.alertState.textContent = alertState.label;
+    elements.alertState.className = `status-pill ${alertState.className}`;
+    updateCrewStatus(level);
+}
+
 function setAlertState(level) {
     state.alert = level;
-    const { label, className } = ALERT_STATES[level];
-    elements.alertState.textContent = label;
-    elements.alertState.className = `status-pill ${className}`;
+    applyAlertVisual(level);
+    const { label } = ALERT_STATES[level] ?? ALERT_STATES.green;
     addLog('log', `Alarmstufe geändert: ${label}.`);
-    updateCrewStatus(level);
 }
 
 function updateCrewStatus(alertLevel) {
@@ -492,12 +515,16 @@ function handleNavigationPlot() {
     };
     const etaMinutes = calculateEta(sector.baseEta, modifiers);
 
+    const etaSeconds = etaMinutes * 60;
+
     state.navPlan = {
-        sector,
+        sectorId: sector.id,
+        sectorName: sector.name,
         coordinates,
         window,
         description,
         etaMinutes,
+        remainingSeconds: etaSeconds,
         status: 'plotted'
     };
 
@@ -505,39 +532,28 @@ function handleNavigationPlot() {
     elements.navStatus.className = 'status-pill status-online';
     elements.navEngage.disabled = false;
     elements.navAbort.disabled = false;
-    elements.navEta.textContent = minutesToETA(etaMinutes);
+    elements.navEta.textContent = secondsToETA(etaSeconds);
 
-    addLog('log', `Navigation: Kurs nach ${sector.name} gesetzt. ETA ${minutesToETA(etaMinutes)}.`);
+    addLog('log', `Navigation: Kurs nach ${sector.name} gesetzt. ETA ${secondsToETA(etaSeconds)}.`);
 }
 
 function handleNavigationEngage() {
     if (!state.navPlan || state.navPlan.status !== 'plotted') return;
 
     state.navPlan.status = 'engaged';
-    let remaining = state.navPlan.etaMinutes;
     updateNavigationStatus('Sprung aktiv', 'status-warning');
     addLog('log', 'Sprungsequenz eingeleitet. Alle Crew an Stationen.');
 
-    state.navTimer = setInterval(() => {
-        if (state.simulationPaused) return;
-        remaining -= 1;
-        elements.navEta.textContent = minutesToETA(remaining);
-        if (remaining <= 0) {
-            clearInterval(state.navTimer);
-            state.navPlan.status = 'arrived';
-            updateNavigationStatus('Ankunft bestätigt', 'status-online');
-            elements.navEngage.disabled = true;
-            elements.navAbort.disabled = true;
-            addLog('log', `Ziel ${state.navPlan.sector.name} erreicht. Navigation abgeschlossen.`);
-        }
-    }, 1000);
+    state.navPlan.remainingSeconds = Math.max(
+        typeof state.navPlan.remainingSeconds === 'number' ? state.navPlan.remainingSeconds : state.navPlan.etaMinutes * 60,
+        0
+    );
+    startNavigationCountdown();
 }
 
 function handleNavigationAbort() {
     if (!state.navPlan) return;
-    if (state.navTimer) {
-        clearInterval(state.navTimer);
-    }
+    stopNavigationCountdown();
     addLog('log', 'Navigation abgebrochen. Kurs zurückgesetzt.');
     state.navPlan = null;
     elements.navStatus.textContent = 'Im Orbit';
@@ -550,6 +566,380 @@ function handleNavigationAbort() {
 function updateNavigationStatus(text, className) {
     elements.navStatus.textContent = text;
     elements.navStatus.className = `status-pill ${className}`;
+}
+
+function startNavigationCountdown() {
+    if (!state.navPlan || state.navPlan.status !== 'engaged') return;
+    stopNavigationCountdown();
+    elements.navEngage.disabled = true;
+    elements.navAbort.disabled = false;
+    elements.navEta.textContent = secondsToETA(state.navPlan.remainingSeconds);
+    state.navTimer = setInterval(() => {
+        if (state.simulationPaused) return;
+        state.navPlan.remainingSeconds = Math.max(0, state.navPlan.remainingSeconds - 1);
+        elements.navEta.textContent = secondsToETA(state.navPlan.remainingSeconds);
+        if (state.navPlan.remainingSeconds <= 0) {
+            stopNavigationCountdown();
+            state.navPlan.status = 'arrived';
+            updateNavigationStatus('Ankunft bestätigt', 'status-online');
+            elements.navEngage.disabled = true;
+            elements.navAbort.disabled = true;
+            addLog('log', `Ziel ${state.navPlan.sectorName} erreicht. Navigation abgeschlossen.`);
+        }
+    }, 1000);
+}
+
+function stopNavigationCountdown() {
+    if (state.navTimer) {
+        clearInterval(state.navTimer);
+        state.navTimer = null;
+    }
+}
+
+function storageAvailable() {
+    try {
+        const testKey = '__starshipos_test__';
+        localStorage.setItem(testKey, testKey);
+        localStorage.removeItem(testKey);
+        return true;
+    } catch (error) {
+        console.warn('Lokaler Speicher nicht verfügbar:', error);
+        return false;
+    }
+}
+
+function updateSnapshotStatus(message, variant = 'status-idle') {
+    if (!elements.snapshotStatus) return;
+    elements.snapshotStatus.textContent = message;
+    elements.snapshotStatus.className = `status-pill ${variant}`;
+}
+
+function loadSnapshotsFromStorage() {
+    try {
+        const raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) {
+            return [];
+        }
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) {
+            return parsed;
+        }
+    } catch (error) {
+        console.error('Fehler beim Laden der Snapshots:', error);
+        updateSnapshotStatus('Fehler beim Laden der Snapshots', 'status-critical');
+    }
+    return [];
+}
+
+function persistSnapshots(snapshots) {
+    try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(snapshots));
+    } catch (error) {
+        console.error('Fehler beim Speichern der Snapshots:', error);
+        updateSnapshotStatus('Speichern fehlgeschlagen', 'status-critical');
+    }
+}
+
+function refreshSnapshotList() {
+    if (!elements.snapshotList) return;
+    if (!storageAvailable()) {
+        state.savedSnapshots = [];
+        elements.snapshotList.innerHTML = '';
+        updateSnapshotButtons();
+        updateSnapshotStatus('Lokaler Speicher nicht verfügbar', 'status-critical');
+        return;
+    }
+    const snapshots = loadSnapshotsFromStorage();
+    state.savedSnapshots = snapshots
+        .map(snapshot => ({ ...snapshot }))
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    elements.snapshotList.innerHTML = '';
+    elements.snapshotList.value = '';
+    state.savedSnapshots.forEach(snapshot => {
+        const option = document.createElement('option');
+        option.value = snapshot.id;
+        const timestamp = new Date(snapshot.timestamp);
+        option.textContent = `${snapshot.name} – ${timestamp.toLocaleString('de-DE')}`;
+        elements.snapshotList.appendChild(option);
+    });
+    updateSnapshotButtons();
+}
+
+function updateSnapshotButtons() {
+    if (!elements.snapshotLoad || !elements.snapshotDelete || !elements.snapshotList) return;
+    const hasSelection = Boolean(elements.snapshotList.value);
+    elements.snapshotLoad.disabled = !hasSelection;
+    elements.snapshotDelete.disabled = !hasSelection;
+}
+
+function getSelectedSnapshot() {
+    if (!elements.snapshotList) return null;
+    const id = elements.snapshotList.value;
+    return state.savedSnapshots.find(snapshot => snapshot.id === id) ?? null;
+}
+
+function handleSnapshotSave() {
+    if (!elements.snapshotName) return;
+    if (!storageAvailable()) {
+        updateSnapshotStatus('Lokaler Speicher nicht verfügbar', 'status-critical');
+        return;
+    }
+    const nameInput = elements.snapshotName.value.trim();
+    const fallback = new Date().toLocaleString('de-DE');
+    const name = nameInput || `Snapshot ${fallback}`;
+    const snapshot = createSnapshot(name);
+    const snapshots = loadSnapshotsFromStorage();
+    snapshots.push(snapshot);
+    persistSnapshots(snapshots);
+    elements.snapshotName.value = '';
+    updateSnapshotStatus(`Snapshot "${name}" gespeichert.`, 'status-online');
+    refreshSnapshotList();
+}
+
+function handleSnapshotLoad() {
+    const snapshot = getSelectedSnapshot();
+    if (!snapshot) return;
+    restoreSnapshot(snapshot);
+}
+
+function handleSnapshotDelete() {
+    const snapshot = getSelectedSnapshot();
+    if (!snapshot) return;
+    if (!storageAvailable()) {
+        updateSnapshotStatus('Lokaler Speicher nicht verfügbar', 'status-critical');
+        return;
+    }
+    const filtered = state.savedSnapshots.filter(entry => entry.id !== snapshot.id);
+    persistSnapshots(filtered);
+    updateSnapshotStatus(`Snapshot "${snapshot.name}" gelöscht.`, 'status-warning');
+    refreshSnapshotList();
+}
+
+function createSnapshot(name) {
+    const systems = state.systems.map(system => ({
+        ...system,
+        details: { ...system.details }
+    }));
+    const logs = state.logs.map(entry => ({
+        ...entry,
+        timestamp: entry.timestamp instanceof Date ? entry.timestamp.toISOString() : entry.timestamp
+    }));
+    const navPlan = state.navPlan
+        ? { ...state.navPlan }
+        : null;
+    const sensorReadings = state.sensorReadings.map(reading => ({ ...reading }));
+    return {
+        id: crypto.randomUUID(),
+        name,
+        timestamp: new Date().toISOString(),
+        data: {
+            systems,
+            alert: state.alert,
+            navPlan,
+            logs,
+            sensorReadings,
+            simulationPaused: state.simulationPaused,
+            powerDistribution: getPowerDistribution()
+        }
+    };
+}
+
+function getPowerDistribution() {
+    const distribution = {};
+    elements.powerSliders.forEach(slider => {
+        distribution[slider.id] = Number(slider.value);
+    });
+    return distribution;
+}
+
+function applyPowerDistribution(distribution = {}) {
+    elements.powerSliders.forEach(slider => {
+        if (Object.prototype.hasOwnProperty.call(distribution, slider.id)) {
+            slider.value = distribution[slider.id];
+        }
+    });
+    updatePowerLabels();
+}
+
+function restoreSnapshot(snapshot) {
+    if (!snapshot) return;
+    const { data } = snapshot;
+    if (!data) return;
+    stopLogReplay();
+    stopNavigationCountdown();
+
+    state.systems = data.systems
+        ? data.systems.map(system => ({
+              ...system,
+              details: { ...system.details }
+          }))
+        : SHIP_SYSTEMS.map(system => ({ ...system }));
+    renderSystems();
+
+    state.alert = data.alert ?? 'green';
+    applyAlertVisual(state.alert);
+
+    state.sensorReadings = Array.isArray(data.sensorReadings)
+        ? data.sensorReadings.map(reading => ({ ...reading }))
+        : [];
+    renderSensorReadings();
+
+    state.logs = Array.isArray(data.logs)
+        ? data.logs.map(entry => ({
+              ...entry,
+              timestamp: entry.timestamp ? new Date(entry.timestamp) : new Date()
+          }))
+        : [];
+    renderLogs();
+
+    state.simulationPaused = Boolean(data.simulationPaused);
+    elements.pauseSim.disabled = state.simulationPaused;
+    elements.resumeSim.disabled = !state.simulationPaused;
+
+    if (data.powerDistribution) {
+        applyPowerDistribution(data.powerDistribution);
+    } else {
+        updatePowerLabels();
+    }
+
+    if (data.navPlan) {
+        const sector = SECTORS.find(sec => sec.id === data.navPlan.sectorId);
+        state.navPlan = {
+            ...data.navPlan,
+            sectorName: sector?.name ?? data.navPlan.sectorName ?? data.navPlan.sectorId
+        };
+        elements.navSector.value = state.navPlan.sectorId ?? elements.navSector.value;
+        elements.navCoordinates.value = state.navPlan.coordinates ?? '';
+        elements.navWindow.value = state.navPlan.window ?? '';
+        elements.navDescription.value = state.navPlan.description ?? '';
+        const remainingSeconds = typeof state.navPlan.remainingSeconds === 'number'
+            ? state.navPlan.remainingSeconds
+            : state.navPlan.etaMinutes * 60;
+        if (state.navPlan.status === 'plotted') {
+            updateNavigationStatus(`Kurs gesetzt (${state.navPlan.sectorName})`, 'status-online');
+            elements.navEngage.disabled = false;
+            elements.navAbort.disabled = false;
+            elements.navEta.textContent = secondsToETA(remainingSeconds);
+            state.navPlan.remainingSeconds = remainingSeconds;
+        } else if (state.navPlan.status === 'engaged') {
+            updateNavigationStatus('Sprung aktiv', 'status-warning');
+            state.navPlan.remainingSeconds = remainingSeconds;
+            startNavigationCountdown();
+        } else if (state.navPlan.status === 'arrived') {
+            updateNavigationStatus('Ankunft bestätigt', 'status-online');
+            elements.navEngage.disabled = true;
+            elements.navAbort.disabled = true;
+            elements.navEta.textContent = secondsToETA(0);
+            state.navPlan.remainingSeconds = 0;
+        } else {
+            resetNavigationUi();
+        }
+    } else {
+        state.navPlan = null;
+        resetNavigationUi();
+    }
+
+    updateSnapshotStatus(`Snapshot "${snapshot.name}" geladen.`, 'status-online');
+}
+
+function resetNavigationUi() {
+    const defaultSector = SECTORS[0];
+    elements.navStatus.textContent = 'Im Orbit';
+    elements.navStatus.className = 'status-pill status-idle';
+    elements.navEngage.disabled = true;
+    elements.navAbort.disabled = true;
+    elements.navEta.textContent = '--:--';
+    if (defaultSector) {
+        elements.navSector.value = defaultSector.id;
+        elements.navCoordinates.value = defaultSector.defaultCoords;
+    }
+    elements.navWindow.value = '';
+    elements.navDescription.value = '';
+}
+
+function exportLogs() {
+    if (!state.logs.length) {
+        updateSnapshotStatus('Keine Logeinträge zum Exportieren vorhanden.', 'status-warning');
+        return;
+    }
+    const payload = {
+        exportedAt: new Date().toISOString(),
+        stardate: elements.stardate?.textContent ?? '',
+        logs: state.logs.map(entry => ({
+            id: entry.id,
+            type: entry.type,
+            message: entry.message,
+            timestamp: entry.timestamp instanceof Date ? entry.timestamp.toISOString() : entry.timestamp
+        }))
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `starshipos-log-${Date.now()}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    updateSnapshotStatus('Logbuch exportiert.', 'status-online');
+}
+
+function startLogReplay() {
+    if (!state.logs.length) {
+        if (elements.replayOutput) {
+            elements.replayOutput.textContent = 'Keine Logeinträge für Replay verfügbar.';
+        }
+        return;
+    }
+    stopLogReplay();
+    state.replay.entries = [...state.logs].sort((a, b) => a.timestamp - b.timestamp);
+    state.replay.index = 0;
+    if (elements.replayOutput) {
+        elements.replayOutput.innerHTML = '';
+    }
+    if (elements.logReplay) {
+        elements.logReplay.disabled = true;
+    }
+    if (elements.logReplayStop) {
+        elements.logReplayStop.disabled = false;
+    }
+    updateSnapshotStatus('Replay gestartet.', 'status-warning');
+    state.replay.timer = setInterval(() => {
+        const entry = state.replay.entries[state.replay.index];
+        elements.replayOutput?.insertAdjacentHTML('beforeend', formatLogEntry(entry));
+        if (elements.replayOutput) {
+            elements.replayOutput.scrollTop = elements.replayOutput.scrollHeight;
+        }
+        state.replay.index += 1;
+        if (state.replay.index >= state.replay.entries.length) {
+            stopLogReplay('Replay abgeschlossen.');
+        }
+    }, 1200);
+}
+
+function stopLogReplay(message) {
+    if (state.replay.timer) {
+        clearInterval(state.replay.timer);
+        state.replay.timer = null;
+    }
+    if (elements.logReplay) {
+        elements.logReplay.disabled = false;
+    }
+    if (elements.logReplayStop) {
+        elements.logReplayStop.disabled = true;
+    }
+    if (message) {
+        if (elements.replayOutput) {
+            const note = document.createElement('div');
+            note.className = 'replay-note';
+            note.textContent = message;
+            elements.replayOutput.appendChild(note);
+            elements.replayOutput.scrollTop = elements.replayOutput.scrollHeight;
+        }
+        updateSnapshotStatus(message, 'status-online');
+    }
+    state.replay.entries = [];
+    state.replay.index = 0;
 }
 
 function initTimekeeping() {
@@ -629,6 +1019,13 @@ function bindEvents() {
     elements.navAbort.addEventListener('click', handleNavigationAbort);
     elements.pauseSim.addEventListener('click', () => toggleSimulation(true));
     elements.resumeSim.addEventListener('click', () => toggleSimulation(false));
+    elements.snapshotSave?.addEventListener('click', handleSnapshotSave);
+    elements.snapshotLoad?.addEventListener('click', handleSnapshotLoad);
+    elements.snapshotDelete?.addEventListener('click', handleSnapshotDelete);
+    elements.snapshotList?.addEventListener('change', updateSnapshotButtons);
+    elements.logExport?.addEventListener('click', exportLogs);
+    elements.logReplay?.addEventListener('click', startLogReplay);
+    elements.logReplayStop?.addEventListener('click', () => stopLogReplay('Replay gestoppt.'));
 }
 
 function init() {
@@ -644,6 +1041,10 @@ function init() {
     initLogFeed();
     initRandomEvents();
     bindEvents();
+    refreshSnapshotList();
+    if (storageAvailable()) {
+        updateSnapshotStatus('Lokaler Speicher bereit.', 'status-idle');
+    }
     performSensorScan();
 }
 
