@@ -7,6 +7,63 @@ const SHIP_INFO = {
 
 export const SHIP_SYSTEMS = [
     {
+        id: 'reactor',
+        name: 'Reaktorkern',
+        status: 'online',
+        power: 92,
+        integrity: 93,
+        load: 81,
+        details: {
+            beschreibung: 'Quantenfusion-Reaktorkern als zentrale Energiequelle des Schiffes.',
+            redundanz: 'Dual-Plasmaeinspeisung mit separatem Notfall-Materie/Antimaterie-Puffer',
+            letzteWartung: 'Stardate 4523.8',
+            sensors: [
+                'Magnetfeld-Kohärenz 99.7% stabil',
+                'Kernplasma 14.2 keV',
+                'Primärer Kühlkreislauf Druck 1.8 MPa'
+            ],
+            outputCurve: [
+                { load: '0–20%', output: '0.6 TW', notes: 'Grundlast für Lebenserhaltung & Standby-Systeme' },
+                { load: '21–60%', output: '1.3 TW', notes: 'Nominaler Flug- und Schiffsbetrieb' },
+                { load: '61–90%', output: '2.1 TW', notes: 'Warpfeld-Speisung & Hochlastmanöver' },
+                { load: '91–105%', output: '2.6 TW', notes: 'Notfall-Boost < 90 Sekunden' }
+            ],
+            efficiencyHeat: [
+                { mode: 'Eco', efficiency: '97%', heat: '340 MJ/min', coolant: '50% Kühlschleifen aktiv' },
+                { mode: 'Nominal', efficiency: '94%', heat: '520 MJ/min', coolant: '68% Kühlschleifen aktiv' },
+                { mode: 'Burst', efficiency: '88%', heat: '910 MJ/min', coolant: '100% + Entlastungsventile' }
+            ],
+            modes: [
+                {
+                    name: 'Eco',
+                    output: '0.7 TW',
+                    duration: 'unbegrenzt',
+                    description: 'Stabile Grundlast für Bereitschaftszustände, automatische Leistungsdämpfung aktiv.',
+                    advisories: 'Empfohlen in Dock, Orbit oder während Wartung.'
+                },
+                {
+                    name: 'Burst',
+                    output: '2.4 TW',
+                    duration: 'max. 90 Sekunden',
+                    description: 'Kurzzeitiger Leistungsschub für Gefechts- oder Fluchtmanöver, führt zu erhöhter Hitze.',
+                    advisories: 'Nur in Alarmstufen Gelb/Rot freigegeben, Nachkühlphase erforderlich.'
+                }
+            ],
+            failureScenarios: [
+                { title: 'Injektor-Phasendrift', mitigation: 'Magnetfeld neu synchronisieren und Leistung um 15% reduzieren.' },
+                { title: 'Kühlmittel-Überdruck', mitigation: 'Sekundärkreislauf öffnen, Entlastungsventile testen, Technikteam alarmieren.' },
+                { title: 'Containment-Flackern', mitigation: 'Reaktor auf Eco herunterschalten, Abschirmfeld verstärken, Crew evakuationsbereit halten.' }
+            ],
+            startSequence: [
+                'Materie-/Antimaterie-Schotts schließen und verriegeln.',
+                'Magnetfeld-Vorkühlung hochfahren und Stabilität prüfen.',
+                'Plasma-Injektoren entlüften und automatisch kalibrieren lassen.',
+                'Reaktionskammer auf 1% Leistung entzünden und Spektrum überwachen.',
+                'Leistung stufenweise auf 35% erhöhen, Notabschaltung scharf schalten.'
+            ]
+        }
+    },
+    {
         id: 'life-support',
         name: 'Lebenserhaltung',
         status: 'online',

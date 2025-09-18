@@ -8,9 +8,11 @@ import {
     createLogEntry,
     formatLogEntry,
     calculateEta,
-    minutesToETA
+    secondsToETA
 } from './modules/utils.js';
+import { Kernel } from './modules/kernel.js';
 
+/** === Szenario/Defaults === */
 const CONFIG_URL = 'assets/data/scenario-default.xml';
 const DEFAULT_INSPECTOR_MESSAGE = '<p>Wählen Sie ein System aus der linken Liste, um detaillierte Informationen zu erhalten.</p>';
 const FALLBACK_ALERT_STATES = DEFAULT_SCENARIO.alertStates ? { ...DEFAULT_SCENARIO.alertStates } : {
@@ -19,7 +21,16 @@ const FALLBACK_ALERT_STATES = DEFAULT_SCENARIO.alertStates ? { ...DEFAULT_SCENAR
     red: { label: 'Alarmstufe Rot', className: 'status-critical' }
 };
 
-const state = {
+/** === Kernel-Status (szenario-getrieben) === */
+const initialState = {
+    // Szenario-Metadaten
+    scenarioName: '',
+    scenarioId: '',
+    currentScenarioHash: null,
+    hotReloader: null,
+    reloadingScenario: false,
+
+    // Schiff & Daten aus XML
     ship: { name: '', commander: '', registry: '', class: '' },
     systems: [],
     sectors: [],
@@ -29,34 +40,41 @@ const state = {
     sensorBaselines: [],
     alertStates: { ...FALLBACK_ALERT_STATES },
     randomEvents: [],
+
+    // Laufzeit
     logs: [],
     alert: 'green',
     navPlan: null,
-    navTimer: null,
     sensorReadings: [],
-    simulationPaused: false,
-    scenarioName: '',
-    scenarioId: '',
-    currentScenarioHash: null,
-    hotReloader: null,
-    reloadingScenario: false,
-    randomEventTimer: null
+    simulationPaused: false
 };
+
+const kernel = new Kernel(initialState, {
+    ticksPerSecond: 1,
+    onLog: handleKernelLog,
+    onError: handleKernelError
+});
+
+const state = kernel.state;
 
 const elements = {};
 
+/** === DOM Cache === */
 function cacheDom() {
     elements.shipName = document.getElementById('ship-name');
     elements.commanderName = document.getElementById('commander-name');
     elements.stardate = document.getElementById('stardate');
     elements.shipClock = document.getElementById('ship-clock');
+
     elements.systemGrid = document.getElementById('system-grid');
     elements.inspectorBody = document.getElementById('inspector-body');
     elements.inspectorStatus = document.getElementById('inspector-status');
     elements.inspectorDefault = elements.inspectorBody ? elements.inspectorBody.innerHTML : DEFAULT_INSPECTOR_MESSAGE;
+
     elements.powerOutputs = document.querySelectorAll('.power-value');
     elements.powerSliders = document.querySelectorAll('.power-group input[type="range"]');
     elements.balancePower = document.getElementById('balance-power');
+
     elements.navSector = document.getElementById('nav-sector');
     elements.navStatus = document.getElementById('nav-status');
     elements.navCoordinates = document.getElementById('nav-coordinates');
@@ -66,26 +84,35 @@ function cacheDom() {
     elements.navEngage = document.getElementById('nav-engage');
     elements.navAbort = document.getElementById('nav-abort');
     elements.navEta = document.getElementById('nav-eta');
+
     elements.commsChannel = document.getElementById('comms-channel');
     elements.commsLog = document.getElementById('comms-log');
     elements.commsMessage = document.getElementById('comms-message');
     elements.commsSend = document.getElementById('comms-send');
+
     elements.sensorReadings = document.getElementById('sensor-readings');
     elements.sensorScan = document.getElementById('sensor-scan');
     elements.sensorScanStatus = document.getElementById('sensor-scan-status');
+
     elements.alertState = document.getElementById('alert-state');
     elements.alertYellow = document.getElementById('alert-yellow');
     elements.alertRed = document.getElementById('alert-red');
     elements.alertClear = document.getElementById('alert-clear');
+
     elements.eventLog = document.getElementById('event-log');
+
     elements.crewList = document.getElementById('crew-list');
     elements.crewStatus = document.getElementById('crew-status');
+
     elements.missionObjectives = document.getElementById('mission-objectives');
+
     elements.pauseSim = document.getElementById('pause-sim');
     elements.resumeSim = document.getElementById('resume-sim');
+
     elements.reloadConfig = document.getElementById('reload-config');
 }
 
+/** === Hilfen für Szenario-Normalisierung === */
 function normalizeSystem(system) {
     const rawDetails = system.details ?? {};
     const sensors = Array.isArray(rawDetails.sensors)
@@ -96,9 +123,7 @@ function normalizeSystem(system) {
     const status = typeof system.status === 'string' ? system.status.toLowerCase() : 'idle';
     const normalizedStatus = ['online', 'idle', 'warning', 'offline', 'critical'].includes(status) ? status : 'idle';
     const toNumber = (value, fallback = 0) => {
-        if (typeof value === 'number' && Number.isFinite(value)) {
-            return value;
-        }
+        if (typeof value === 'number' && Number.isFinite(value)) return value;
         const parsed = Number.parseInt(value, 10);
         return Number.isNaN(parsed) ? fallback : parsed;
     };
@@ -120,15 +145,11 @@ function normalizeSystem(system) {
 }
 
 function prepareLogEntries(entries = []) {
-    if (!Array.isArray(entries)) {
-        return [];
-    }
+    if (!Array.isArray(entries)) return [];
     return entries
         .map(entry => {
             const message = typeof entry.message === 'string' ? entry.message.trim() : '';
-            if (!message) {
-                return null;
-            }
+            if (!message) return null;
             const type = typeof entry.type === 'string' ? entry.type : 'log';
             return createLogEntry(type, message);
         })
@@ -145,10 +166,104 @@ function resetInspector() {
     }
 }
 
+/** === Kernel-Module (Zeit, Navigation, Random-Events) === */
+function configureKernelModules() {
+    kernel.registerModule('timekeeping', {
+        onStart() {
+            if (elements.stardate) elements.stardate.textContent = formatStardate();
+            if (elements.shipClock) elements.shipClock.textContent = formatTime();
+        },
+        onTick(context, tick) {
+            if (context.state.simulationPaused) return;
+            if (elements.shipClock) elements.shipClock.textContent = formatTime();
+            if (tick % 60 === 0 && elements.stardate) {
+                elements.stardate.textContent = formatStardate();
+            }
+        }
+    });
+
+    kernel.registerModule('navigation', {
+        onStart(context) {
+            context.locals.unsubscribe?.forEach(unsub => unsub());
+            context.locals.unsubscribe = [
+                context.on('navigation:engaged', () => {
+                    if (context.state.navPlan) {
+                        if (typeof context.state.navPlan.remainingSeconds !== 'number') {
+                            context.state.navPlan.remainingSeconds = Math.max(
+                                0, Math.round((context.state.navPlan.etaMinutes ?? 0) * 60)
+                            );
+                        }
+                    }
+                }),
+                context.on('navigation:abort', () => {
+                    if (context.state.navPlan) {
+                        context.state.navPlan.status = 'aborted';
+                    }
+                })
+            ];
+        },
+        onTick(context) {
+            const { state } = context;
+            if (!state.navPlan || state.navPlan.status !== 'engaged') return;
+            if (state.simulationPaused) return;
+
+            const current = typeof state.navPlan.remainingSeconds === 'number'
+                ? state.navPlan.remainingSeconds
+                : Math.max(0, Math.round((state.navPlan.etaMinutes ?? 0) * 60));
+
+            const next = Math.max(0, current - 1);
+            state.navPlan.remainingSeconds = next;
+            if (elements.navEta) elements.navEta.textContent = secondsToETA(next);
+
+            if (next <= 0) {
+                state.navPlan.status = 'arrived';
+                updateNavigationStatus('Ankunft bestätigt', 'status-online');
+                if (elements.navEngage) elements.navEngage.disabled = true;
+                if (elements.navAbort) elements.navAbort.disabled = true;
+                kernel.log('log', `Ziel ${state.navPlan.sector?.name ?? 'Ziel'} erreicht. Navigation abgeschlossen.`);
+                kernel.emit('navigation:arrived', { sector: state.navPlan.sector });
+            }
+        },
+        onStop(context) {
+            context.locals.unsubscribe?.forEach(unsub => unsub());
+            context.locals.unsubscribe = [];
+        }
+    });
+
+    kernel.registerModule('random-events', {
+        onStart(context) {
+            context.locals.unsubscribe?.forEach(unsub => unsub());
+            context.locals.cooldown = 45;
+            context.locals.unsubscribe = [
+                context.on('alert:changed', ({ payload }) => {
+                    if (payload.level === 'red') {
+                        context.locals.cooldown = Math.min(context.locals.cooldown, 10);
+                    }
+                })
+            ];
+        },
+        onTick(context) {
+            const { state, locals } = context;
+            if (state.simulationPaused) return;
+            locals.cooldown -= 1;
+            if (locals.cooldown <= 0) {
+                if (Array.isArray(state.randomEvents) && state.randomEvents.length) {
+                    const event = state.randomEvents[randBetween(0, state.randomEvents.length - 1)];
+                    applyRandomEvent(event);
+                }
+                locals.cooldown = state.alert === 'red' ? 25 : 45;
+            }
+        },
+        onStop(context) {
+            context.locals.unsubscribe?.forEach(unsub => unsub());
+            context.locals.unsubscribe = [];
+        }
+    });
+}
+
+/** === Rendering === */
 function renderSystems() {
-    if (!elements.systemGrid) {
-        return;
-    }
+    if (!elements.systemGrid) return;
     elements.systemGrid.innerHTML = '';
     if (state.systems.length === 0) {
         const placeholder = document.createElement('p');
@@ -188,17 +303,12 @@ function renderSystems() {
 
 function statusClass(status) {
     switch (status) {
-        case 'online':
-            return 'status-online';
-        case 'idle':
-            return 'status-idle';
-        case 'warning':
-            return 'status-warning';
+        case 'online': return 'status-online';
+        case 'idle': return 'status-idle';
+        case 'warning': return 'status-warning';
         case 'offline':
-        case 'critical':
-            return 'status-critical';
-        default:
-            return 'status-idle';
+        case 'critical': return 'status-critical';
+        default: return 'status-idle';
     }
 }
 
@@ -215,43 +325,110 @@ function translateStatus(status) {
 
 function showSystemDetails(systemId) {
     const system = state.systems.find(sys => sys.id === systemId);
-    if (!system || !elements.inspectorBody || !elements.inspectorStatus) {
-        return;
-    }
-    const sensors = Array.isArray(system.details.sensors) && system.details.sensors.length
-        ? system.details.sensors.join(', ')
-        : '–';
+    if (!system || !elements.inspectorBody || !elements.inspectorStatus) return;
+
     elements.inspectorStatus.textContent = translateStatus(system.status);
     elements.inspectorStatus.className = `status-pill ${statusClass(system.status)}`;
-    elements.inspectorBody.innerHTML = `
+
+    const { details = {} } = system;
+    const sensors = Array.isArray(details.sensors) ? details.sensors : (Array.isArray(details.sensoren) ? details.sensoren : []);
+    const sensorDisplay = sensors.length ? sensors.join(', ') : '–';
+
+    let inspectorHtml = `
         <h3>${system.name}</h3>
         <dl>
-            <dt>Leistung</dt>
-            <dd>${system.power}%</dd>
-            <dt>Integrität</dt>
-            <dd>${system.integrity}%</dd>
-            <dt>Auslastung</dt>
-            <dd>${system.load}%</dd>
-            <dt>Status</dt>
-            <dd>${translateStatus(system.status)}</dd>
-            <dt>Beschreibung</dt>
-            <dd>${system.details.beschreibung || '–'}</dd>
-            <dt>Redundanz</dt>
-            <dd>${system.details.redundanz || '–'}</dd>
-            <dt>Letzte Wartung</dt>
-            <dd>${system.details.letzteWartung || '–'}</dd>
-            <dt>Sensoren</dt>
-            <dd>${sensors}</dd>
+            <dt>Leistung</dt><dd>${system.power}%</dd>
+            <dt>Integrität</dt><dd>${system.integrity}%</dd>
+            <dt>Auslastung</dt><dd>${system.load}%</dd>
+            <dt>Status</dt><dd>${translateStatus(system.status)}</dd>
+            <dt>Beschreibung</dt><dd>${details.beschreibung || '–'}</dd>
+            <dt>Redundanz</dt><dd>${details.redundanz || '–'}</dd>
+            <dt>Letzte Wartung</dt><dd>${details.letzteWartung || '–'}</dd>
+            <dt>Sensoren</dt><dd>${sensorDisplay}</dd>
         </dl>
     `;
+
+    if (Array.isArray(details.outputCurve) && details.outputCurve.length) {
+        inspectorHtml += `
+            <section class="detail-section">
+                <h4>Output-Kurve</h4>
+                <table class="data-table">
+                    <thead><tr><th>Lastbereich</th><th>Netto-Output</th><th>Bemerkung</th></tr></thead>
+                    <tbody>
+                        ${details.outputCurve.map(point => `
+                            <tr><td>${point.load}</td><td>${point.output}</td><td>${point.notes}</td></tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </section>
+        `;
+    }
+
+    if (Array.isArray(details.efficiencyHeat) && details.efficiencyHeat.length) {
+        inspectorHtml += `
+            <section class="detail-section">
+                <h4>Effizienz &amp; Hitzeabfuhr</h4>
+                <table class="data-table">
+                    <thead><tr><th>Modus</th><th>Effizienz</th><th>Hitze</th><th>Kühlung</th></tr></thead>
+                    <tbody>
+                        ${details.efficiencyHeat.map(entry => `
+                            <tr><td>${entry.mode}</td><td>${entry.efficiency}</td><td>${entry.heat}</td><td>${entry.coolant}</td></tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </section>
+        `;
+    }
+
+    if (Array.isArray(details.modes) && details.modes.length) {
+        inspectorHtml += `
+            <section class="detail-section">
+                <h4>Betriebsmodi</h4>
+                <div class="reactor-modes">
+                    ${details.modes.map(mode => `
+                        <article class="reactor-mode">
+                            <header><h5>${mode.name}</h5><span class="mode-output">${mode.output}</span></header>
+                            <p>${mode.description}</p>
+                            <div class="mode-meta"><span>Dauer: ${mode.duration}</span><span>${mode.advisories}</span></div>
+                        </article>
+                    `).join('')}
+                </div>
+            </section>
+        `;
+    }
+
+    if (Array.isArray(details.failureScenarios) && details.failureScenarios.length) {
+        inspectorHtml += `
+            <section class="detail-section">
+                <h4>Ausfälle &amp; Gegenmaßnahmen</h4>
+                <ul class="detail-list">
+                    ${details.failureScenarios.map(item => `
+                        <li><strong>${item.title}:</strong> ${item.mitigation}</li>
+                    `).join('')}
+                </ul>
+            </section>
+        `;
+    }
+
+    if (Array.isArray(details.startSequence) && details.startSequence.length) {
+        inspectorHtml += `
+            <section class="detail-section">
+                <h4>Startsequenz</h4>
+                <ol class="detail-list ordered">
+                    ${details.startSequence.map(step => `<li>${step}</li>`).join('')}
+                </ol>
+            </section>
+        `;
+    }
+
+    elements.inspectorBody.innerHTML = inspectorHtml;
 }
 
+/** === Power-Verteilung === */
 function updatePowerLabels() {
     elements.powerSliders.forEach(slider => {
         const output = document.querySelector(`.power-value[data-output="${slider.id}"]`);
-        if (output) {
-            output.textContent = `${slider.value}%`;
-        }
+        if (output) output.textContent = `${slider.value}%`;
     });
 }
 
@@ -260,12 +437,7 @@ function suggestPowerDistribution() {
     if (total !== 100) {
         addLog('log', `Aktuelle Energieverteilung bei ${total}%. Automatischer Ausgleich wird vorbereitet.`);
     }
-    const priorities = {
-        engines: 0,
-        shields: 0,
-        weapons: 0,
-        aux: 0
-    };
+    const priorities = { engines: 0, shields: 0, weapons: 0, aux: 0 };
     state.systems.forEach(system => {
         if (system.id === 'engines') priorities.engines += 2;
         if (system.id === 'shields') priorities.shields += 2;
@@ -281,9 +453,7 @@ function suggestPowerDistribution() {
     const totalPriority = Object.values(priorities).reduce((acc, value) => acc + value, 0) || 1;
     Object.entries(priorities).forEach(([key, value]) => {
         const slider = document.getElementById(`power-${key}`);
-        if (slider) {
-            slider.value = Math.round((value / totalPriority) * 100);
-        }
+        if (slider) slider.value = Math.round((value / totalPriority) * 100);
     });
     normalizePowerSliders();
     updatePowerLabels();
@@ -306,15 +476,14 @@ function normalizePowerSliders() {
     while (total !== 100 && index < 20) {
         const slider = sliders[index % sliders.length];
         slider.value = clamp(Number(slider.value) + Math.sign(100 - total), 0, 100);
-        total = sliders.reduce((sum, s) => sum + Number(s.value), 0);
+        total = sliders.reduce((s, sl) => s + Number(sl.value), 0);
         index += 1;
     }
 }
 
+/** === Navigation/Comms (szenario) === */
 function populateNavigation() {
-    if (!elements.navSector) {
-        return;
-    }
+    if (!elements.navSector) return;
     elements.navSector.innerHTML = '';
     if (state.sectors.length === 0) {
         const option = document.createElement('option');
@@ -341,9 +510,7 @@ function handleNavSectorChange(event) {
 }
 
 function populateComms() {
-    if (!elements.commsChannel) {
-        return;
-    }
+    if (!elements.commsChannel) return;
     elements.commsChannel.innerHTML = '';
     if (state.commChannels.length === 0) {
         const option = document.createElement('option');
@@ -363,10 +530,9 @@ function populateComms() {
     elements.commsChannel.value = state.commChannels[0].id;
 }
 
+/** === Crew, Objectives, Logs === */
 function renderCrew() {
-    if (!elements.crewList) {
-        return;
-    }
+    if (!elements.crewList) return;
     elements.crewList.innerHTML = '';
     if (state.crew.length === 0) {
         const li = document.createElement('li');
@@ -379,10 +545,7 @@ function renderCrew() {
         const li = document.createElement('li');
         li.className = 'crew-member';
         li.innerHTML = `
-            <span>
-                <strong>${member.name}</strong><br>
-                <small>${member.rolle}</small>
-            </span>
+            <span><strong>${member.name}</strong><br><small>${member.rolle}</small></span>
             <span>${member.status}</span>
         `;
         elements.crewList.appendChild(li);
@@ -390,9 +553,7 @@ function renderCrew() {
 }
 
 function renderObjectives() {
-    if (!elements.missionObjectives) {
-        return;
-    }
+    if (!elements.missionObjectives) return;
     elements.missionObjectives.innerHTML = '';
     if (state.objectives.length === 0) {
         const li = document.createElement('li');
@@ -410,9 +571,7 @@ function renderObjectives() {
 }
 
 function renderLogs() {
-    if (!elements.eventLog || !elements.commsLog) {
-        return;
-    }
+    if (!elements.eventLog || !elements.commsLog) return;
     elements.eventLog.innerHTML = '';
     elements.commsLog.innerHTML = '';
     state.logs.forEach(entry => {
@@ -425,19 +584,29 @@ function renderLogs() {
     });
 }
 
-function addLog(type, message) {
-    if (!message) {
-        return;
-    }
-    const entry = createLogEntry(type, message);
-    state.logs.push(entry);
-    if (type === 'comms') {
-        elements.commsLog?.insertAdjacentHTML('afterbegin', formatLogEntry(entry));
+/** === Logging/Fehler === */
+function handleKernelLog(entry) {
+    if (!elements.eventLog || !elements.commsLog) return;
+    const formatted = formatLogEntry(entry);
+    if (entry.type === 'comms') {
+        elements.commsLog.insertAdjacentHTML('afterbegin', formatted);
     } else {
-        elements.eventLog?.insertAdjacentHTML('afterbegin', formatLogEntry(entry));
+        elements.eventLog.insertAdjacentHTML('afterbegin', formatted);
     }
 }
 
+function handleKernelError(errorState) {
+    const { moduleId, phase, error } = errorState;
+    const scope = moduleId ? `Modul '${moduleId}'` : 'Kernel';
+    const message = `${scope} Fehler (${phase ?? 'unbekannt'}): ${error.message}`;
+    kernel.log('error', message, { moduleId, phase });
+}
+
+function addLog(type, message, meta) {
+    return kernel.log(type, message, meta);
+}
+
+/** === Comms === */
 function handleCommsSend() {
     const message = elements.commsMessage?.value.trim();
     if (!message) return;
@@ -451,10 +620,9 @@ function handleCommsSend() {
     elements.commsMessage.value = '';
 }
 
+/** === Sensoren === */
 function updateSensorControls() {
-    if (!elements.sensorScan || !elements.sensorScanStatus) {
-        return;
-    }
+    if (!elements.sensorScan || !elements.sensorScanStatus) return;
     if (state.sensorBaselines.length === 0) {
         elements.sensorScan.disabled = true;
         elements.sensorScanStatus.textContent = 'Keine Basiswerte';
@@ -484,7 +652,7 @@ function performSensorScan() {
             value: reading.base + randBetween(-reading.variance, reading.variance),
             unit: reading.unit
         }));
-        state.sensorReadings = readings;
+        kernel.setState('sensorReadings', readings);
         renderSensorReadings();
         updateSensorControls();
         addLog('log', 'Sensor-Scan abgeschlossen. Daten aktualisiert.');
@@ -492,9 +660,7 @@ function performSensorScan() {
 }
 
 function renderSensorReadings() {
-    if (!elements.sensorReadings) {
-        return;
-    }
+    if (!elements.sensorReadings) return;
     elements.sensorReadings.innerHTML = '';
     if (state.sensorReadings.length === 0) {
         const div = document.createElement('div');
@@ -511,41 +677,35 @@ function renderSensorReadings() {
     });
 }
 
+/** === Alarmzustände === */
 function updateAlertDisplay(level) {
-    if (!elements.alertState) {
-        return;
-    }
+    if (!elements.alertState) return;
     const entry = state.alertStates[level] ?? { label: level, className: 'status-idle' };
     elements.alertState.textContent = entry.label ?? level;
     elements.alertState.className = `status-pill ${entry.className ?? 'status-idle'}`;
 }
 
 function setAlertState(level) {
-    state.alert = level;
+    kernel.setState('alert', level);
     updateAlertDisplay(level);
     const alertEntry = state.alertStates[level];
     const label = alertEntry?.label ?? level;
     addLog('log', `Alarmstufe geändert: ${label}.`);
     updateCrewStatus(level);
+    kernel.emit('alert:changed', { level });
 }
 
 function updateCrewStatus(alertLevel) {
-    if (!elements.crewStatus) {
-        return;
-    }
+    if (!elements.crewStatus) return;
     let statusText = 'Stabil';
     let className = 'status-online';
-    if (alertLevel === 'yellow') {
-        statusText = 'Bereit';
-        className = 'status-warning';
-    } else if (alertLevel === 'red') {
-        statusText = 'Gefechtsstationen';
-        className = 'status-critical';
-    }
+    if (alertLevel === 'yellow') { statusText = 'Bereit'; className = 'status-warning'; }
+    else if (alertLevel === 'red') { statusText = 'Gefechtsstationen'; className = 'status-critical'; }
     elements.crewStatus.textContent = statusText;
     elements.crewStatus.className = `status-pill ${className}`;
 }
 
+/** === Navigation Aktionen === */
 function handleNavigationPlot() {
     if (state.simulationPaused) return;
     if (state.sectors.length === 0) {
@@ -553,9 +713,9 @@ function handleNavigationPlot() {
         return;
     }
     const sector = state.sectors.find(sec => sec.id === elements.navSector.value);
-    const coordinates = elements.navCoordinates.value.trim();
-    const window = elements.navWindow.value;
-    const description = elements.navDescription.value.trim();
+    const coordinates = elements.navCoordinates?.value.trim();
+    const window = elements.navWindow?.value;
+    const description = elements.navDescription?.value.trim();
 
     if (!sector || !coordinates) {
         addLog('log', 'Navigation fehlgeschlagen: Zielsektor oder Koordinaten fehlen.');
@@ -569,67 +729,60 @@ function handleNavigationPlot() {
         systemIntegrity: engineSystem?.integrity
     };
     const etaMinutes = calculateEta(sector.baseEta, modifiers);
+    const etaSeconds = Math.max(0, Math.round(etaMinutes * 60));
 
-    state.navPlan = {
+    const navPlan = {
         sector,
         coordinates,
         window,
         description,
         etaMinutes,
+        remainingSeconds: etaSeconds,
         status: 'plotted'
     };
+    kernel.setState('navPlan', navPlan);
 
     updateNavigationStatus(`Kurs gesetzt (${sector.name})`, 'status-online');
-    elements.navEngage.disabled = false;
-    elements.navAbort.disabled = false;
-    elements.navEta.textContent = minutesToETA(etaMinutes);
+    if (elements.navEngage) elements.navEngage.disabled = false;
+    if (elements.navAbort) elements.navAbort.disabled = false;
+    if (elements.navEta) elements.navEta.textContent = secondsToETA(etaSeconds);
 
-    addLog('log', `Navigation: Kurs nach ${sector.name} gesetzt. ETA ${minutesToETA(etaMinutes)}.`);
+    addLog('log', `Navigation: Kurs nach ${sector.name} gesetzt. ETA ${secondsToETA(etaSeconds)}.`);
 }
 
 function handleNavigationEngage() {
     if (!state.navPlan || state.navPlan.status !== 'plotted') return;
-
     state.navPlan.status = 'engaged';
-    let remaining = state.navPlan.etaMinutes;
     updateNavigationStatus('Sprung aktiv', 'status-warning');
+    if (elements.navEngage) elements.navEngage.disabled = true;
+    if (elements.navAbort) elements.navAbort.disabled = false;
     addLog('log', 'Sprungsequenz eingeleitet. Alle Crew an Stationen.');
+    kernel.emit('navigation:engaged', { plan: state.navPlan });
+}
 
-    state.navTimer = setInterval(() => {
-        if (state.simulationPaused) return;
-        remaining -= 1;
-        elements.navEta.textContent = minutesToETA(Math.max(remaining, 0));
-        if (remaining <= 0) {
-            clearInterval(state.navTimer);
-            state.navTimer = null;
-            state.navPlan.status = 'arrived';
-            updateNavigationStatus('Ankunft bestätigt', 'status-online');
-            elements.navEngage.disabled = true;
-            elements.navAbort.disabled = true;
-            addLog('log', `Ziel ${state.navPlan.sector.name} erreicht. Navigation abgeschlossen.`);
-        }
-    }, 1000);
+function handleNavigationAbort() {
+    if (!state.navPlan) return;
+    addLog('log', 'Navigation abgebrochen. Kurs zurückgesetzt.');
+    kernel.emit('navigation:abort', { plan: state.navPlan });
+    kernel.setState('navPlan', null);
+    resetNavigation();
+}
+
+function updateNavigationStatus(text, className) {
+    if (!elements.navStatus) return;
+    elements.navStatus.textContent = text;
+    elements.navStatus.className = `status-pill ${className}`;
 }
 
 function resetNavigation() {
-    if (state.navTimer) {
-        clearInterval(state.navTimer);
-        state.navTimer = null;
-    }
-    state.navPlan = null;
     if (elements.navStatus) {
         elements.navStatus.textContent = 'Im Orbit';
         elements.navStatus.className = 'status-pill status-idle';
     }
-    if (elements.navEta) {
-        elements.navEta.textContent = '--:--';
-    }
-    if (elements.navEngage) {
-        elements.navEngage.disabled = true;
-    }
-    if (elements.navAbort) {
-        elements.navAbort.disabled = true;
-    }
+    if (elements.navEta) elements.navEta.textContent = '--:--';
+    if (elements.navEngage) elements.navEngage.disabled = true;
+    if (elements.navAbort) elements.navAbort.disabled = true;
+
     if (state.sectors.length > 0 && elements.navSector && elements.navCoordinates) {
         const defaultSector = state.sectors[0];
         elements.navSector.value = defaultSector.id;
@@ -637,104 +790,55 @@ function resetNavigation() {
     } else if (elements.navCoordinates) {
         elements.navCoordinates.value = '';
     }
-    if (elements.navWindow) {
-        elements.navWindow.value = '';
-    }
-    if (elements.navDescription) {
-        elements.navDescription.value = '';
-    }
+    if (elements.navWindow) elements.navWindow.value = '';
+    if (elements.navDescription) elements.navDescription.value = '';
 }
 
-function handleNavigationAbort() {
-    if (!state.navPlan) return;
-    resetNavigation();
-    addLog('log', 'Navigation abgebrochen. Kurs zurückgesetzt.');
-}
-
-function updateNavigationStatus(text, className) {
-    if (elements.navStatus) {
-        elements.navStatus.textContent = text;
-        elements.navStatus.className = `status-pill ${className}`;
-    }
-}
-
-function initTimekeeping() {
-    if (elements.stardate) {
-        elements.stardate.textContent = formatStardate();
-    }
-    if (elements.shipClock) {
-        elements.shipClock.textContent = formatTime();
-    }
-    setInterval(() => {
-        if (!state.simulationPaused && elements.shipClock) {
-            elements.shipClock.textContent = formatTime();
-        }
-    }, 1000);
-    setInterval(() => {
-        if (!state.simulationPaused && elements.stardate) {
-            elements.stardate.textContent = formatStardate();
-        }
-    }, 60000);
-}
-
-function initRandomEvents() {
-    if (state.randomEventTimer) {
-        clearInterval(state.randomEventTimer);
-    }
-    state.randomEventTimer = setInterval(() => {
-        if (state.simulationPaused || state.randomEvents.length === 0) {
-            return;
-        }
-        const index = randBetween(0, state.randomEvents.length - 1);
-        const event = state.randomEvents[index];
-        if (event) {
-            applyRandomEvent(event);
-        }
-    }, 45000);
-}
-
+/** === Random Events anwenden === */
 function applyRandomEvent(event) {
-    if (!event) {
-        return;
-    }
+    if (!event) return;
     addLog('log', event.message);
     if (event.impact) {
+        let systemsChanged = false;
+        const updatedSystems = state.systems.map(system => {
+            const impactValue = event.impact[system.id];
+            if (typeof impactValue === 'number') {
+                systemsChanged = true;
+                const updated = { ...system };
+                updated.integrity = clamp(updated.integrity + impactValue, 0, 100);
+                if (updated.integrity < 40) updated.status = 'warning';
+                return updated;
+            }
+            return system;
+        });
+
         Object.entries(event.impact).forEach(([key, value]) => {
             if (key === 'crew') {
                 if (typeof value === 'string' && value.trim()) {
                     addLog('log', `Crew-Meldung: ${value.trim()}`);
                 }
                 updateCrewStatus(state.alert);
-            } else {
-                const system = state.systems.find(sys => sys.id === key);
-                if (system) {
-                    const delta = typeof value === 'number' ? value : Number.parseFloat(value);
-                    if (Number.isFinite(delta)) {
-                        system.integrity = clamp(system.integrity + delta, 0, 100);
-                        if (system.integrity < 20) {
-                            system.status = 'critical';
-                        } else if (system.integrity < 40) {
-                            system.status = 'warning';
-                        }
-                    }
-                }
             }
         });
-        renderSystems();
+
+        if (systemsChanged) {
+            kernel.setState('systems', updatedSystems);
+            renderSystems();
+            kernel.emit('systems:updated', { reason: 'random-event', event });
+        }
     }
 }
 
+/** === Simulation Pause/Resume === */
 function toggleSimulation(paused) {
-    state.simulationPaused = paused;
-    if (elements.pauseSim) {
-        elements.pauseSim.disabled = paused;
-    }
-    if (elements.resumeSim) {
-        elements.resumeSim.disabled = !paused;
-    }
+    kernel.setState('simulationPaused', paused);
+    if (elements.pauseSim) elements.pauseSim.disabled = paused;
+    if (elements.resumeSim) elements.resumeSim.disabled = !paused;
     addLog('log', paused ? 'Simulation pausiert.' : 'Simulation fortgesetzt.');
+    kernel.emit(paused ? 'simulation:paused' : 'simulation:resumed', { paused });
 }
 
+/** === Event Bindings === */
 function bindEvents() {
     elements.powerSliders.forEach(slider => {
         slider.addEventListener('input', () => {
@@ -744,33 +848,34 @@ function bindEvents() {
         });
     });
     elements.balancePower?.addEventListener('click', suggestPowerDistribution);
+
     elements.commsSend?.addEventListener('click', handleCommsSend);
     elements.commsMessage?.addEventListener('keydown', event => {
-        if (event.key === 'Enter') {
-            handleCommsSend();
-        }
+        if (event.key === 'Enter') handleCommsSend();
     });
+
     elements.sensorScan?.addEventListener('click', performSensorScan);
+
     elements.alertYellow?.addEventListener('click', () => setAlertState('yellow'));
     elements.alertRed?.addEventListener('click', () => setAlertState('red'));
     elements.alertClear?.addEventListener('click', () => setAlertState('green'));
+
     elements.navPlot?.addEventListener('click', handleNavigationPlot);
     elements.navEngage?.addEventListener('click', handleNavigationEngage);
     elements.navAbort?.addEventListener('click', handleNavigationAbort);
     elements.navSector?.addEventListener('change', handleNavSectorChange);
+
     elements.pauseSim?.addEventListener('click', () => toggleSimulation(true));
     elements.resumeSim?.addEventListener('click', () => toggleSimulation(false));
+
     elements.reloadConfig?.addEventListener('click', handleManualReload);
 }
 
+/** === Manuelles Reload & Hot-Reload === */
 async function handleManualReload() {
-    if (state.reloadingScenario) {
-        return;
-    }
+    if (state.reloadingScenario) return;
     state.reloadingScenario = true;
-    if (elements.reloadConfig) {
-        elements.reloadConfig.disabled = true;
-    }
+    if (elements.reloadConfig) elements.reloadConfig.disabled = true;
     try {
         const result = await loadScenario(CONFIG_URL);
         if (state.currentScenarioHash && state.currentScenarioHash === result.hash) {
@@ -790,16 +895,12 @@ async function handleManualReload() {
         addLog('error', `Konfiguration konnte nicht neu geladen werden: ${error.message}`);
     } finally {
         state.reloadingScenario = false;
-        if (elements.reloadConfig) {
-            elements.reloadConfig.disabled = false;
-        }
+        if (elements.reloadConfig) elements.reloadConfig.disabled = false;
     }
 }
 
 function startHotReload(initialHash) {
-    if (state.hotReloader) {
-        state.hotReloader.stop();
-    }
+    if (state.hotReloader) state.hotReloader.stop();
     state.hotReloader = new ScenarioHotReloader(CONFIG_URL, {
         interval: 5000,
         onUpdate: result => {
@@ -816,12 +917,11 @@ function startHotReload(initialHash) {
             addLog('error', `Hot-Reload Fehler: ${error.message}`);
         }
     });
-    if (initialHash) {
-        state.hotReloader.setBaselineHash(initialHash);
-    }
+    if (initialHash) state.hotReloader.setBaselineHash(initialHash);
     state.hotReloader.start();
 }
 
+/** === Szenario -> State übernehmen === */
 function initializeStateFromScenario(scenario, {
     resetLogs = false,
     includeBootLog = false,
@@ -836,12 +936,8 @@ function initializeStateFromScenario(scenario, {
         registry: scenario.ship?.registry ?? '',
         class: scenario.ship?.class ?? ''
     };
-    if (elements.shipName) {
-        elements.shipName.textContent = state.ship.name;
-    }
-    if (elements.commanderName) {
-        elements.commanderName.textContent = state.ship.commander;
-    }
+    if (elements.shipName) elements.shipName.textContent = state.ship.name;
+    if (elements.commanderName) elements.commanderName.textContent = state.ship.commander;
 
     state.systems = (scenario.systems ?? []).map(normalizeSystem);
     state.sectors = (scenario.sectors ?? []).map(sector => ({ ...sector }));
@@ -867,28 +963,31 @@ function initializeStateFromScenario(scenario, {
     populateComms();
     renderCrew();
     renderObjectives();
+
     if (resetNav) {
         resetNavigation();
     } else if (elements.navSector) {
         handleNavSectorChange({ target: elements.navSector });
     }
+
     state.sensorReadings = [];
     renderSensorReadings();
     updateSensorControls();
     renderLogs();
     updateAlertDisplay(state.alert);
     updateCrewStatus(state.alert);
-    if (resetLogs && includeBootLog) {
-        addLog('log', 'StarshipOS betriebsbereit.');
-    }
-    if (logMessage) {
-        addLog('log', logMessage);
-    }
+
+    if (resetLogs && includeBootLog) addLog('log', 'StarshipOS betriebsbereit.');
+    if (logMessage) addLog('log', logMessage);
 }
 
+/** === Init === */
 async function init() {
     cacheDom();
     bindEvents();
+    configureKernelModules();
+
+    // Grundzustand anzeigen
     updateAlertDisplay(state.alert);
     initializeStateFromScenario(DEFAULT_SCENARIO, {
         resetLogs: true,
@@ -896,11 +995,16 @@ async function init() {
         logMessage: 'Fallback-Szenario geladen.',
         resetNavigation: true
     });
-    initTimekeeping();
-    initRandomEvents();
+
+    // Kernel-Module starten
+    kernel.startModule('timekeeping');
+    kernel.startModule('navigation');
+    kernel.startModule('random-events');
+
     updatePowerLabels();
     performSensorScan();
 
+    // XML laden + Hot-Reload starten
     try {
         const result = await loadScenario(CONFIG_URL);
         state.currentScenarioHash = result.hash;
@@ -916,6 +1020,8 @@ async function init() {
         console.error('Fehler beim Laden der XML-Konfiguration', error);
         addLog('error', `XML-Konfiguration konnte nicht geladen werden: ${error.message}`);
     }
+
+    kernel.boot();
 }
 
 document.addEventListener('DOMContentLoaded', () => {

@@ -34,4 +34,8 @@ Alle Zustände werden nur im Browser gespeichert und lassen sich jederzeit neu i
 - **Optik anpassen**: In `assets/css/styles.css` können Farbgebung, Layout und Animationen verändert werden.
 - **Logik erweitern**: `assets/js/app.js` enthält die Kernlogik. Hier können zusätzliche Module (z.B. Schadenskontrolle, Fracht, Wissenschaft) eingebunden werden.
 
+## Roadmap & Checklisten
+
+Die nächsten Ausbauphasen (Wissenschaft, Wirtschaft, Brücke, Szenarien und LARP-Betrieb) inklusive Stations-Checklisten sind in `docs/roadmap.md` dokumentiert. Nutzen Sie die dortigen Aufgabenlisten als Leitplanken für Implementierungen und Tests.
+
 Viel Spaß auf der Brücke!
