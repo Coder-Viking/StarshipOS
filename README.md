@@ -1,2 +1,30 @@
 # StarshipOS
-A fake OS with UI for LARP purpose SpaceShip Simulation
+
+Eine modulare Benutzeroberfläche zur Simulation eines Raumschiff-Betriebssystems für LARP- oder Pen-&-Paper-Szenarien.
+
+## Funktionen
+
+- **Schiffssystemübersicht** mit detaillierten Leistungs-, Integritäts- und Auslastungsanzeigen für alle Kernsysteme.
+- **Energieverteilung** mit interaktiven Reglern inklusive automatischer Optimierungsempfehlung.
+- **Navigationsmodul** zum Setzen, Aktivieren und Abbrechen von Kursen inklusive ETA-Berechnung anhand der aktuellen Schiffslage.
+- **Kommunikationskonsole** mit Kanalverwaltung und logischer Nachrichtenchronik.
+- **Sensorsuite** für aktive Scans und dynamisch generierte Sensordaten.
+- **Alarmzentrale** mit Zustandsverwaltung (Grün/Gelb/Rot) und automatisch gepflegtem Ereignislog.
+- **Crew- und Missionsübersicht** mit aktuellen Statusinformationen.
+- **Simulationsteuerung** zum Pausieren/Fortsetzen sowie zufällige Ereignisse zur Dramaturgie.
+
+## Nutzung
+
+1. Repository klonen oder herunterladen.
+2. `index.html` im Browser öffnen (moderne Browser empfohlen, da ES-Modul verwendet wird).
+3. Optional kann ein lokaler Webserver genutzt werden, um Audio/Video-Erweiterungen einzubinden.
+
+Alle Zustände werden nur im Browser gespeichert und lassen sich jederzeit neu initialisieren, indem die Seite neu geladen wird.
+
+## Anpassung
+
+- **Systeme erweitern**: In `assets/js/modules/data.js` lassen sich weitere Schiffssysteme, Sektoren, Kommunikationskanäle oder Crewmitglieder hinzufügen.
+- **Optik anpassen**: In `assets/css/styles.css` können Farbgebung, Layout und Animationen verändert werden.
+- **Logik erweitern**: `assets/js/app.js` enthält die Kernlogik. Hier können zusätzliche Module (z.B. Schadenskontrolle, Fracht, Wissenschaft) eingebunden werden.
+
+Viel Spaß auf der Brücke!

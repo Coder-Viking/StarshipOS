@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StarshipOS - Command Interface</title>
+    <link rel="stylesheet" href="assets/css/styles.css">
+</head>
+<body>
+    <div id="app" class="app-shell">
+        <header class="app-header">
+            <div>
+                <h1>StarshipOS</h1>
+                <p class="subtitle">LARP-Schiffs-Kontrollsystem</p>
+            </div>
+            <div class="ship-meta">
+                <div class="meta-block">
+                    <span class="meta-label">Schiff:</span>
+                    <span id="ship-name" class="meta-value">NV-01 Phoenix</span>
+                </div>
+                <div class="meta-block">
+                    <span class="meta-label">Kommandant:</span>
+                    <span id="commander-name" class="meta-value">Captain Mira Sol</span>
+                </div>
+                <div class="meta-block">
+                    <span class="meta-label">Sternzeit:</span>
+                    <span id="stardate" class="meta-value"></span>
+                </div>
+            </div>
+        </header>
+        <main class="app-main">
+            <section class="systems-panel">
+                <h2>Schiffssysteme</h2>
+                <div id="system-grid" class="system-grid"></div>
+                <div class="power-management">
+                    <h3>Energieverteilung</h3>
+                    <div class="power-sliders">
+                        <label class="power-group">
+                            <span>Antrieb</span>
+                            <input type="range" id="power-engines" min="0" max="100" value="40">
+                            <span class="power-value" data-output="power-engines">40%</span>
+                        </label>
+                        <label class="power-group">
+                            <span>Schilde</span>
+                            <input type="range" id="power-shields" min="0" max="100" value="30">
+                            <span class="power-value" data-output="power-shields">30%</span>
+                        </label>
+                        <label class="power-group">
+                            <span>Waffen</span>
+                            <input type="range" id="power-weapons" min="0" max="100" value="20">
+                            <span class="power-value" data-output="power-weapons">20%</span>
+                        </label>
+                        <label class="power-group">
+                            <span>Hilfssysteme</span>
+                            <input type="range" id="power-aux" min="0" max="100" value="10">
+                            <span class="power-value" data-output="power-aux">10%</span>
+                        </label>
+                    </div>
+                    <button id="balance-power" class="accent-button">Optimierungsvorschlag anwenden</button>
+                </div>
+            </section>
+            <section class="mission-panel">
+                <div class="navigation module">
+                    <header>
+                        <h2>Navigation</h2>
+                        <span id="nav-status" class="status-pill status-idle">Im Orbit</span>
+                    </header>
+                    <div class="nav-content">
+                        <div class="nav-grid">
+                            <label>
+                                Zielsektor
+                                <select id="nav-sector"></select>
+                            </label>
+                            <label>
+                                Koordinaten
+                                <input type="text" id="nav-coordinates" placeholder="A-01-45">
+                            </label>
+                            <label>
+                                Sprungfenster
+                                <input type="time" id="nav-window">
+                            </label>
+                            <label>
+                                Kursbeschreibung
+                                <input type="text" id="nav-description" placeholder="z.B. Forschungsmission">
+                            </label>
+                        </div>
+                        <div class="nav-actions">
+                            <button id="nav-plot" class="primary-button">Kurs berechnen</button>
+                            <button id="nav-engage" class="accent-button" disabled>Sprung einleiten</button>
+                            <button id="nav-abort" class="danger-button" disabled>Sprung abbrechen</button>
+                        </div>
+                        <div class="nav-eta">
+                            <span>ETA:</span>
+                            <strong id="nav-eta">--:--</strong>
+                        </div>
+                    </div>
+                </div>
+                <div class="comms-sensors">
+                    <div class="communications module">
+                        <header>
+                            <h2>Kommunikation</h2>
+                            <span id="comms-status" class="status-pill status-online">Online</span>
+                        </header>
+                        <div class="comms-body">
+                            <div class="comms-channel">
+                                <label>Primärer Kanal</label>
+                                <select id="comms-channel"></select>
+                            </div>
+                            <div class="comms-log" id="comms-log"></div>
+                            <div class="comms-controls">
+                                <input type="text" id="comms-message" placeholder="Nachricht eingeben">
+                                <button id="comms-send" class="primary-button">Senden</button>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="sensors module">
+                        <header>
+                            <h2>Sensoren</h2>
+                            <span id="sensor-scan-status" class="status-pill status-online">Bereit</span>
+                        </header>
+                        <div class="sensor-body">
+                            <div class="sensor-readings" id="sensor-readings"></div>
+                            <button id="sensor-scan" class="primary-button">Aktiven Scan auslösen</button>
+                        </div>
+                    </div>
+                </div>
+                <div class="alerts module">
+                    <header>
+                        <h2>Alarm &amp; Log</h2>
+                        <span id="alert-state" class="status-pill status-idle">Keine Warnungen</span>
+                    </header>
+                    <div class="alert-body">
+                        <div class="alert-controls">
+                            <button id="alert-yellow" class="warning-button">Gelb</button>
+                            <button id="alert-red" class="danger-button">Rot</button>
+                            <button id="alert-clear" class="primary-button">Zurücksetzen</button>
+                        </div>
+                        <div class="event-log" id="event-log"></div>
+                    </div>
+                </div>
+            </section>
+            <aside class="detail-panel">
+                <div class="crew module">
+                    <header>
+                        <h2>Crew Status</h2>
+                        <span id="crew-status" class="status-pill status-online">Stabil</span>
+                    </header>
+                    <ul id="crew-list" class="crew-list"></ul>
+                </div>
+                <div class="mission-objectives module">
+                    <header>
+                        <h2>Mission</h2>
+                    </header>
+                    <ul id="mission-objectives" class="objective-list"></ul>
+                </div>
+                <div class="system-inspector module">
+                    <header>
+                        <h2>Systemdetails</h2>
+                        <span id="inspector-status" class="status-pill status-idle">System wählen</span>
+                    </header>
+                    <div id="inspector-body" class="inspector-body">
+                        <p>Wählen Sie ein System aus der linken Liste, um detaillierte Informationen zu erhalten.</p>
+                    </div>
+                </div>
+            </aside>
+        </main>
+        <footer class="app-footer">
+            <div id="ship-clock">--:--:--</div>
+            <div class="footer-controls">
+                <button id="pause-sim" class="secondary-button">Simulation pausieren</button>
+                <button id="resume-sim" class="primary-button" disabled>Simulation fortsetzen</button>
+            </div>
+        </footer>
+    </div>
+    <script type="module" src="assets/js/app.js"></script>
+</body>
+</html>
