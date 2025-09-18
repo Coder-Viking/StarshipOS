@@ -20,16 +20,24 @@ import {
     calculateEta,
     minutesToETA
 } from './modules/utils.js';
+import { Kernel } from './modules/kernel.js';
 
-const state = {
+const initialState = {
     systems: SHIP_SYSTEMS.map(system => ({ ...system })),
     alert: 'green',
     navPlan: null,
-    navTimer: null,
-    logs: INITIAL_LOG.map(entry => ({ ...entry, id: crypto.randomUUID(), timestamp: new Date() })),
+    logs: INITIAL_LOG.map(entry => createLogEntry(entry.type, entry.message)),
     sensorReadings: [],
     simulationPaused: false
 };
+
+const kernel = new Kernel(initialState, {
+    ticksPerSecond: 1,
+    onLog: handleKernelLog,
+    onError: handleKernelError
+});
+
+const state = kernel.state;
 
 const elements = {};
 
@@ -68,6 +76,96 @@ function cacheDom() {
     elements.missionObjectives = document.getElementById('mission-objectives');
     elements.pauseSim = document.getElementById('pause-sim');
     elements.resumeSim = document.getElementById('resume-sim');
+}
+
+function configureKernelModules() {
+    kernel.registerModule('timekeeping', {
+        onStart() {
+            elements.stardate.textContent = formatStardate();
+            elements.shipClock.textContent = formatTime();
+        },
+        onTick(context, tick) {
+            if (context.state.simulationPaused) {
+                return;
+            }
+            elements.shipClock.textContent = formatTime();
+            if (tick % 60 === 0) {
+                elements.stardate.textContent = formatStardate();
+            }
+        }
+    });
+
+    kernel.registerModule('navigation', {
+        onStart(context) {
+            context.locals.unsubscribe?.forEach(unsub => unsub());
+            context.locals.unsubscribe = [
+                context.on('navigation:engaged', () => {
+                    if (context.state.navPlan) {
+                        context.state.navPlan.remainingSeconds = context.state.navPlan.etaMinutes;
+                    }
+                }),
+                context.on('navigation:abort', () => {
+                    if (context.state.navPlan) {
+                        context.state.navPlan.status = 'aborted';
+                    }
+                })
+            ];
+        },
+        onTick(context) {
+            const { state } = context;
+            if (!state.navPlan || state.navPlan.status !== 'engaged') {
+                return;
+            }
+            if (state.simulationPaused) {
+                return;
+            }
+            const next = Math.max(0, (state.navPlan.remainingSeconds ?? state.navPlan.etaMinutes) - 1);
+            state.navPlan.remainingSeconds = next;
+            elements.navEta.textContent = minutesToETA(next);
+            if (next <= 0) {
+                state.navPlan.status = 'arrived';
+                updateNavigationStatus('Ankunft bestätigt', 'status-online');
+                elements.navEngage.disabled = true;
+                elements.navAbort.disabled = true;
+                kernel.log('log', `Ziel ${state.navPlan.sector.name} erreicht. Navigation abgeschlossen.`);
+                kernel.emit('navigation:arrived', { sector: state.navPlan.sector });
+            }
+        },
+        onStop(context) {
+            context.locals.unsubscribe?.forEach(unsub => unsub());
+            context.locals.unsubscribe = [];
+        }
+    });
+
+    kernel.registerModule('random-events', {
+        onStart(context) {
+            context.locals.unsubscribe?.forEach(unsub => unsub());
+            context.locals.cooldown = 45;
+            context.locals.unsubscribe = [
+                context.on('alert:changed', ({ payload }) => {
+                    if (payload.level === 'red') {
+                        context.locals.cooldown = Math.min(context.locals.cooldown, 10);
+                    }
+                })
+            ];
+        },
+        onTick(context) {
+            const { state, locals } = context;
+            if (state.simulationPaused) {
+                return;
+            }
+            locals.cooldown -= 1;
+            if (locals.cooldown <= 0) {
+                const event = RANDOM_EVENTS[randBetween(0, RANDOM_EVENTS.length - 1)];
+                applyRandomEvent(event);
+                locals.cooldown = state.alert === 'red' ? 25 : 45;
+            }
+        },
+        onStop(context) {
+            context.locals.unsubscribe?.forEach(unsub => unsub());
+            context.locals.unsubscribe = [];
+        }
+    });
 }
 
 function renderSystems() {
@@ -288,14 +386,27 @@ function renderLogs() {
     });
 }
 
-function addLog(type, message) {
-    const entry = createLogEntry(type, message);
-    state.logs.push(entry);
-    if (type === 'comms') {
-        elements.commsLog.insertAdjacentHTML('afterbegin', formatLogEntry(entry));
-    } else {
-        elements.eventLog.insertAdjacentHTML('afterbegin', formatLogEntry(entry));
+function handleKernelLog(entry) {
+    if (!elements.eventLog || !elements.commsLog) {
+        return;
     }
+    const formatted = formatLogEntry(entry);
+    if (entry.type === 'comms') {
+        elements.commsLog.insertAdjacentHTML('afterbegin', formatted);
+    } else {
+        elements.eventLog.insertAdjacentHTML('afterbegin', formatted);
+    }
+}
+
+function handleKernelError(errorState) {
+    const { moduleId, phase, error } = errorState;
+    const scope = moduleId ? `Modul '${moduleId}'` : 'Kernel';
+    const message = `${scope} Fehler (${phase ?? 'unbekannt'}): ${error.message}`;
+    kernel.log('error', message, { moduleId, phase });
+}
+
+function addLog(type, message, meta) {
+    return kernel.log(type, message, meta);
 }
 
 function handleCommsSend() {
@@ -319,7 +430,7 @@ function performSensorScan() {
             value: reading.base + randBetween(-reading.variance, reading.variance),
             unit: reading.unit
         }));
-        state.sensorReadings = readings;
+        kernel.setState('sensorReadings', readings);
         renderSensorReadings();
         elements.sensorScan.disabled = false;
         elements.sensorScanStatus.textContent = 'Bereit';
@@ -339,12 +450,13 @@ function renderSensorReadings() {
 }
 
 function setAlertState(level) {
-    state.alert = level;
+    kernel.setState('alert', level);
     const { label, className } = ALERT_STATES[level];
     elements.alertState.textContent = label;
     elements.alertState.className = `status-pill ${className}`;
     addLog('log', `Alarmstufe geändert: ${label}.`);
     updateCrewStatus(level);
+    kernel.emit('alert:changed', { level });
 }
 
 function updateCrewStatus(alertLevel) {
@@ -381,7 +493,7 @@ function handleNavigationPlot() {
     };
     const etaMinutes = calculateEta(sector.baseEta, modifiers);
 
-    state.navPlan = {
+    const navPlan = {
         sector,
         coordinates,
         window,
@@ -389,6 +501,7 @@ function handleNavigationPlot() {
         etaMinutes,
         status: 'plotted'
     };
+    kernel.setState('navPlan', navPlan);
 
     elements.navStatus.textContent = `Kurs gesetzt (${sector.name})`;
     elements.navStatus.className = 'status-pill status-online';
@@ -403,32 +516,19 @@ function handleNavigationEngage() {
     if (!state.navPlan || state.navPlan.status !== 'plotted') return;
 
     state.navPlan.status = 'engaged';
-    let remaining = state.navPlan.etaMinutes;
+    state.navPlan.remainingSeconds = state.navPlan.etaMinutes;
     updateNavigationStatus('Sprung aktiv', 'status-warning');
+    elements.navEngage.disabled = true;
+    elements.navAbort.disabled = false;
     addLog('log', 'Sprungsequenz eingeleitet. Alle Crew an Stationen.');
-
-    state.navTimer = setInterval(() => {
-        if (state.simulationPaused) return;
-        remaining -= 1;
-        elements.navEta.textContent = minutesToETA(remaining);
-        if (remaining <= 0) {
-            clearInterval(state.navTimer);
-            state.navPlan.status = 'arrived';
-            updateNavigationStatus('Ankunft bestätigt', 'status-online');
-            elements.navEngage.disabled = true;
-            elements.navAbort.disabled = true;
-            addLog('log', `Ziel ${state.navPlan.sector.name} erreicht. Navigation abgeschlossen.`);
-        }
-    }, 1000);
+    kernel.emit('navigation:engaged', { plan: state.navPlan });
 }
 
 function handleNavigationAbort() {
     if (!state.navPlan) return;
-    if (state.navTimer) {
-        clearInterval(state.navTimer);
-    }
     addLog('log', 'Navigation abgebrochen. Kurs zurückgesetzt.');
-    state.navPlan = null;
+    kernel.emit('navigation:abort', { plan: state.navPlan });
+    kernel.setState('navPlan', null);
     elements.navStatus.textContent = 'Im Orbit';
     elements.navStatus.className = 'status-pill status-idle';
     elements.navEta.textContent = '--:--';
@@ -442,18 +542,7 @@ function updateNavigationStatus(text, className) {
 }
 
 function initTimekeeping() {
-    elements.stardate.textContent = formatStardate();
-    elements.shipClock.textContent = formatTime();
-    setInterval(() => {
-        if (!state.simulationPaused) {
-            elements.shipClock.textContent = formatTime();
-        }
-    }, 1000);
-    setInterval(() => {
-        if (!state.simulationPaused) {
-            elements.stardate.textContent = formatStardate();
-        }
-    }, 60000);
+    kernel.startModule('timekeeping');
 }
 
 function initLogFeed() {
@@ -462,36 +551,47 @@ function initLogFeed() {
 }
 
 function initRandomEvents() {
-    setInterval(() => {
-        if (state.simulationPaused) return;
-        const event = RANDOM_EVENTS[randBetween(0, RANDOM_EVENTS.length - 1)];
-        applyRandomEvent(event);
-    }, 45000);
+    kernel.startModule('random-events');
 }
 
 function applyRandomEvent(event) {
     addLog('log', event.message);
     if (event.impact) {
-        Object.entries(event.impact).forEach(([key, value]) => {
+        let systemsChanged = false;
+        const updatedSystems = state.systems.map(system => {
+            const impactValue = event.impact[system.id];
+            if (typeof impactValue === 'number') {
+                systemsChanged = true;
+                const updated = { ...system };
+                updated.integrity = clamp(updated.integrity + impactValue, 0, 100);
+                if (updated.integrity < 40) {
+                    updated.status = 'warning';
+                }
+                return updated;
+            }
+            return system;
+        });
+
+        Object.entries(event.impact).forEach(([key]) => {
             if (key === 'crew') {
                 updateCrewStatus(state.alert);
-            } else {
-                const system = state.systems.find(sys => sys.id === key);
-                if (system) {
-                    system.integrity = clamp(system.integrity + value, 0, 100);
-                    system.status = system.integrity < 40 ? 'warning' : system.status;
-                }
             }
         });
-        renderSystems();
+
+        if (systemsChanged) {
+            kernel.setState('systems', updatedSystems);
+            renderSystems();
+            kernel.emit('systems:updated', { reason: 'random-event', event });
+        }
     }
 }
 
 function toggleSimulation(paused) {
-    state.simulationPaused = paused;
+    kernel.setState('simulationPaused', paused);
     elements.pauseSim.disabled = paused;
     elements.resumeSim.disabled = !paused;
     addLog('log', paused ? 'Simulation pausiert.' : 'Simulation fortgesetzt.');
+    kernel.emit(paused ? 'simulation:paused' : 'simulation:resumed', { paused });
 }
 
 function bindEvents() {
@@ -522,6 +622,7 @@ function bindEvents() {
 
 function init() {
     cacheDom();
+    configureKernelModules();
     renderSystems();
     renderCrew();
     renderObjectives();
@@ -530,10 +631,12 @@ function init() {
     populateComms();
     updatePowerLabels();
     initTimekeeping();
+    kernel.startModule('navigation');
     initLogFeed();
     initRandomEvents();
     bindEvents();
     performSensorScan();
+    kernel.boot();
 }
 
 document.addEventListener('DOMContentLoaded', init);
