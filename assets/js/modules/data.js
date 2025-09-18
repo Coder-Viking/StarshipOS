@@ -1,3 +1,10 @@
+const SHIP_INFO = {
+    name: 'NV-01 Phoenix',
+    registry: 'NV-01',
+    class: 'Langstrecken-Explorer',
+    commander: 'Captain Mira Sol'
+};
+
 export const SHIP_SYSTEMS = [
     {
         id: 'life-support',
@@ -183,3 +190,22 @@ export const RANDOM_EVENTS = [
         impact: { shields: 5, engines: -3 }
     }
 ];
+
+export const DEFAULT_SCENARIO = {
+    id: 'default-js',
+    name: 'Standardübungsmission',
+    version: '1.0',
+    ship: { ...SHIP_INFO },
+    systems: SHIP_SYSTEMS.map(system => ({ ...system })),
+    sectors: SECTORS.map(sector => ({ ...sector })),
+    commChannels: COMM_CHANNELS.map(channel => ({ ...channel })),
+    crew: CREW.map(member => ({ ...member })),
+    objectives: OBJECTIVES.map(objective => ({ ...objective })),
+    sensorBaselines: SENSOR_BASELINES.map(baseline => ({ ...baseline })),
+    alertStates: { ...ALERT_STATES },
+    initialLog: INITIAL_LOG.map(entry => ({ ...entry })),
+    randomEvents: RANDOM_EVENTS.map(event => ({
+        ...event,
+        impact: event.impact ? { ...event.impact } : undefined
+    }))
+};
