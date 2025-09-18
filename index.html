@@ -153,6 +153,32 @@
                     </header>
                     <ul id="mission-objectives" class="objective-list"></ul>
                 </div>
+                <div class="data-recorder module">
+                    <header>
+                        <h2>Debriefing &amp; Speicher</h2>
+                        <span id="snapshot-status" class="status-pill status-idle">Lokaler Speicher</span>
+                    </header>
+                    <div class="data-recorder-body">
+                        <div class="snapshot-controls">
+                            <input type="text" id="snapshot-name" placeholder="Name für Snapshot">
+                            <button id="snapshot-save" class="primary-button">Snapshot speichern</button>
+                        </div>
+                        <div class="snapshot-list">
+                            <label for="snapshot-list">Gespeicherte Snapshots</label>
+                            <select id="snapshot-list" size="4"></select>
+                            <div class="snapshot-actions">
+                                <button id="snapshot-load" class="accent-button" disabled>Snapshot laden</button>
+                                <button id="snapshot-delete" class="danger-button" disabled>Snapshot löschen</button>
+                            </div>
+                        </div>
+                        <div class="log-tools">
+                            <button id="log-export" class="secondary-button">Log exportieren</button>
+                            <button id="log-replay" class="secondary-button">Replay starten</button>
+                            <button id="log-replay-stop" class="secondary-button" disabled>Replay stoppen</button>
+                        </div>
+                        <div id="replay-output" class="replay-output"></div>
+                    </div>
+                </div>
                 <div class="system-inspector module">
                     <header>
                         <h2>Systemdetails</h2>
