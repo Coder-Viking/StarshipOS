@@ -1,6 +1,7 @@
 # Fortschrittsnotizen
 
 ## Aktuelle Sitzung
+- Maschinenraum-Panels für EN-01 (Reaktorkontrolle) und EN-06 (Schadenskontrolle & Leitungen) um Lageübersichten erweitert: Netzbelastung, Reserven sowie Thermalkreise werden jetzt direkt aus den Szenariodaten angezeigt.
 - Verteidigungs-Szenariodaten (Schilde & Hülle) in Fallback und XML ergänzt, inklusive Sektorstatus, Verstärkungseinstellungen, Notfallbarrieren und struktureller Hotspots.
 - Parser (`station-scenario.js`) um `parseDefense` erweitert, damit Schild- und Hüllenstationen ihre Panels aus dem Szenario speisen.
 - Interaktive Panels für `def-shields` und `def-hull` umgesetzt: Sektormetriken, Verstärkungssteuerung, Barrieren, taktische Prioritäten, Schott-/Verstrebungsübersichten sowie Resonanzwarnungen.
