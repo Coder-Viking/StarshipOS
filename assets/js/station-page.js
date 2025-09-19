@@ -102,15 +102,15 @@ function renderStation(stationId) {
         Array.from(modules)
             .sort((a, b) => a.localeCompare(b, 'de'))
             .forEach((mod, index, arr) => {
-            const link = document.createElement('a');
-            link.href = `/${mod}`;
-            link.textContent = mod;
-            link.className = 'station-link';
-            jsModules.appendChild(link);
-            if (index < arr.length - 1) {
-                jsModules.appendChild(document.createElement('br'));
-            }
-        });
+                const link = document.createElement('a');
+                link.href = `/${mod}`;
+                link.textContent = mod;
+                link.className = 'station-link';
+                jsModules.appendChild(link);
+                if (index < arr.length - 1) {
+                    jsModules.appendChild(document.createElement('br'));
+                }
+            });
     }
 
     if (relatedList) {
@@ -119,8 +119,8 @@ function renderStation(stationId) {
         relatedStations.forEach((item) => {
             const li = document.createElement('li');
             if (item.htmlPath) {
-                const link = document.createElement('a');
                 const { route } = resolveStationPaths(item.htmlPath);
+                const link = document.createElement('a');
                 link.href = route;
                 link.textContent = item.name;
                 link.className = 'station-link';
