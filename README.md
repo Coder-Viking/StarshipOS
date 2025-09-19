@@ -9,6 +9,8 @@ Eine modulare Benutzeroberfläche zur Simulation eines Raumschiff-Betriebssystem
 - **Navigationsmodul** zum Setzen, Aktivieren und Abbrechen von Kursen inklusive ETA-Berechnung anhand der aktuellen Schiffslage.
 - **Kommunikationskonsole** mit Kanalverwaltung und logischer Nachrichtenchronik.
 - **Sensorsuite** für aktive Scans und dynamisch generierte Sensordaten.
+- **Damage Control** mit konsolidierten Meldungen, Bypässen und Reparaturverfolgung.
+- **Taktische Übersicht** mit Ziellisten, Sektor-HUD und Waffenabklingzeiten.
 - **Alarmzentrale** mit Zustandsverwaltung (Grün/Gelb/Rot) und automatisch gepflegtem Ereignislog.
 - **Crew- und Missionsübersicht** mit aktuellen Statusinformationen.
 - **Simulationsteuerung** zum Pausieren/Fortsetzen sowie zufällige Ereignisse zur Dramaturgie.
