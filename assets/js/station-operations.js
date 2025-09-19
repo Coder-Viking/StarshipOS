@@ -769,7 +769,16 @@ async function renderEngReactor(container) {
     }
 }
 
-function renderEngPower(container) {
+async function renderEngPower(container) {
+    let scenarioData = null;
+    try {
+        scenarioData = await loadScenarioData();
+    } catch (error) {
+        console.error('Fehler beim Laden der Szenariodaten für Energieverteilung:', error);
+    }
+
+    const powerData = scenarioData?.power ?? {};
+
     const distributionBody = createPanel(container, {
         title: 'Leistungszuweisung',
         description: 'Reaktorleistung auf Busse und Subsysteme verteilen.'
@@ -778,14 +787,16 @@ function renderEngPower(container) {
     const distributionList = document.createElement('div');
     distributionList.className = 'operations-distribution';
 
-    const subsystems = [
-        { id: 'power-shields', name: 'Schilde', value: 32, max: 45, status: 'Gefechtsbereit', tone: 'accent' },
-        { id: 'power-weapons', name: 'Waffen', value: 26, max: 40, status: 'Ladezyklen stabil', tone: 'warning' },
-        { id: 'power-life', name: 'Lebenserhaltung', value: 12, max: 20, status: 'Nominal', tone: 'success' },
-        { id: 'power-eng', name: 'Engineering Hilfssysteme', value: 18, max: 25, status: 'Überwacht', tone: 'warning' }
-    ];
+    const buses = Array.isArray(powerData.distribution) && powerData.distribution.length
+        ? powerData.distribution
+        : [
+              { id: 'power-shields', name: 'Schilde', value: 32, max: 45, status: 'Gefechtsbereit', tone: 'accent' },
+              { id: 'power-weapons', name: 'Waffen', value: 26, max: 40, status: 'Ladezyklen stabil', tone: 'warning' },
+              { id: 'power-life', name: 'Lebenserhaltung', value: 12, max: 20, status: 'Nominal', tone: 'success' },
+              { id: 'power-eng', name: 'Engineering Hilfssysteme', value: 18, max: 25, status: 'Überwacht', tone: 'warning' }
+          ];
 
-    subsystems.forEach((subsystem) => {
+    buses.forEach((bus, index) => {
         const row = document.createElement('div');
         row.className = 'operations-distribution__row';
 
@@ -794,46 +805,75 @@ function renderEngPower(container) {
 
         const title = document.createElement('span');
         title.className = 'operations-distribution__title';
-        title.textContent = subsystem.name;
+        title.textContent = bus.name || `Energiebus ${index + 1}`;
         header.appendChild(title);
-        header.appendChild(createStatusBadge({ label: subsystem.status, tone: subsystem.tone }));
+
+        if (bus.status) {
+            header.appendChild(createStatusBadge({ label: bus.status, tone: bus.tone || 'default' }));
+        }
+
         row.appendChild(header);
 
-        row.appendChild(
-            createRangeControl({
-                id: subsystem.id,
-                label: 'Leistungsanteil',
-                min: 0,
-                max: subsystem.max,
-                step: 1,
-                value: subsystem.value,
-                unit: '%',
-                description: `Grenzlast ${subsystem.max}%`
-            })
-        );
+        const range = createRangeControl({
+            id: bus.id || `power-bus-${index}`,
+            label: bus.controlLabel || 'Leistungsanteil',
+            min: bus.min ?? 0,
+            max: bus.max ?? 100,
+            step: bus.step ?? 1,
+            value: bus.value ?? 0,
+            unit: bus.unit || '%',
+            description:
+                bus.description ||
+                bus.note ||
+                (bus.max != null ? `Grenzlast ${formatValue(bus.max)}${bus.unit || '%'}` : undefined)
+        });
 
+        row.appendChild(range);
         distributionList.appendChild(row);
     });
 
-    distributionBody.appendChild(distributionList);
+    if (!distributionList.children.length) {
+        appendEmptyState(distributionBody, 'Keine Daten zur Leistungszuweisung vorhanden.');
+    } else {
+        distributionBody.appendChild(distributionList);
+    }
 
     const priorityBody = createPanel(container, {
         title: 'Prioritätsprofile',
         description: 'Vordefinierte Verteilprofile laden und aktivieren.'
     });
 
-    priorityBody.appendChild(
-        createRadioGroup({
-            name: 'power-profile',
-            label: 'Profil auswählen',
-            options: [
-                { label: 'Reise (Cruise)', value: 'cruise', description: 'Stabile Schilde, Fokus auf Lebenserhaltung.' },
-                { label: 'Gefecht', value: 'battle', description: 'Waffen- und Schildleistung priorisieren.' },
-                { label: 'Notfall', value: 'emergency', description: 'Lebenserhaltung + Reaktorsicherheit, Rest minimal.' }
-            ],
-            defaultValue: 'battle'
-        })
-    );
+    const profiles = Array.isArray(powerData.profiles) ? powerData.profiles : [];
+    if (profiles.length) {
+        const defaultProfile = profiles.find((profile) => profile.active) || profiles[0];
+        const options = profiles.map((profile, index) => ({
+            label: profile.label || profile.name || `Profil ${index + 1}`,
+            value: profile.id || `profile-${index}`,
+            description: profile.description || profile.note || ''
+        }));
+
+        priorityBody.appendChild(
+            createRadioGroup({
+                name: 'power-profile',
+                label: 'Profil auswählen',
+                options,
+                defaultValue: defaultProfile?.id || options[0]?.value
+            })
+        );
+    } else {
+        priorityBody.appendChild(
+            createRadioGroup({
+                name: 'power-profile',
+                label: 'Profil auswählen',
+                options: [
+                    { label: 'Reise (Cruise)', value: 'cruise', description: 'Stabile Schilde, Fokus auf Lebenserhaltung.' },
+                    { label: 'Gefecht', value: 'battle', description: 'Waffen- und Schildleistung priorisieren.' },
+                    { label: 'Notfall', value: 'emergency', description: 'Lebenserhaltung + Reaktorsicherheit, Rest minimal.' }
+                ],
+                defaultValue: 'battle'
+            })
+        );
+    }
 
     priorityBody.appendChild(createButtonRow([{ label: 'Profil anwenden' }, { label: 'Anpassung speichern', tone: 'ghost' }]));
 
@@ -842,203 +882,309 @@ function renderEngPower(container) {
         description: 'Vorbereitete Bypässe und Brownout-Pfade prüfen.'
     });
 
-    const circuits = [
-        {
-            id: 'shed-weapons',
-            label: 'Sekundäre Waffenbanken',
-            defaultChecked: true,
-            description: 'Wird bei Brownout automatisch getrennt.',
-            tone: 'warning'
-        },
-        {
-            id: 'shed-labs',
-            label: 'Wissenschaftslabore',
-            defaultChecked: false,
-            description: 'Kann bei längerem Gefecht entkoppelt werden.',
-            tone: 'default'
-        },
-        {
-            id: 'shed-hydroponics',
-            label: 'Hydroponik-Cluster',
-            defaultChecked: false,
-            description: 'Nur im äußersten Notfall deaktivieren.',
-            tone: 'danger'
-        }
-    ];
+    const circuits = Array.isArray(powerData.circuits) && powerData.circuits.length
+        ? powerData.circuits
+        : [
+              {
+                  id: 'shed-weapons',
+                  label: 'Sekundäre Waffenbanken',
+                  defaultChecked: true,
+                  description: 'Wird bei Brownout automatisch getrennt.',
+                  tone: 'warning'
+              },
+              {
+                  id: 'shed-labs',
+                  label: 'Wissenschaftslabore',
+                  defaultChecked: false,
+                  description: 'Kann bei längerem Gefecht entkoppelt werden.',
+                  tone: 'default'
+              },
+              {
+                  id: 'shed-hydroponics',
+                  label: 'Hydroponik-Cluster',
+                  defaultChecked: false,
+                  description: 'Nur im äußersten Notfall deaktivieren.',
+                  tone: 'danger'
+              }
+          ];
 
-    const circuitList = document.createElement('div');
-    circuitList.className = 'operations-control-list';
-    circuits.forEach((circuit) => {
-        circuitList.appendChild(
-            createToggleControl({
-                id: circuit.id,
-                label: circuit.label,
-                defaultChecked: circuit.defaultChecked,
-                description: circuit.description,
-                tone: circuit.tone
-            })
+    if (!circuits.length) {
+        appendEmptyState(loadBody, 'Keine Lastabwurfpfade konfiguriert.');
+    } else {
+        const circuitList = document.createElement('div');
+        circuitList.className = 'operations-control-list';
+        circuits.forEach((circuit, index) => {
+            circuitList.appendChild(
+                createToggleControl({
+                    id: circuit.id || `shed-${index}`,
+                    label: circuit.label || `Pfad ${index + 1}`,
+                    defaultChecked: Boolean(circuit.defaultChecked ?? circuit.armed ?? circuit.enabled),
+                    description: circuit.description || circuit.note || '',
+                    tone: circuit.tone || 'default'
+                })
+            );
+        });
+        loadBody.appendChild(circuitList);
+        loadBody.appendChild(
+            createButtonRow([{ label: 'Lastabwurf auslösen', tone: 'danger' }, { label: 'Abwurfplan sichern', tone: 'ghost' }])
         );
-    });
-    loadBody.appendChild(circuitList);
-    loadBody.appendChild(createButtonRow([{ label: 'Lastabwurf auslösen', tone: 'danger' }, { label: 'Abwurfplan sichern', tone: 'ghost' }]));
+    }
 
     const monitorBody = createPanel(container, {
         title: 'Netzüberwachung',
         description: 'Verbrauch, Reserven und Puffer im Blick behalten.'
     });
 
-    const monitorMetrics = document.createElement('div');
-    monitorMetrics.className = 'operations-metric-grid';
-    monitorMetrics.append(
-        createMetric({ label: 'Gesamtverbrauch', value: 87, unit: '%', status: 'warning', note: 'Schwellwert 90%', min: 0, max: 120 }),
-        createMetric({ label: 'Reserveleistung', value: 14, unit: '%', status: 'critical', note: 'Unter Soll 18%', min: 0, max: 40 }),
-        createMetric({ label: 'Pufferkapazität', value: 62, unit: '%', status: 'normal', note: 'Batteriedecks', min: 0, max: 100 })
-    );
-    monitorBody.appendChild(monitorMetrics);
-    monitorBody.appendChild(
-        createLog([
-            '05:18 - Brownout-Warnung Deck 4 behoben',
-            '05:02 - Reservebank 2 geladen (82%)',
-            '04:47 - Verteiler 7A neu kalibriert'
-        ])
-    );
+    const metrics = Array.isArray(powerData.metrics) && powerData.metrics.length
+        ? powerData.metrics
+        : [
+              { label: 'Gesamtverbrauch', value: 87, unit: '%', status: 'warning', note: 'Schwellwert 90%', min: 0, max: 120 },
+              { label: 'Reserveleistung', value: 14, unit: '%', status: 'critical', note: 'Unter Soll 18%', min: 0, max: 40 },
+              { label: 'Pufferkapazität', value: 62, unit: '%', status: 'normal', note: 'Batteriedecks', min: 0, max: 100 }
+          ];
+
+    if (!metrics.length) {
+        appendEmptyState(monitorBody, 'Keine Monitoringdaten verfügbar.');
+    } else {
+        const monitorMetrics = document.createElement('div');
+        monitorMetrics.className = 'operations-metric-grid';
+        metrics.forEach((metric) => {
+            monitorMetrics.append(
+                createMetric({
+                    label: metric.label || 'Messwert',
+                    value: metric.value ?? 0,
+                    unit: metric.unit || '',
+                    status: metric.status || 'normal',
+                    note: metric.note || undefined,
+                    min: metric.min ?? 0,
+                    max: metric.max ?? (metric.unit === '%' ? 100 : metric.value ?? 100)
+                })
+            );
+        });
+        monitorBody.appendChild(monitorMetrics);
+    }
+
+    const logEntries = Array.isArray(powerData.log) && powerData.log.length
+        ? powerData.log
+        : ['05:18 - Brownout-Warnung Deck 4 behoben', '05:02 - Reservebank 2 geladen (82%)', '04:47 - Verteiler 7A neu kalibriert'];
+    monitorBody.appendChild(createLog(logEntries));
 }
 
-function renderEngThermal(container) {
+async function renderEngThermal(container) {
+    let scenarioData = null;
+    try {
+        scenarioData = await loadScenarioData();
+    } catch (error) {
+        console.error('Fehler beim Laden der Szenariodaten für Thermalkontrolle:', error);
+    }
+
+    const thermalData = scenarioData?.thermal ?? {};
+
     const radiatorBody = createPanel(container, {
         title: 'Radiatorfelder',
         description: 'Abstrahlleistung und Temperaturen der Felder überwachen.'
     });
 
-    const radiatorMetrics = document.createElement('div');
-    radiatorMetrics.className = 'operations-metric-grid';
-    [
-        { label: 'Radiator Alpha', value: 68, status: 'warning', note: 'Sonnenexposition hoch' },
-        { label: 'Radiator Beta', value: 54, status: 'normal', note: 'Nominal' },
-        { label: 'Radiator Gamma', value: 73, status: 'warning', note: 'Kühlmittelkreislauf prüfen' },
-        { label: 'Radiator Delta', value: 49, status: 'normal', note: 'Reserve aktiv' }
-    ].forEach((radiator) => {
-        radiatorMetrics.appendChild(
-            createMetric({
-                label: radiator.label,
-                value: radiator.value,
-                unit: '%',
-                status: radiator.status,
-                note: radiator.note,
-                min: 0,
-                max: 100
-            })
-        );
-    });
-    radiatorBody.appendChild(radiatorMetrics);
+    const radiators = Array.isArray(thermalData.radiators) && thermalData.radiators.length
+        ? thermalData.radiators
+        : [
+              { label: 'Radiator Alpha', value: 68, status: 'warning', note: 'Sonnenexposition hoch' },
+              { label: 'Radiator Beta', value: 54, status: 'normal', note: 'Nominal' },
+              { label: 'Radiator Gamma', value: 73, status: 'warning', note: 'Kühlmittelkreislauf prüfen' },
+              { label: 'Radiator Delta', value: 49, status: 'normal', note: 'Reserve aktiv' }
+          ];
+
+    if (!radiators.length) {
+        appendEmptyState(radiatorBody, 'Keine Radiatorfelder im Szenario definiert.');
+    } else {
+        const radiatorMetrics = document.createElement('div');
+        radiatorMetrics.className = 'operations-metric-grid';
+        radiators.forEach((radiator, index) => {
+            radiatorMetrics.appendChild(
+                createMetric({
+                    label: radiator.label || radiator.name || `Radiator ${index + 1}`,
+                    value: radiator.value ?? radiator.load ?? 0,
+                    unit: radiator.unit || '%',
+                    status: radiator.status || 'normal',
+                    note: radiator.note || radiator.description || undefined,
+                    min: radiator.min ?? 0,
+                    max: radiator.max ?? 100
+                })
+            );
+        });
+        radiatorBody.appendChild(radiatorMetrics);
+    }
 
     const flowBody = createPanel(container, {
         title: 'Kühlkreisläufe',
         description: 'Pumpenleistung und Ventile je Kreislauf steuern.'
     });
 
-    const flows = [
-        { id: 'loop-primary', name: 'Primärer Kernkreislauf', pump: 76, flow: 540, note: 'Ventil 4 offen' },
-        { id: 'loop-secondary', name: 'Sekundärkreislauf', pump: 64, flow: 410, note: 'Reserve-Radiator gekoppelt' },
-        { id: 'loop-aux', name: 'Auxiliar / Lebenserhaltung', pump: 58, flow: 320, note: 'Temperatur stabil' }
-    ];
+    const loops = Array.isArray(thermalData.loops) && thermalData.loops.length
+        ? thermalData.loops
+        : [
+              { id: 'loop-primary', name: 'Primärer Kernkreislauf', pump: 76, flow: 540, note: 'Ventil 4 offen' },
+              { id: 'loop-secondary', name: 'Sekundärkreislauf', pump: 64, flow: 410, note: 'Reserve-Radiator gekoppelt' },
+              { id: 'loop-aux', name: 'Auxiliar / Lebenserhaltung', pump: 58, flow: 320, note: 'Temperatur stabil' }
+          ];
 
-    const flowGrid = document.createElement('div');
-    flowGrid.className = 'operations-loop-grid';
+    if (!loops.length) {
+        appendEmptyState(flowBody, 'Keine Kühlkreisläufe verfügbar.');
+    } else {
+        const flowGrid = document.createElement('div');
+        flowGrid.className = 'operations-loop-grid';
 
-    flows.forEach((loop) => {
-        const card = document.createElement('div');
-        card.className = 'operations-loop-card';
+        loops.forEach((loop, index) => {
+            const card = document.createElement('div');
+            card.className = 'operations-loop-card';
 
-        const header = document.createElement('div');
-        header.className = 'operations-loop-card__header';
-        const title = document.createElement('span');
-        title.className = 'operations-loop-card__title';
-        title.textContent = loop.name;
-        header.appendChild(title);
-        header.appendChild(createStatusBadge({ label: `${loop.flow} l/min`, tone: 'accent' }));
-        card.appendChild(header);
+            const header = document.createElement('div');
+            header.className = 'operations-loop-card__header';
+            const title = document.createElement('span');
+            title.className = 'operations-loop-card__title';
+            title.textContent = loop.name || `Kreislauf ${index + 1}`;
+            header.appendChild(title);
 
-        card.appendChild(
-            createRangeControl({
-                id: `${loop.id}-pump`,
-                label: 'Pumpendrehzahl',
-                min: 40,
-                max: 100,
-                step: 5,
-                value: loop.pump,
-                unit: '%'
-            })
-        );
+            const badgeLabel = loop.flow != null
+                ? `${formatValue(loop.flow)} ${loop.flowUnit || 'l/min'}`
+                : loop.statusLabel || loop.status || 'Status';
+            header.appendChild(
+                createStatusBadge({ label: badgeLabel, tone: loop.statusTone || loop.tone || 'accent' })
+            );
+            card.appendChild(header);
 
-        const note = document.createElement('p');
-        note.className = 'operations-loop-card__note';
-        note.textContent = loop.note;
-        card.appendChild(note);
+            card.appendChild(
+                createRangeControl({
+                    id: `${loop.id || `loop-${index}`}-pump`,
+                    label: loop.controlLabel || 'Pumpendrehzahl',
+                    min: loop.min ?? 40,
+                    max: loop.max ?? 100,
+                    step: loop.step ?? 5,
+                    value: loop.pump ?? 0,
+                    unit: loop.unit || '%',
+                    description: loop.description || undefined
+                })
+            );
 
-        flowGrid.appendChild(card);
-    });
+            if (loop.note) {
+                const note = document.createElement('p');
+                note.className = 'operations-loop-card__note';
+                note.textContent = loop.note;
+                card.appendChild(note);
+            }
 
-    flowBody.appendChild(flowGrid);
+            flowGrid.appendChild(card);
+        });
+
+        flowBody.appendChild(flowGrid);
+    }
 
     const emergencyBody = createPanel(container, {
         title: 'Notfallmaßnahmen',
         description: 'Hitzeabfuhr für Extremsituationen vorbereiten.'
     });
 
-    emergencyBody.appendChild(
-        createChecklist([
-            { id: 'venting-ready', label: 'Radiatoren entfalten / venten vorbereitet', checked: true },
-            { id: 'heatsinks-arm', label: 'Heat-Sink-Module geladen', note: 'Letzte Ladung: 28 min' },
-            { id: 'purge-lines', label: 'Kühlmittelleitungen gespült' },
-            { id: 'emergency-fans', label: 'Notlüfter in Bereitschaft' }
-        ])
-    );
+    const emergencyChecklist = Array.isArray(thermalData.emergencyChecklist) && thermalData.emergencyChecklist.length
+        ? thermalData.emergencyChecklist
+        : [
+              { id: 'venting-ready', label: 'Radiatoren entfalten / venten vorbereitet', checked: true },
+              { id: 'heatsinks-arm', label: 'Heat-Sink-Module geladen', note: 'Letzte Ladung: 28 min' },
+              { id: 'purge-lines', label: 'Kühlmittelleitungen gespült' },
+              { id: 'emergency-fans', label: 'Notlüfter in Bereitschaft' }
+          ];
 
-    emergencyBody.appendChild(createButtonRow([{ label: 'Abfuhrsequenz starten' }, { label: 'Alarm eskalieren', tone: 'danger' }]));
+    if (!emergencyChecklist.length) {
+        appendEmptyState(emergencyBody, 'Keine Notfallmaßnahmen hinterlegt.');
+    } else {
+        emergencyBody.appendChild(
+            createChecklist(
+                emergencyChecklist.map((item, index) => ({
+                    id: item.id || `thermal-check-${index}`,
+                    label: item.label || item.name || `Schritt ${index + 1}`,
+                    checked: Boolean(item.checked || item.completed),
+                    note: item.note || item.description || undefined
+                }))
+            )
+        );
+    }
+
+    emergencyBody.appendChild(
+        createButtonRow([{ label: 'Abfuhrsequenz starten' }, { label: 'Alarm eskalieren', tone: 'danger' }])
+    );
 
     const logBody = createPanel(container, {
         title: 'Temperaturmeldungen',
         description: 'Zeitliche Historie für Engineering und Brücke.'
     });
 
-    logBody.appendChild(
-        createLog([
-            '05:12 - Radiator Beta wieder im grünen Bereich',
-            '04:58 - Warnung: Radiator Gamma 72% Last',
-            '04:41 - Kühlkreislauf Auxiliar entlüftet'
-        ])
-    );
+    const thermalLog = Array.isArray(thermalData.log) && thermalData.log.length
+        ? thermalData.log
+        : [
+              '05:12 - Radiator Beta wieder im grünen Bereich',
+              '04:58 - Warnung: Radiator Gamma 72% Last',
+              '04:41 - Kühlkreislauf Auxiliar entlüftet'
+          ];
+    logBody.appendChild(createLog(thermalLog));
 }
 
-function renderEngPropulsion(container) {
+async function renderEngPropulsion(container) {
+    let scenarioData = null;
+    try {
+        scenarioData = await loadScenarioData();
+    } catch (error) {
+        console.error('Fehler beim Laden der Szenariodaten für Antriebskontrolle:', error);
+    }
+
+    const propulsionData = scenarioData?.propulsion ?? {};
+
     const thrustBody = createPanel(container, {
         title: 'Schubkontrolle',
         description: 'Hauptantrieb und Nachbrennerleistung einstellen.'
     });
 
+    const throttle = propulsionData.throttle || {
+        id: 'propulsion-throttle',
+        label: 'Hauptschub',
+        min: 0,
+        max: 110,
+        step: 5,
+        value: 72,
+        unit: '%',
+        description: 'Maximale Dauerlast 95%, Nachbrenner bis 110%.'
+    };
+
     thrustBody.appendChild(
         createRangeControl({
-            id: 'propulsion-throttle',
-            label: 'Hauptschub',
-            min: 0,
-            max: 110,
-            step: 5,
-            value: 72,
-            unit: '%',
-            description: 'Maximale Dauerlast 95%, Nachbrenner bis 110%.'
+            id: throttle.id || 'propulsion-throttle',
+            label: throttle.label || 'Hauptschub',
+            min: throttle.min ?? 0,
+            max: throttle.max ?? 110,
+            step: throttle.step ?? 1,
+            value: throttle.value ?? 0,
+            unit: throttle.unit || '%',
+            description: throttle.description || undefined
         })
     );
 
+    const deltaV = propulsionData.deltaV || {
+        label: 'Verfügbares Delta-V',
+        value: 4.6,
+        unit: ' km/s',
+        status: 'normal',
+        note: 'Berechnet mit aktueller Masse',
+        min: 0,
+        max: 12
+    };
+
     thrustBody.appendChild(
         createMetric({
-            label: 'Verfügbares Delta-V',
-            value: 4.6,
-            unit: ' km/s',
-            status: 'normal',
-            note: 'Berechnet mit aktueller Masse',
-            min: 0,
-            max: 12
+            label: deltaV.label || 'Verfügbares Delta-V',
+            value: deltaV.value ?? 0,
+            unit: deltaV.unit || ' km/s',
+            status: deltaV.status || 'normal',
+            note: deltaV.note || undefined,
+            min: deltaV.min ?? 0,
+            max: deltaV.max ?? (deltaV.value ? Math.max(deltaV.value * 1.5, 1) : 10)
         })
     );
 
@@ -1047,51 +1193,94 @@ function renderEngPropulsion(container) {
         description: 'Pitch, Yaw und Roll für Flugmanöver anpassen.'
     });
 
-    const vectorControls = document.createElement('div');
-    vectorControls.className = 'operations-control-list';
-    vectorControls.append(
-        createRangeControl({ id: 'vector-pitch', label: 'Pitch', min: -30, max: 30, step: 1, value: 2, unit: '°' }),
-        createRangeControl({ id: 'vector-yaw', label: 'Yaw', min: -30, max: 30, step: 1, value: -1, unit: '°' }),
-        createRangeControl({ id: 'vector-roll', label: 'Roll', min: -15, max: 15, step: 1, value: 0, unit: '°' })
-    );
-    vectorBody.appendChild(vectorControls);
+    const vectorAxes = Array.isArray(propulsionData.vectorAxes) && propulsionData.vectorAxes.length
+        ? propulsionData.vectorAxes
+        : [
+              { id: 'vector-pitch', label: 'Pitch', min: -30, max: 30, step: 1, value: 2, unit: '°' },
+              { id: 'vector-yaw', label: 'Yaw', min: -30, max: 30, step: 1, value: -1, unit: '°' },
+              { id: 'vector-roll', label: 'Roll', min: -15, max: 15, step: 1, value: 0, unit: '°' }
+          ];
+
+    if (!vectorAxes.length) {
+        appendEmptyState(vectorBody, 'Keine Vektordaten verfügbar.');
+    } else {
+        const vectorControls = document.createElement('div');
+        vectorControls.className = 'operations-control-list';
+        vectorAxes.forEach((axis, index) => {
+            vectorControls.append(
+                createRangeControl({
+                    id: axis.id || `vector-axis-${index}`,
+                    label: axis.label || `Achse ${index + 1}`,
+                    min: axis.min ?? -10,
+                    max: axis.max ?? 10,
+                    step: axis.step ?? 1,
+                    value: axis.value ?? 0,
+                    unit: axis.unit || ''
+                })
+            );
+        });
+        vectorBody.appendChild(vectorControls);
+    }
 
     const rcsBody = createPanel(container, {
         title: 'RCS-Triebwerke',
         description: 'Status der Lagekontroll-Düsen überwachen und freigeben.'
     });
 
-    const thrusters = [
-        { id: 'fore-port', name: 'Bug • Backbord', active: true, status: 'Bereit', tone: 'success' },
-        { id: 'fore-starboard', name: 'Bug • Steuerbord', active: true, status: 'Bereit', tone: 'success' },
-        { id: 'aft-port', name: 'Heck • Backbord', active: true, status: 'Bereit', tone: 'success' },
-        { id: 'aft-starboard', name: 'Heck • Steuerbord', active: false, status: 'Service nötig', tone: 'warning' },
-        { id: 'ventral', name: 'Ventral Cluster', active: true, status: 'Überwacht', tone: 'warning' },
-        { id: 'dorsal', name: 'Dorsal Cluster', active: true, status: 'Bereit', tone: 'success' }
-    ];
+    const thrusters = Array.isArray(propulsionData.thrusters) && propulsionData.thrusters.length
+        ? propulsionData.thrusters
+        : [
+              { id: 'fore-port', name: 'Bug • Backbord', active: true, status: 'Bereit', tone: 'success' },
+              { id: 'fore-starboard', name: 'Bug • Steuerbord', active: true, status: 'Bereit', tone: 'success' },
+              { id: 'aft-port', name: 'Heck • Backbord', active: true, status: 'Bereit', tone: 'success' },
+              { id: 'aft-starboard', name: 'Heck • Steuerbord', active: false, status: 'Service nötig', tone: 'warning' },
+              { id: 'ventral', name: 'Ventral Cluster', active: true, status: 'Überwacht', tone: 'warning' },
+              { id: 'dorsal', name: 'Dorsal Cluster', active: true, status: 'Bereit', tone: 'success' }
+          ];
 
-    const matrix = document.createElement('div');
-    matrix.className = 'operations-matrix';
+    if (!thrusters.length) {
+        appendEmptyState(rcsBody, 'Keine RCS-Daten im Szenario hinterlegt.');
+    } else {
+        const matrix = document.createElement('div');
+        matrix.className = 'operations-matrix';
 
-    thrusters.forEach((thruster) => {
-        const cell = document.createElement('div');
-        cell.className = 'operations-matrix__cell';
+        thrusters.forEach((thruster, index) => {
+            const cell = document.createElement('div');
+            cell.className = 'operations-matrix__cell';
 
-        const header = document.createElement('div');
-        header.className = 'operations-matrix__header';
-        const title = document.createElement('span');
-        title.className = 'operations-matrix__title';
-        title.textContent = thruster.name;
-        header.appendChild(title);
-        header.appendChild(createStatusBadge({ label: thruster.status, tone: thruster.tone }));
-        cell.appendChild(header);
+            const header = document.createElement('div');
+            header.className = 'operations-matrix__header';
+            const title = document.createElement('span');
+            title.className = 'operations-matrix__title';
+            title.textContent = thruster.name || `Düse ${index + 1}`;
+            header.appendChild(title);
+            if (thruster.status) {
+                header.appendChild(createStatusBadge({ label: thruster.status, tone: thruster.tone || 'default' }));
+            }
+            cell.appendChild(header);
 
-        cell.appendChild(createCompactToggle({ id: `rcs-${thruster.id}`, onLabel: 'Online', offLabel: 'Offline', defaultChecked: thruster.active }));
+            cell.appendChild(
+                createCompactToggle({
+                    id: `rcs-${thruster.id || index}`,
+                    onLabel: thruster.onLabel || 'Online',
+                    offLabel: thruster.offLabel || 'Offline',
+                    defaultChecked: Boolean(thruster.active || thruster.enabled)
+                })
+            );
 
-        matrix.appendChild(cell);
-    });
+            if (thruster.note) {
+                const note = document.createElement('p');
+                note.className = 'operations-matrix__note';
+                note.textContent = thruster.note;
+                cell.appendChild(note);
+            }
 
-    rcsBody.appendChild(matrix);
+            matrix.appendChild(cell);
+        });
+
+        rcsBody.appendChild(matrix);
+    }
+
     rcsBody.appendChild(createButtonRow([{ label: 'RCS-Testimpuls senden' }, { label: 'Fehlermeldung loggen', tone: 'ghost' }]));
 
     const checklistBody = createPanel(container, {
@@ -1099,118 +1288,182 @@ function renderEngPropulsion(container) {
         description: 'Vorflug-Checkliste für neue Manöver.'
     });
 
-    checklistBody.appendChild(
-        createChecklist([
-            { id: 'prop-prime', label: 'Triebwerke auf Bereitschaft gebracht', checked: true },
-            { id: 'prop-balance', label: 'Massenausgleich geprüft', note: 'Cargo bestätigt' },
-            { id: 'prop-flightplan', label: 'Flight-Command bestätigt Manöverfenster' }
-        ])
-    );
+    const checklistItems = Array.isArray(propulsionData.checklist) && propulsionData.checklist.length
+        ? propulsionData.checklist
+        : [
+              { id: 'prop-prime', label: 'Triebwerke auf Bereitschaft gebracht', checked: true },
+              { id: 'prop-balance', label: 'Massenausgleich geprüft', note: 'Cargo bestätigt' },
+              { id: 'prop-flightplan', label: 'Flight-Command bestätigt Manöverfenster' }
+          ];
 
-    checklistBody.appendChild(createButtonRow([{ label: 'Bereitschaft melden' }, { label: 'Rückmeldung an Brücke', tone: 'ghost' }]));
+    if (!checklistItems.length) {
+        appendEmptyState(checklistBody, 'Keine Checkliste hinterlegt.');
+    } else {
+        checklistBody.appendChild(
+            createChecklist(
+                checklistItems.map((item, index) => ({
+                    id: item.id || `prop-check-${index}`,
+                    label: item.label || item.name || `Schritt ${index + 1}`,
+                    checked: Boolean(item.checked || item.completed),
+                    note: item.note || item.description || undefined
+                }))
+            )
+        );
+    }
+
+    checklistBody.appendChild(
+        createButtonRow([{ label: 'Bereitschaft melden' }, { label: 'Rückmeldung an Brücke', tone: 'ghost' }])
+    );
 }
-function renderEngFtl(container) {
+async function renderEngFtl(container) {
+    let scenarioData = null;
+    try {
+        scenarioData = await loadScenarioData();
+    } catch (error) {
+        console.error('Fehler beim Laden der Szenariodaten für FTL-Steuerung:', error);
+    }
+
+    const ftlData = scenarioData?.ftl ?? {};
+
     const chargeBody = createPanel(container, {
         title: 'Spulenladung',
         description: 'Ladung, Countdown und Startfreigabe koordinieren.'
     });
 
+    const chargeMetric = ftlData.charge || {
+        label: 'Aktuelle Ladung',
+        value: 62,
+        unit: '%',
+        status: 'warning',
+        note: 'Sprungbereit ab 95%',
+        min: 0,
+        max: 100
+    };
+
     chargeBody.appendChild(
         createMetric({
-            label: 'Aktuelle Ladung',
-            value: 62,
-            unit: '%',
-            status: 'warning',
-            note: 'Sprungbereit ab 95%',
-            min: 0,
-            max: 100
+            label: chargeMetric.label || 'Aktuelle Ladung',
+            value: chargeMetric.value ?? 0,
+            unit: chargeMetric.unit || '%',
+            status: chargeMetric.status || 'normal',
+            note: chargeMetric.note || undefined,
+            min: chargeMetric.min ?? 0,
+            max: chargeMetric.max ?? 100
         })
     );
+
+    const chargeTarget = ftlData.target || { id: 'ftl-charge-target', label: 'Ladeziel', min: 80, max: 100, step: 1, value: 95, unit: '%' };
 
     chargeBody.appendChild(
         createRangeControl({
-            id: 'ftl-charge-target',
-            label: 'Ladeziel',
-            min: 80,
-            max: 100,
-            step: 1,
-            value: 95,
-            unit: '%'
+            id: chargeTarget.id || 'ftl-charge-target',
+            label: chargeTarget.label || 'Ladeziel',
+            min: chargeTarget.min ?? 0,
+            max: chargeTarget.max ?? 100,
+            step: chargeTarget.step ?? 1,
+            value: chargeTarget.value ?? 0,
+            unit: chargeTarget.unit || '%',
+            description: chargeTarget.description || undefined
         })
     );
 
-    chargeBody.appendChild(createButtonRow([{ label: 'Ladungssynchronisation starten' }, { label: 'Countdown übertragen', tone: 'ghost' }]));
+    chargeBody.appendChild(
+        createButtonRow([{ label: 'Ladungssynchronisation starten' }, { label: 'Countdown übertragen', tone: 'ghost' }])
+    );
 
     const stabilityBody = createPanel(container, {
         title: 'Feldstabilität',
         description: 'Stabilität, Vibrationen und Anomalien beobachten.'
     });
 
-    const stabilityMetrics = document.createElement('div');
-    stabilityMetrics.className = 'operations-metric-grid';
-    stabilityMetrics.append(
-        createMetric({ label: 'Feldstabilität', value: 91, unit: '%', status: 'normal', note: 'Nominal', min: 0, max: 100 }),
-        createMetric({ label: 'Jitter', value: 0.6, unit: '%', status: 'warning', note: 'Grenze 0,8%', min: 0, max: 3 }),
-        createMetric({ label: 'Strukturbelastung', value: 38, unit: '%', status: 'normal', note: 'Innerhalb Limits', min: 0, max: 100 })
-    );
-    stabilityBody.appendChild(stabilityMetrics);
+    const stabilityMetricsData = Array.isArray(ftlData.stabilityMetrics) && ftlData.stabilityMetrics.length
+        ? ftlData.stabilityMetrics
+        : [
+              { label: 'Feldstabilität', value: 91, unit: '%', status: 'normal', note: 'Nominal', min: 0, max: 100 },
+              { label: 'Jitter', value: 0.6, unit: '%', status: 'warning', note: 'Grenze 0,8%', min: 0, max: 3 },
+              { label: 'Strukturbelastung', value: 38, unit: '%', status: 'normal', note: 'Innerhalb Limits', min: 0, max: 100 }
+          ];
 
-    stabilityBody.appendChild(
-        createLog([
-            '05:09 - Navigationsdaten bestätigt',
-            '05:03 - Feldkalibrierung abgeschlossen',
-            '04:55 - Sicherheitsinterlock erfolgreich getestet'
-        ])
-    );
+    if (!stabilityMetricsData.length) {
+        appendEmptyState(stabilityBody, 'Keine Stabilitätsdaten verfügbar.');
+    } else {
+        const stabilityMetrics = document.createElement('div');
+        stabilityMetrics.className = 'operations-metric-grid';
+        stabilityMetricsData.forEach((metric, index) => {
+            stabilityMetrics.append(
+                createMetric({
+                    label: metric.label || `Messwert ${index + 1}`,
+                    value: metric.value ?? 0,
+                    unit: metric.unit || '',
+                    status: metric.status || 'normal',
+                    note: metric.note || undefined,
+                    min: metric.min ?? 0,
+                    max: metric.max ?? (metric.unit === '%' ? 100 : metric.value ?? 100)
+                })
+            );
+        });
+        stabilityBody.appendChild(stabilityMetrics);
+    }
+
+    const stabilityLog = Array.isArray(ftlData.stabilityLog) && ftlData.stabilityLog.length
+        ? ftlData.stabilityLog
+        : ['05:09 - Navigationsdaten bestätigt', '05:03 - Feldkalibrierung abgeschlossen', '04:55 - Sicherheitsinterlock erfolgreich getestet'];
+    stabilityBody.appendChild(createLog(stabilityLog));
 
     const interlockBody = createPanel(container, {
         title: 'Interlocks & Freigaben',
         description: 'Mehrfachfreigaben für Sprungvorbereitung verwalten.'
     });
 
-    const interlocks = [
-        { id: 'ftl-lock-captain', label: 'Captain-Freigabe', defaultChecked: true, tone: 'accent', description: 'Bestätigung via Brücke' },
-        { id: 'ftl-lock-engineer', label: 'Chefingenieur', defaultChecked: true, tone: 'success', description: 'Reaktorleistung gesichert' },
-        { id: 'ftl-lock-navigation', label: 'Navigation', defaultChecked: false, tone: 'warning', description: 'Sprungfenster noch in Berechnung' }
-    ];
+    const interlocks = Array.isArray(ftlData.interlocks) && ftlData.interlocks.length
+        ? ftlData.interlocks
+        : [
+              { id: 'ftl-lock-captain', label: 'Captain-Freigabe', defaultChecked: true, tone: 'accent', description: 'Bestätigung via Brücke' },
+              { id: 'ftl-lock-engineer', label: 'Chefingenieur', defaultChecked: true, tone: 'success', description: 'Reaktorleistung gesichert' },
+              { id: 'ftl-lock-navigation', label: 'Navigation', defaultChecked: false, tone: 'warning', description: 'Sprungfenster noch in Berechnung' }
+          ];
 
-    const interlockList = document.createElement('div');
-    interlockList.className = 'operations-control-list';
-    interlocks.forEach((interlock) => {
-        interlockList.appendChild(
-            createToggleControl({
-                id: interlock.id,
-                label: interlock.label,
-                defaultChecked: interlock.defaultChecked,
-                description: interlock.description,
-                tone: interlock.tone
-            })
-        );
-    });
-    interlockBody.appendChild(interlockList);
+    if (!interlocks.length) {
+        appendEmptyState(interlockBody, 'Keine Interlocks konfiguriert.');
+    } else {
+        const interlockList = document.createElement('div');
+        interlockList.className = 'operations-control-list';
+        interlocks.forEach((interlock, index) => {
+            interlockList.appendChild(
+                createToggleControl({
+                    id: interlock.id || `ftl-lock-${index}`,
+                    label: interlock.label || `Freigabe ${index + 1}`,
+                    defaultChecked: Boolean(interlock.defaultChecked ?? interlock.enabled),
+                    description: interlock.description || interlock.note || '',
+                    tone: interlock.tone || 'default'
+                })
+            );
+        });
+        interlockBody.appendChild(interlockList);
+    }
 
     const abortBody = createPanel(container, {
         title: 'Abbruch & Sicherheit',
         description: 'Notfall-Abbruch vorbereiten und dokumentieren.'
     });
 
+    const abortPlaceholder = ftlData.abortPlaceholder || 'z. B. Signaturanstieg, Kursabweichung, Crew-Feedback';
     abortBody.appendChild(
         createTextAreaControl({
             id: 'ftl-abort-note',
             label: 'Abbruchgrund / Beobachtung',
-            placeholder: 'z. B. Signaturanstieg, Kursabweichung, Crew-Feedback'
+            placeholder: abortPlaceholder
         })
     );
 
-    abortBody.appendChild(createButtonRow([{ label: 'FTL-Abbruch auslösen', tone: 'danger' }, { label: 'Protokoll speichern', tone: 'ghost' }]));
-
     abortBody.appendChild(
-        createLog([
-            '04:50 - Sicherheitscheckliste abgeschlossen',
-            '04:46 - Warnung: Jitter 0,8% (innerhalb Limits)',
-            '04:38 - Navigation meldet Kursfenster t+11 Minuten'
-        ])
+        createButtonRow([{ label: 'FTL-Abbruch auslösen', tone: 'danger' }, { label: 'Protokoll speichern', tone: 'ghost' }])
     );
+
+    const abortLog = Array.isArray(ftlData.abortLog) && ftlData.abortLog.length
+        ? ftlData.abortLog
+        : ['04:50 - Sicherheitscheckliste abgeschlossen', '04:46 - Warnung: Jitter 0,8% (innerhalb Limits)', '04:38 - Navigation meldet Kursfenster t+11 Minuten'];
+    abortBody.appendChild(createLog(abortLog));
 }
 
 async function renderEngDamage(container) {
