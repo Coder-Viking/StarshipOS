@@ -6,7 +6,9 @@ const OPERATIONS_RENDERERS = {
     'eng-thermal': renderEngThermal,
     'eng-propulsion': renderEngPropulsion,
     'eng-ftl': renderEngFtl,
-    'eng-damage': renderEngDamage
+    'eng-damage': renderEngDamage,
+    'def-shields': renderDefShields,
+    'def-hull': renderDefHull
 };
 
 function createPanel(container, { title, description }) {
@@ -2127,6 +2129,507 @@ async function renderEngDamage(container) {
         inventoryBody.appendChild(
             createButtonRow([{ label: 'Nachschub anfordern' }, { label: 'Bestand sichern', tone: 'ghost' }])
         );
+    }
+}
+
+async function renderDefShields(container) {
+    let scenarioData = null;
+    try {
+        scenarioData = await loadScenarioData();
+    } catch (error) {
+        console.error('Fehler beim Laden der Szenariodaten für Schildsteuerung:', error);
+    }
+
+    const shieldsData = scenarioData?.defense?.shields ?? {};
+    const sectors = Array.isArray(shieldsData.sectors) ? shieldsData.sectors : [];
+    const reinforcement = shieldsData?.reinforcement ?? null;
+    const walls = Array.isArray(shieldsData.walls) ? shieldsData.walls : [];
+    const priorities = Array.isArray(shieldsData.priorities) ? shieldsData.priorities : [];
+    const log = Array.isArray(shieldsData.log) ? shieldsData.log : [];
+
+    const sectorsBody = createPanel(container, {
+        title: 'Schildsektoren',
+        description: 'Kapazität, Regeneration und taktischer Fokus je Quadrant.'
+    });
+
+    if (!sectors.length) {
+        appendEmptyState(sectorsBody, 'Keine Schildsektoren im Szenario vorhanden.');
+    } else {
+        const grid = document.createElement('div');
+        grid.className = 'operations-metric-grid';
+
+        sectors.forEach((sector) => {
+            const noteParts = [];
+            if (sector.arc) {
+                noteParts.push(`Sektor ${sector.arc}`);
+            }
+            if (sector.focus) {
+                noteParts.push(`Fokus ${sector.focus}`);
+            }
+            if (sector.regen != null) {
+                noteParts.push(`Regeneration ${formatValue(sector.regen)}%`);
+            }
+
+            grid.appendChild(
+                createMetric({
+                    label: sector.label || sector.id || 'Sektor',
+                    value: sector.strength ?? 0,
+                    unit: '%',
+                    status: mapMetricStatus(sector.status),
+                    note: noteParts.join(' • ') || undefined,
+                    min: 0,
+                    max: sector.capacity ?? 120
+                })
+            );
+        });
+
+        sectorsBody.appendChild(grid);
+        sectorsBody.appendChild(
+            createButtonRow([{ label: 'Fokus mit Taktik synchronisieren' }, { label: 'Status an Brücke melden', tone: 'ghost' }])
+        );
+    }
+
+    const reinforcementBody = createPanel(container, {
+        title: 'Verstärkung & Regeneration',
+        description: 'Modi, Regenerationsziele und Reserven der Schildnetzwerke einstellen.'
+    });
+
+    if (!reinforcement) {
+        appendEmptyState(reinforcementBody, 'Keine Verstärkungsdaten hinterlegt.');
+    } else {
+        const modes = Array.isArray(reinforcement.modes) ? reinforcement.modes : [];
+        if (modes.length) {
+            reinforcementBody.appendChild(
+                createRadioGroup({
+                    name: 'shield-mode',
+                    label: 'Verteilungsmodus',
+                    options: modes.map((mode) => ({
+                        label: mode.label || mode.value || 'Modus',
+                        value: mode.value || mode.label || '',
+                        description: mode.description || ''
+                    })),
+                    defaultValue: reinforcement.currentMode || undefined
+                })
+            );
+        }
+
+        if (reinforcement.regenTarget) {
+            reinforcementBody.appendChild(
+                createRangeControl({
+                    id: reinforcement.regenTarget.id || 'shield-regen-target',
+                    label: reinforcement.regenTarget.label || 'Regenerationsziel',
+                    min: reinforcement.regenTarget.min ?? 0,
+                    max: reinforcement.regenTarget.max ?? 140,
+                    step: reinforcement.regenTarget.step ?? 5,
+                    value: reinforcement.regenTarget.value ?? 0,
+                    unit: reinforcement.regenTarget.unit || '%',
+                    description: reinforcement.regenTarget.description || ''
+                })
+            );
+        }
+
+        const boosts = Array.isArray(reinforcement.boosts) ? reinforcement.boosts : [];
+        if (boosts.length) {
+            const boostList = document.createElement('div');
+            boostList.className = 'operations-control-list';
+
+            boosts.forEach((boost, index) => {
+                const control = createRangeControl({
+                    id: boost.id || `shield-boost-${index}`,
+                    label: boost.label || 'Verstärkung',
+                    min: boost.min ?? 0,
+                    max: boost.max ?? 30,
+                    step: boost.step ?? 5,
+                    value: boost.value ?? 0,
+                    unit: boost.unit || '%',
+                    description: boost.note || ''
+                });
+
+                if (boost.status) {
+                    const head = control.querySelector('.operations-control__head');
+                    if (head) {
+                        head.appendChild(createStatusBadge(getStatusInfo(boost.status, { fallbackLabel: boost.status })));
+                    }
+                }
+
+                boostList.appendChild(control);
+            });
+
+            reinforcementBody.appendChild(boostList);
+        }
+
+        const reserves = Array.isArray(reinforcement.reserves) ? reinforcement.reserves : [];
+        if (reserves.length) {
+            const reserveList = document.createElement('div');
+            reserveList.className = 'operations-control-list';
+
+            reserves.forEach((reserve, index) => {
+                reserveList.appendChild(
+                    createToggleControl({
+                        id: reserve.id || `shield-reserve-${index}`,
+                        label: reserve.label || 'Reservebank',
+                        defaultChecked: Boolean(reserve.defaultChecked),
+                        description: reserve.description || '',
+                        tone: reserve.tone || 'default'
+                    })
+                );
+            });
+
+            reinforcementBody.appendChild(reserveList);
+        }
+
+        reinforcementBody.appendChild(
+            createButtonRow([{ label: 'Konfiguration speichern' }, { label: 'Automatik synchronisieren', tone: 'ghost' }])
+        );
+    }
+
+    const wallsBody = createPanel(container, {
+        title: 'Notfallbarrieren & Interlocks',
+        description: 'Sicherheitsbarrieren vorbereiten und Freigaben prüfen.'
+    });
+
+    if (!walls.length) {
+        appendEmptyState(wallsBody, 'Keine Notfallbarrieren definiert.');
+    } else {
+        const list = document.createElement('div');
+        list.className = 'operations-bypass-list';
+
+        walls.forEach((wall, index) => {
+            const item = document.createElement('div');
+            item.className = 'operations-bypass';
+
+            const header = document.createElement('div');
+            header.className = 'operations-bypass__header';
+
+            const title = document.createElement('span');
+            title.className = 'operations-bypass__title';
+            title.textContent = wall.label || wall.id || 'Notwall';
+            header.appendChild(title);
+            header.appendChild(createStatusBadge(getStatusInfo(wall.status, { fallbackLabel: wall.status || 'Status' })));
+            item.appendChild(header);
+
+            if (wall.cooldown) {
+                const meta = document.createElement('div');
+                meta.className = 'operations-bypass__meta';
+                meta.textContent = `Cooldown ${wall.cooldown}`;
+                item.appendChild(meta);
+            }
+
+            const interlocks = Array.isArray(wall.interlocks) ? wall.interlocks : [];
+            if (interlocks.length) {
+                const interlockInfo = document.createElement('p');
+                interlockInfo.className = 'operations-bypass__note';
+                interlockInfo.textContent = interlocks
+                    .map((lock) => {
+                        const status = getStatusInfo(lock.status, { fallbackLabel: lock.status || 'Status' });
+                        return `${lock.label || lock.id || 'Freigabe'}: ${status.label}`;
+                    })
+                    .join(' • ');
+                item.appendChild(interlockInfo);
+            }
+
+            if (wall.note) {
+                const note = document.createElement('p');
+                note.className = 'operations-bypass__note';
+                note.textContent = wall.note;
+                item.appendChild(note);
+            }
+
+            item.appendChild(
+                createButtonRow([
+                    { label: 'Barriere aktivieren', tone: 'danger' },
+                    { label: 'Freigaben melden', tone: 'ghost' }
+                ])
+            );
+
+            list.appendChild(item);
+        });
+
+        wallsBody.appendChild(list);
+    }
+
+    const prioritiesBody = createPanel(container, {
+        title: 'Taktische Prioritäten',
+        description: 'Zielabdeckung und sektorspezifische Schutzaufträge koordinieren.'
+    });
+
+    if (!priorities.length) {
+        appendEmptyState(prioritiesBody, 'Keine taktischen Prioritäten hinterlegt.');
+    } else {
+        const table = document.createElement('table');
+        table.className = 'operations-table';
+
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        ['Ziel', 'Priorität', 'Sektor', 'Hinweis'].forEach((header) => {
+            const th = document.createElement('th');
+            th.textContent = header;
+            headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        priorities.forEach((priority) => {
+            const row = document.createElement('tr');
+
+            const targetCell = document.createElement('td');
+            const title = document.createElement('strong');
+            title.textContent = priority.target || priority.id || 'Ziel';
+            targetCell.appendChild(title);
+            row.appendChild(targetCell);
+
+            const priorityCell = document.createElement('td');
+            priorityCell.textContent = priority.priority || '—';
+            row.appendChild(priorityCell);
+
+            const alignmentCell = document.createElement('td');
+            alignmentCell.textContent = priority.alignment || '—';
+            row.appendChild(alignmentCell);
+
+            const noteCell = document.createElement('td');
+            noteCell.textContent = priority.note || '—';
+            row.appendChild(noteCell);
+
+            tbody.appendChild(row);
+        });
+
+        table.appendChild(tbody);
+        prioritiesBody.appendChild(table);
+    }
+
+    const logBody = createPanel(container, {
+        title: 'Schild-Logbuch',
+        description: 'Ereignisse und Anpassungen der Schildkonfiguration.'
+    });
+
+    if (!log.length) {
+        appendEmptyState(logBody, 'Keine Logbucheinträge vorhanden.');
+    } else {
+        logBody.appendChild(createLog(log));
+    }
+}
+
+async function renderDefHull(container) {
+    let scenarioData = null;
+    try {
+        scenarioData = await loadScenarioData();
+    } catch (error) {
+        console.error('Fehler beim Laden der Szenariodaten für Hüllenüberwachung:', error);
+    }
+
+    const hullData = scenarioData?.defense?.hull ?? {};
+    const integrityMetrics = Array.isArray(hullData.integrityMetrics) ? hullData.integrityMetrics : [];
+    const stressPoints = Array.isArray(hullData.stressPoints) ? hullData.stressPoints : [];
+    const bulkheads = Array.isArray(hullData.bulkheads) ? hullData.bulkheads : [];
+    const bracing = Array.isArray(hullData.bracing) ? hullData.bracing : [];
+    const resonanceAlerts = Array.isArray(hullData.resonanceAlerts) ? hullData.resonanceAlerts : [];
+    const log = Array.isArray(hullData.log) ? hullData.log : [];
+
+    const integrityBody = createPanel(container, {
+        title: 'Integrität & Belastung',
+        description: 'Gesamtstatus und kritische Belastungswerte der Hülle.'
+    });
+
+    if (!integrityMetrics.length) {
+        appendEmptyState(integrityBody, 'Keine Integritätsdaten verfügbar.');
+    } else {
+        const grid = document.createElement('div');
+        grid.className = 'operations-metric-grid';
+
+        integrityMetrics.forEach((metric) => {
+            grid.appendChild(
+                createMetric({
+                    label: metric.label || metric.id || 'Messwert',
+                    value: metric.value ?? 0,
+                    unit: metric.unit || '',
+                    status: mapMetricStatus(metric.status),
+                    note: metric.note || undefined,
+                    min: metric.min ?? 0,
+                    max: metric.max ?? 100
+                })
+            );
+        });
+
+        integrityBody.appendChild(grid);
+    }
+
+    const stressBody = createPanel(container, {
+        title: 'Strukturlasten & Resonanzen',
+        description: 'Hotspots überwachen und Manöverbelastungen bewerten.'
+    });
+
+    if (!stressPoints.length) {
+        appendEmptyState(stressBody, 'Keine Belastungspunkte definiert.');
+    } else {
+        const grid = document.createElement('div');
+        grid.className = 'operations-metric-grid';
+
+        stressPoints.forEach((point) => {
+            const noteParts = [];
+            if (point.resonance != null) {
+                noteParts.push(`Resonanz ${formatValue(point.resonance)} Hz`);
+            }
+            if (point.note) {
+                noteParts.push(point.note);
+            }
+
+            grid.appendChild(
+                createMetric({
+                    label: point.label || point.id || 'Sektion',
+                    value: point.load ?? 0,
+                    unit: '%',
+                    status: mapMetricStatus(point.status),
+                    note: noteParts.join(' • ') || undefined,
+                    min: 0,
+                    max: 120
+                })
+            );
+        });
+
+        stressBody.appendChild(grid);
+        stressBody.appendChild(
+            createButtonRow([{ label: 'Vibrationsanalyse starten' }, { label: 'Meldung an Engineering', tone: 'ghost' }])
+        );
+    }
+
+    const bulkheadBody = createPanel(container, {
+        title: 'Schottstatus & Abdichtung',
+        description: 'Schotte überwachen und Drucksicherheit dokumentieren.'
+    });
+
+    if (!bulkheads.length) {
+        appendEmptyState(bulkheadBody, 'Keine Schottdaten hinterlegt.');
+    } else {
+        const table = document.createElement('table');
+        table.className = 'operations-table';
+
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        ['Sektion', 'Status', 'Druck', 'Versiegelung'].forEach((header) => {
+            const th = document.createElement('th');
+            th.textContent = header;
+            headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        bulkheads.forEach((bulkhead) => {
+            const row = document.createElement('tr');
+
+            const locationCell = document.createElement('td');
+            const title = document.createElement('strong');
+            title.textContent = bulkhead.location || bulkhead.id || 'Sektion';
+            locationCell.appendChild(title);
+            row.appendChild(locationCell);
+
+            const statusCell = document.createElement('td');
+            statusCell.appendChild(
+                createStatusBadge(getStatusInfo(bulkhead.status, { fallbackLabel: bulkhead.status || 'Status' }))
+            );
+            row.appendChild(statusCell);
+
+            const pressureCell = document.createElement('td');
+            pressureCell.textContent =
+                bulkhead.pressure != null
+                    ? `${formatValue(bulkhead.pressure)} ${bulkhead.pressureUnit || 'kPa'}`
+                    : '—';
+            row.appendChild(pressureCell);
+
+            const sealCell = document.createElement('td');
+            sealCell.textContent = bulkhead.seal || '—';
+            row.appendChild(sealCell);
+
+            tbody.appendChild(row);
+        });
+
+        table.appendChild(tbody);
+        bulkheadBody.appendChild(table);
+    }
+
+    const bracingBody = createPanel(container, {
+        title: 'Verstrebungen & Sicherungen',
+        description: 'Notstützen aktivieren und strukturelle Sicherungen nachverfolgen.'
+    });
+
+    if (!bracing.length) {
+        appendEmptyState(bracingBody, 'Keine Verstrebungen im Szenario erfasst.');
+    } else {
+        const list = document.createElement('div');
+        list.className = 'operations-control-list';
+
+        bracing.forEach((brace, index) => {
+            list.appendChild(
+                createToggleControl({
+                    id: brace.id || `brace-${index}`,
+                    label: brace.label || brace.id || 'Verstrebung',
+                    defaultChecked: brace.engaged ?? false,
+                    description: brace.description || '',
+                    tone: brace.tone || 'default'
+                })
+            );
+        });
+
+        bracingBody.appendChild(list);
+        bracingBody.appendChild(
+            createButtonRow([{ label: 'Einsatz dokumentieren' }, { label: 'Sicherung lösen', tone: 'ghost' }])
+        );
+    }
+
+    const resonanceBody = createPanel(container, {
+        title: 'Resonanzwarnungen',
+        description: 'Aktive Resonanzmeldungen und Gegenmaßnahmen.'
+    });
+
+    if (!resonanceAlerts.length) {
+        appendEmptyState(resonanceBody, 'Keine Resonanzwarnungen aktiv.');
+    } else {
+        const table = document.createElement('table');
+        table.className = 'operations-table';
+
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        ['Frequenz', 'Schwere', 'Empfehlung'].forEach((header) => {
+            const th = document.createElement('th');
+            th.textContent = header;
+            headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        resonanceAlerts.forEach((alert) => {
+            const row = document.createElement('tr');
+
+            const freqCell = document.createElement('td');
+            freqCell.textContent = alert.frequency || '—';
+            row.appendChild(freqCell);
+
+            const severityCell = document.createElement('td');
+            severityCell.appendChild(createStatusBadge(getSeverityInfo(alert.severity)));
+            row.appendChild(severityCell);
+
+            const recommendationCell = document.createElement('td');
+            recommendationCell.textContent = alert.recommendation || '—';
+            row.appendChild(recommendationCell);
+
+            tbody.appendChild(row);
+        });
+
+        table.appendChild(tbody);
+        resonanceBody.appendChild(table);
+    }
+
+    const logBody = createPanel(container, {
+        title: 'Hüllen-Logbuch',
+        description: 'Relevante Ereignisse und Maßnahmen zur strukturellen Integrität.'
+    });
+
+    if (!log.length) {
+        appendEmptyState(logBody, 'Keine Logbucheinträge vorhanden.');
+    } else {
+        logBody.appendChild(createLog(log));
     }
 }
 

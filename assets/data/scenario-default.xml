@@ -482,6 +482,135 @@
         </inventory>
     </damageControl>
 
+    <defense>
+        <shields>
+            <sectors>
+                <sector id="shield-fore" label="Bug" arc="000° – 060°" strength="82" capacity="115" status="Warning" regen="5.2" focus="Korsar Sigma">
+                    <note>Trägt Hauptlast der Frontsalven.</note>
+                </sector>
+                <sector id="shield-port" label="Backbord" arc="060° – 180°" strength="76" capacity="110" status="Normal" regen="4.6" focus="Drohnen-Schwarm">
+                    <note>Streuung durch Nebel reduziert Treffer.</note>
+                </sector>
+                <sector id="shield-starboard" label="Steuerbord" arc="180° – 300°" strength="69" capacity="108" status="Warning" regen="4.1" focus="Deckung Frachterkonvoi">
+                    <note>Synchronisiert mit Eskortschiff Nova.</note>
+                </sector>
+                <sector id="shield-aft" label="Heck" arc="300° – 360°" strength="88" capacity="120" status="Success" regen="5.8" focus="Rückraum">
+                    <note>Reserveleistung verfügbar.</note>
+                </sector>
+            </sectors>
+            <reinforcement current="auto">
+                <mode value="auto" label="Automatik">
+                    <description>Sektoren werden anhand der Bedrohungsmatrix priorisiert.</description>
+                </mode>
+                <mode value="manual" label="Manuell">
+                    <description>Direkte Verteilung durch Bediencrew.</description>
+                </mode>
+                <mode value="burst" label="Burst">
+                    <description>Kurzfristige Verstärkung auf Kosten der Regeneration.</description>
+                </mode>
+                <regenTarget id="shield-regen-target" label="Regenerationsziel" min="40" max="140" step="5" value="95" unit="%">
+                    <description>Vorsicht bei Werten über 120% – erhöhte Hitzeentwicklung.</description>
+                </regenTarget>
+                <boost id="boost-fore" label="Frontverstärkung" min="0" max="35" step="5" value="20" unit="%" status="Warning">
+                    <note>Korsar Sigma priorisiert.</note>
+                </boost>
+                <boost id="boost-port" label="Backbordverstärkung" min="0" max="30" step="5" value="12" unit="%" status="Normal">
+                    <note>Drohnen-Schwarm unter Kontrolle.</note>
+                </boost>
+                <boost id="boost-starboard" label="Steuerbordverstärkung" min="0" max="30" step="5" value="8" unit="%" status="Normal">
+                    <note>Reserve für Konvoiabschirmung.</note>
+                </boost>
+                <reserve id="reserve-alpha" label="Reservebank Alpha" defaultChecked="true" tone="Accent">
+                    <description>Kernbank – hält Automatik aktiv.</description>
+                </reserve>
+                <reserve id="reserve-beta" label="Reservebank Beta" defaultChecked="false" tone="Warning">
+                    <description>Verstärkt Burst-Modus für 90 Sekunden.</description>
+                </reserve>
+            </reinforcement>
+            <walls>
+                <wall id="wall-forward" label="Notwall Vorfeld" status="Bereit" cooldown="02:30">
+                    <interlock id="wall-forward-tac" label="Taktik-Freigabe" status="Aktiv" />
+                    <interlock id="wall-forward-sec" label="Sicherheit" status="Bereit" />
+                    <note>Empfohlen bei Torpedosalven von Korsar Sigma.</note>
+                </wall>
+                <wall id="wall-aft" label="Notwall Heck" status="Standby" cooldown="01:10">
+                    <interlock id="wall-aft-tac" label="Taktik-Freigabe" status="Bereit" />
+                    <interlock id="wall-aft-sec" label="Sicherheit" status="Bereit" />
+                    <note>Reserviert für Rückzugsszenarien.</note>
+                </wall>
+            </walls>
+            <priorities>
+                <priority id="priority-corsair" target="Korsar Sigma" priority="Hoch" alignment="Bug">
+                    <note>Halte Frontverstärkung ≥ 20%.</note>
+                </priority>
+                <priority id="priority-drones" target="Drohnen-Schwarm Theta" priority="Mittel" alignment="Backbord">
+                    <note>Koordiniere mit Punktverteidigung.</note>
+                </priority>
+                <priority id="priority-convoy" target="Frachterkonvoi" priority="Schutz" alignment="Steuerbord">
+                    <note>Abdeckung gegen Splittertreffer.</note>
+                </priority>
+            </priorities>
+            <log>
+                <entry>05:20 - Verstärkung Bug auf 20% erhöht (Feuerleitkommando).</entry>
+                <entry>05:15 - Reservebank Alpha synchronisiert.</entry>
+                <entry>05:07 - Drohnen-Schwarm Beta abgewehrt; Sektor Backbord stabil.</entry>
+            </log>
+        </shields>
+        <hull>
+            <integrity>
+                <metric id="hull-total" label="Gesamtintegrität" value="86" unit="%" status="Warning" note="Schwellwert 85%" min="0" max="100" />
+                <metric id="hull-d5" label="Sektion D5" value="54" unit="%" status="Critical" note="EVA-Team aktiv" min="0" max="100" />
+                <metric id="hull-vibration" label="Vibration RMS" value="1.8" unit=" g" status="Normal" note="Grenze 2.5 g" min="0" max="5" />
+            </integrity>
+            <stressPoints>
+                <point id="stress-dorsal" label="Dorsaler Träger" status="Warning" load="68" resonance="37">
+                    <note>Sensor-Array Reparatur beeinflusst Steifigkeit.</note>
+                </point>
+                <point id="stress-ventral" label="Ventraler Kiel" status="Normal" load="42" resonance="18">
+                    <note>Innerhalb Spezifikation.</note>
+                </point>
+                <point id="stress-bow" label="Vorbug" status="Warning" load="61" resonance="29">
+                    <note>Manöverlasten aus Kurskorrektur.</note>
+                </point>
+            </stressPoints>
+            <bulkheads>
+                <bulkhead id="bulkhead-d5" location="Sektion D5" status="Geschlossen" pressure="98.6" pressureUnit="kPa" seal="Versiegelt">
+                    <note>Spurleck überwacht.</note>
+                </bulkhead>
+                <bulkhead id="bulkhead-cargo" location="Frachtraum 2" status="Verriegelt" pressure="0" pressureUnit="kPa" seal="Evakuiert">
+                    <note>EVA-Einsatz aktiv.</note>
+                </bulkhead>
+                <bulkhead id="bulkhead-hab" location="Habitat-Ring" status="Offen" pressure="101.0" pressureUnit="kPa" seal="Normal">
+                    <note>Regulärer Verkehr.</note>
+                </bulkhead>
+            </bulkheads>
+            <bracing>
+                <brace id="brace-delta" label="Verstrebung Delta" engaged="true" tone="Warning">
+                    <description>Hält Patch in Sektion D5 stabil.</description>
+                </brace>
+                <brace id="brace-epsilon" label="Verstrebung Epsilon" engaged="false" tone="Accent">
+                    <description>Bereit für Vorbug.</description>
+                </brace>
+                <brace id="brace-beta" label="Verstrebung Beta" engaged="true" tone="Success">
+                    <description>Sichert Cargo-Rahmen.</description>
+                </brace>
+            </bracing>
+            <resonanceAlerts>
+                <alert id="alert-dorsal" frequency="12.4 Hz" severity="Major">
+                    <recommendation>Trägheitsdämpfer feinjustieren, Kursänderungen &lt; 5° halten.</recommendation>
+                </alert>
+                <alert id="alert-keel" frequency="7.9 Hz" severity="Moderate">
+                    <recommendation>Zusatzdämpfer Gamma aktivieren falls Last &gt; 70%.</recommendation>
+                </alert>
+            </resonanceAlerts>
+            <log>
+                <entry>05:18 - Notstütze Delta installiert, Belastung stabilisiert.</entry>
+                <entry>05:10 - Schott D5 geschlossen, Druckverlust gestoppt.</entry>
+                <entry>04:52 - Vibrationen Kiel im Rahmen, Monitoring fortsetzen.</entry>
+            </log>
+        </hull>
+    </defense>
+
     <tactical>
         <contacts>
             <contact id="corsair-sigma" callsign="Korsar Sigma" type="Leichte Fregatte" attitude="hostile"
