@@ -915,6 +915,262 @@ function parseSecurity(root) {
     return { roles, authorizations, audit };
 }
 
+function parsePropulsion(root) {
+    const propEl = root.querySelector('propulsion');
+    if (!propEl) return null;
+    const thrusters = Array.from(propEl.querySelectorAll('thrusters > thruster')).map((thrusterEl, index) => ({
+        id: thrusterEl.getAttribute('id') || `thruster-${index + 1}`,
+        name: getAttribute(thrusterEl, 'name', 'Propulsion Thruster', {
+            fallback: thrusterEl.textContent?.trim() || `Triebwerk ${index + 1}`
+        }),
+        status: (thrusterEl.getAttribute('status') || 'online').toLowerCase(),
+        thrust: parseNumberOptional(thrusterEl.getAttribute('thrust') ?? thrusterEl.getAttribute('output'), 'Propulsion Thruster', 'Schub', { min: 0, max: 1000, integer: false }),
+        thrustUnit: thrusterEl.getAttribute('unit') || 'MN',
+        temperature: parseNumberOptional(thrusterEl.getAttribute('temperature') ?? thrusterEl.getAttribute('temp'), 'Propulsion Thruster', 'Temperatur', { min: 0, max: 5000, integer: false }),
+        temperatureUnit: thrusterEl.getAttribute('temperatureUnit') || thrusterEl.getAttribute('tempUnit') || 'K',
+        vibration: parseNumberOptional(thrusterEl.getAttribute('vibration'), 'Propulsion Thruster', 'Vibration', { min: 0, max: 1000, integer: false }),
+        note: getTextContent(thrusterEl, ['note', 'hinweis'], 'Propulsion Thruster', { fallback: '' })
+    }));
+    const fuelEl = propEl.querySelector('fuel');
+    const fuel = fuelEl
+        ? {
+            main: parseNumberOptional(fuelEl.getAttribute('main') ?? fuelEl.getAttribute('level'), 'Propulsion Fuel', 'Haupttanks', { min: 0, max: 100, integer: false }) ?? 0,
+            reserve: parseNumberOptional(fuelEl.getAttribute('reserve'), 'Propulsion Fuel', 'Reserve', { min: 0, max: 100, integer: false }) ?? 0,
+            consumption: parseNumberOptional(fuelEl.getAttribute('consumption') ?? fuelEl.getAttribute('rate'), 'Propulsion Fuel', 'Verbrauch', { min: 0, max: 100, integer: false }) ?? 0,
+            reserveEta: fuelEl.getAttribute('reserveEta') || fuelEl.getAttribute('autonomie') || fuelEl.getAttribute('autonomy') || ''
+        }
+        : null;
+    const rcsEl = propEl.querySelector('rcs');
+    const rcs = rcsEl
+        ? {
+            status: rcsEl.getAttribute('status') || 'nominal',
+            balance: rcsEl.getAttribute('balance') || rcsEl.getAttribute('offset') || '',
+            drift: rcsEl.getAttribute('drift') || '',
+            note: getTextContent(rcsEl, ['note', 'hinweis'], 'Propulsion RCS', { fallback: '' })
+        }
+        : null;
+    const profiles = Array.from(propEl.querySelectorAll('profiles > profile')).map((profileEl, index) => ({
+        id: profileEl.getAttribute('id') || `profile-${index + 1}`,
+        name: getAttribute(profileEl, 'name', 'Propulsion Profile', { fallback: `Profil ${index + 1}` }),
+        thrust: parseNumberOptional(profileEl.getAttribute('thrust'), 'Propulsion Profile', 'Schub', { min: 0, max: 100, integer: false }) ?? 0,
+        rcsUsage: parseNumberOptional(profileEl.getAttribute('rcs') ?? profileEl.getAttribute('rcsUsage'), 'Propulsion Profile', 'RCS', { min: 0, max: 100, integer: false }) ?? 0,
+        description: getTextContent(profileEl, ['description', 'note', 'beschreibung'], 'Propulsion Profile', { fallback: '' }),
+        status: profileEl.getAttribute('status') || 'ready',
+        active: parseBoolean(profileEl.getAttribute('active'))
+    }));
+    const maneuvers = Array.from(propEl.querySelectorAll('maneuvers > maneuver')).map((maneuverEl, index) => ({
+        id: maneuverEl.getAttribute('id') || `maneuver-${index + 1}`,
+        title: getAttribute(maneuverEl, 'title', 'Propulsion Maneuver', {
+            fallback: maneuverEl.textContent?.trim() || `Manöver ${index + 1}`
+        }),
+        window: maneuverEl.getAttribute('window') || '',
+        status: maneuverEl.getAttribute('status') || 'planned',
+        assigned: maneuverEl.getAttribute('assigned') || maneuverEl.getAttribute('team') || '',
+        note: getTextContent(maneuverEl, ['note', 'hinweis'], 'Propulsion Maneuver', { fallback: '' })
+    }));
+    const alerts = Array.from(propEl.querySelectorAll('alerts > alert')).map((alertEl, index) => ({
+        id: alertEl.getAttribute('id') || `propulsion-alert-${index + 1}`,
+        message: alertEl.textContent?.trim() || alertEl.getAttribute('message') || '',
+        severity: alertEl.getAttribute('severity') || 'info'
+    }));
+    const activeProfileId = propEl.getAttribute('activeProfile') || null;
+    return { thrusters, fuel, rcs, profiles, maneuvers, alerts, activeProfileId };
+}
+
+function parseThermal(root) {
+    const thermalEl = root.querySelector('thermal') || root.querySelector('thermalControl');
+    if (!thermalEl) return null;
+    const heatLoads = Array.from(thermalEl.querySelectorAll('heatLoads > load')).map((loadEl, index) => ({
+        id: loadEl.getAttribute('id') || `heat-${index + 1}`,
+        source: getAttribute(loadEl, 'source', 'Thermal Load', {
+            fallback: loadEl.textContent?.trim() || `Quelle ${index + 1}`
+        }),
+        load: parseNumberOptional(loadEl.getAttribute('value') ?? loadEl.getAttribute('load'), 'Thermal Load', 'Last', { min: 0, max: 200, integer: false }) ?? 0,
+        unit: loadEl.getAttribute('unit') || '%',
+        status: (loadEl.getAttribute('status') || 'stable').toLowerCase(),
+        mitigation: getTextContent(loadEl, ['mitigation', 'note', 'hinweis'], 'Thermal Load', { fallback: '' })
+    }));
+    const radiators = Array.from(thermalEl.querySelectorAll('radiators > radiator')).map((radEl, index) => ({
+        id: radEl.getAttribute('id') || `radiator-${index + 1}`,
+        name: getAttribute(radEl, 'name', 'Thermal Radiator', { fallback: `Segment ${index + 1}` }),
+        status: (radEl.getAttribute('status') || 'deployed').toLowerCase(),
+        output: parseNumberOptional(radEl.getAttribute('output') ?? radEl.getAttribute('efficiency'), 'Thermal Radiator', 'Output', { min: 0, max: 100, integer: false }) ?? 0,
+        angle: radEl.getAttribute('angle') || radEl.getAttribute('orientation') || '',
+        note: getTextContent(radEl, ['note', 'hinweis'], 'Thermal Radiator', { fallback: '' })
+    }));
+    const cooling = Array.from(thermalEl.querySelectorAll('cooling > task')).map((taskEl, index) => ({
+        id: taskEl.getAttribute('id') || `cooling-${index + 1}`,
+        description: getAttribute(taskEl, 'description', 'Thermal Cooling', {
+            fallback: taskEl.textContent?.trim() || `Maßnahme ${index + 1}`
+        }),
+        status: (taskEl.getAttribute('status') || 'pending').toLowerCase(),
+        eta: taskEl.getAttribute('eta') || '',
+        owner: taskEl.getAttribute('owner') || taskEl.getAttribute('team') || '',
+        note: getTextContent(taskEl, ['note', 'hinweis'], 'Thermal Cooling', { fallback: '' })
+    }));
+    const signatureEl = thermalEl.querySelector('signature');
+    const signature = signatureEl
+        ? {
+            level: signatureEl.getAttribute('level') || signatureEl.getAttribute('status') || 'Moderate',
+            target: signatureEl.getAttribute('target') || '',
+            note: getTextContent(signatureEl, ['note', 'hinweis'], 'Thermal Signature', { fallback: '' }),
+            mode: signatureEl.getAttribute('mode') || ''
+        }
+        : null;
+    return { heatLoads, radiators, cooling, signature };
+}
+
+function parseFtl(root) {
+    const ftlEl = root.querySelector('ftl') || root.querySelector('jump');
+    if (!ftlEl) return null;
+    const capacitorEl = ftlEl.querySelector('capacitor');
+    const capacitor = capacitorEl
+        ? {
+            charge: parseNumberOptional(capacitorEl.getAttribute('charge'), 'FTL Capacitor', 'Charge', { min: 0, max: 200, integer: false }) ?? 0,
+            target: parseNumberOptional(capacitorEl.getAttribute('target'), 'FTL Capacitor', 'Target', { min: 0, max: 200, integer: false }) ?? 100,
+            eta: capacitorEl.getAttribute('eta') || ''
+        }
+        : null;
+    const windowEl = ftlEl.querySelector('window');
+    const window = windowEl
+        ? {
+            opensIn: windowEl.getAttribute('opensIn') || windowEl.getAttribute('opens') || '',
+            duration: windowEl.getAttribute('duration') || '',
+            vector: windowEl.getAttribute('vector') || ''
+        }
+        : null;
+    const checklist = Array.from(ftlEl.querySelectorAll('checklist > step')).map((stepEl, index) => ({
+        id: stepEl.getAttribute('id') || `ftl-step-${index + 1}`,
+        label: getAttribute(stepEl, 'label', 'FTL Checklist', {
+            fallback: stepEl.textContent?.trim() || `Schritt ${index + 1}`
+        }),
+        completed: parseBoolean(stepEl.getAttribute('completed')),
+        optional: parseBoolean(stepEl.getAttribute('optional')),
+        owner: stepEl.getAttribute('owner') || stepEl.getAttribute('team') || ''
+    }));
+    const abort = Array.from(ftlEl.querySelectorAll('abort > procedure')).map((procEl, index) => ({
+        id: procEl.getAttribute('id') || `ftl-abort-${index + 1}`,
+        label: getAttribute(procEl, 'label', 'FTL Abort', {
+            fallback: procEl.textContent?.trim() || `Protokoll ${index + 1}`
+        }),
+        status: (procEl.getAttribute('status') || 'ready').toLowerCase(),
+        note: getTextContent(procEl, ['note', 'hinweis'], 'FTL Abort', { fallback: '' })
+    }));
+    return { capacitor, window, checklist, abort };
+}
+
+function parseNpc(root) {
+    const npcEl = root.querySelector('npc') || root.querySelector('npcManager');
+    if (!npcEl) return null;
+    const scripts = Array.from(npcEl.querySelectorAll('scripts > script')).map((scriptEl, index) => ({
+        id: scriptEl.getAttribute('id') || `npc-script-${index + 1}`,
+        label: getAttribute(scriptEl, 'label', 'NPC Script', {
+            fallback: scriptEl.textContent?.trim() || `Script ${index + 1}`
+        }),
+        channel: scriptEl.getAttribute('channel') || scriptEl.getAttribute('target') || 'Allgemein',
+        status: scriptEl.getAttribute('status') || 'ready',
+        prompt: getTextContent(scriptEl, ['prompt', 'text'], 'NPC Script', { fallback: '' })
+    }));
+    const cues = Array.from(npcEl.querySelectorAll('cues > cue')).map((cueEl, index) => ({
+        id: cueEl.getAttribute('id') || `npc-cue-${index + 1}`,
+        label: getAttribute(cueEl, 'label', 'NPC Cue', {
+            fallback: cueEl.textContent?.trim() || `Cue ${index + 1}`
+        }),
+        status: cueEl.getAttribute('status') || 'queued',
+        note: getTextContent(cueEl, ['note', 'hinweis'], 'NPC Cue', { fallback: '' })
+    }));
+    const log = Array.from(npcEl.querySelectorAll('log > entry')).map((entryEl, index) => ({
+        id: entryEl.getAttribute('id') || `npc-log-${index + 1}`,
+        message: entryEl.textContent?.trim() || '',
+        timestamp: entryEl.getAttribute('timestamp') || ''
+    }));
+    return { scripts, cues, log };
+}
+
+function parseCrewSchedule(root) {
+    const scheduleEl = root.querySelector('crewSchedule') || root.querySelector('roleplay');
+    if (!scheduleEl) return null;
+    const scenes = Array.from(scheduleEl.querySelectorAll('scene')).map((sceneEl, index) => ({
+        id: sceneEl.getAttribute('id') || `scene-${index + 1}`,
+        title: getAttribute(sceneEl, 'title', 'Crew Scene', {
+            fallback: sceneEl.textContent?.trim() || `Szene ${index + 1}`
+        }),
+        time: sceneEl.getAttribute('time') || '',
+        location: sceneEl.getAttribute('location') || '',
+        cast: sceneEl.getAttribute('cast') || sceneEl.getAttribute('participants') || '',
+        status: sceneEl.getAttribute('status') || 'scheduled',
+        note: getTextContent(sceneEl, ['note', 'hinweis'], 'Crew Scene', { fallback: '' })
+    }));
+    return { scenes };
+}
+
+function parseImmersion(root) {
+    const immersionEl = root.querySelector('immersion');
+    if (!immersionEl) return null;
+    const audio = Array.from(immersionEl.querySelectorAll('audio > track')).map((trackEl, index) => ({
+        id: trackEl.getAttribute('id') || `audio-${index + 1}`,
+        label: getAttribute(trackEl, 'label', 'Immersion Audio', {
+            fallback: trackEl.textContent?.trim() || `Audio ${index + 1}`
+        }),
+        status: trackEl.getAttribute('status') || 'ready',
+        level: parseNumberOptional(trackEl.getAttribute('level') ?? trackEl.getAttribute('volume'), 'Immersion Audio', 'Level', { min: 0, max: 100, integer: false }) ?? 0,
+        note: getTextContent(trackEl, ['note', 'hinweis'], 'Immersion Audio', { fallback: '' })
+    }));
+    const lightingEl = immersionEl.querySelector('lighting');
+    const lighting = lightingEl
+        ? {
+            mode: lightingEl.getAttribute('mode') || lightingEl.getAttribute('scene') || 'Standard',
+            intensity: parseNumberOptional(lightingEl.getAttribute('intensity') ?? lightingEl.getAttribute('level'), 'Immersion Lighting', 'Intensität', { min: 0, max: 100, integer: false }) ?? 40
+        }
+        : null;
+    const props = Array.from(immersionEl.querySelectorAll('props > prop')).map((propEl, index) => ({
+        id: propEl.getAttribute('id') || `prop-${index + 1}`,
+        label: getAttribute(propEl, 'label', 'Immersion Prop', {
+            fallback: propEl.textContent?.trim() || `Requisite ${index + 1}`
+        }),
+        status: propEl.getAttribute('status') || 'ready',
+        note: getTextContent(propEl, ['note', 'hinweis'], 'Immersion Prop', { fallback: '' })
+    }));
+    return { audio, lighting, props };
+}
+
+function parseCharacters(root) {
+    const charactersEl = root.querySelector('characters');
+    if (!charactersEl) return null;
+    const roster = Array.from(charactersEl.querySelectorAll('character')).map((charEl, index) => ({
+        id: charEl.getAttribute('id') || `character-${index + 1}`,
+        name: getAttribute(charEl, 'name', 'Character', { fallback: `Crew ${index + 1}` }),
+        role: charEl.getAttribute('role') || charEl.getAttribute('position') || '',
+        xp: parseNumberOptional(charEl.getAttribute('xp') ?? charEl.getAttribute('experience'), 'Character', 'XP', { min: 0, max: 100000, integer: true }) ?? 0,
+        nextUnlock: charEl.getAttribute('nextUnlock') || charEl.getAttribute('unlock') || '',
+        traits: Array.from(charEl.querySelectorAll('trait')).map(traitEl => traitEl.textContent?.trim() || '').filter(Boolean)
+    }));
+    return { roster };
+}
+
+function parseNews(root) {
+    const newsEl = root.querySelector('news');
+    if (!newsEl) return null;
+    const feeds = Array.from(newsEl.querySelectorAll('feeds > item')).map((itemEl, index) => ({
+        id: itemEl.getAttribute('id') || `news-${index + 1}`,
+        headline: getAttribute(itemEl, 'headline', 'News Item', { fallback: itemEl.textContent?.trim() || `Meldung ${index + 1}` }),
+        category: itemEl.getAttribute('category') || 'Allgemein',
+        status: itemEl.getAttribute('status') || 'published',
+        priority: itemEl.getAttribute('priority') || 'Normal',
+        timestamp: itemEl.getAttribute('timestamp') || '',
+        summary: getTextContent(itemEl, ['summary', 'text'], 'News Item', { fallback: '' })
+    }));
+    const drafts = Array.from(newsEl.querySelectorAll('drafts > item')).map((itemEl, index) => ({
+        id: itemEl.getAttribute('id') || `draft-${index + 1}`,
+        title: getAttribute(itemEl, 'title', 'News Draft', { fallback: itemEl.textContent?.trim() || `Entwurf ${index + 1}` }),
+        summary: getTextContent(itemEl, ['summary', 'text'], 'News Draft', { fallback: '' }),
+        status: itemEl.getAttribute('status') || 'draft',
+        category: itemEl.getAttribute('category') || 'Allgemein',
+        priority: itemEl.getAttribute('priority') || 'Normal'
+    }));
+    return { feeds, drafts };
+}
+
 function parseStations(root) {
     return Array.from(root.querySelectorAll('stations > station')).map((stationEl, index) => ({
         id: stationEl.getAttribute('id') || `station-${index + 1}`,
@@ -1119,6 +1375,9 @@ export function parseScenarioXml(xmlText) {
     const fabrication = parseFabrication(scenarioEl);
     const medical = parseMedical(scenarioEl);
     const security = parseSecurity(scenarioEl);
+    const propulsion = parsePropulsion(scenarioEl);
+    const thermal = parseThermal(scenarioEl);
+    const ftl = parseFtl(scenarioEl);
     const stations = parseStations(scenarioEl);
     const procedures = parseProcedures(scenarioEl);
     const briefing = parseBriefing(scenarioEl);
@@ -1127,6 +1386,11 @@ export function parseScenarioXml(xmlText) {
     const telemetry = parseTelemetry(scenarioEl);
     const faults = parseFaults(scenarioEl);
     const larp = parseLarp(scenarioEl);
+    const npc = parseNpc(scenarioEl);
+    const crewSchedule = parseCrewSchedule(scenarioEl);
+    const immersion = parseImmersion(scenarioEl);
+    const characters = parseCharacters(scenarioEl);
+    const news = parseNews(scenarioEl);
 
     return {
         id: scenarioEl.getAttribute('id') || null,
@@ -1150,6 +1414,9 @@ export function parseScenarioXml(xmlText) {
         fabrication,
         medical,
         security,
+        propulsion,
+        thermal,
+        ftl,
         stations,
         procedures,
         briefing,
@@ -1157,7 +1424,12 @@ export function parseScenarioXml(xmlText) {
         encounters,
         telemetry,
         faults,
-        larp
+        larp,
+        npc,
+        crewSchedule,
+        immersion,
+        characters,
+        news
     };
 }
 

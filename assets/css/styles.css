@@ -1527,6 +1527,155 @@ body {
     box-shadow: 0 8px 20px rgba(0, 188, 212, 0.25);
 }
 
+.propulsion-body,
+.thermal-body,
+.ftl-body,
+.npc-body,
+.immersion-body,
+.news-body {
+    display: grid;
+    gap: 1rem;
+}
+
+.propulsion-overview,
+.thermal-radiators {
+    display: grid;
+    gap: 0.8rem;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+}
+
+.propulsion-fuel,
+.propulsion-rcs,
+.thermal-signature,
+.immersion-mode {
+    background: rgba(8, 20, 38, 0.7);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.75rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    display: grid;
+    gap: 0.35rem;
+}
+
+.propulsion-fuel strong,
+.propulsion-rcs strong,
+.thermal-signature strong,
+.immersion-mode strong {
+    color: var(--text-primary);
+}
+
+.propulsion-maneuvers .task-item,
+.thermal-cooling .task-item,
+.npc-body .task-item,
+.crew-scheduler-body .task-item,
+.immersion-body .task-item,
+.news-body .task-item {
+    align-items: flex-start;
+}
+
+.propulsion-alerts .audit-list li,
+.news-body .audit-list li {
+    display: grid;
+    gap: 0.25rem;
+}
+
+.radiator-grid {
+    display: grid;
+    gap: 0.8rem;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.radiator-card {
+    background: rgba(8, 20, 38, 0.75);
+    border: 1px solid rgba(38, 255, 230, 0.1);
+    border-radius: 10px;
+    padding: 0.7rem;
+    display: grid;
+    gap: 0.4rem;
+}
+
+.radiator-card strong {
+    font-size: 0.95rem;
+}
+
+.thermal-signature {
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.thermal-signature span,
+.propulsion-fuel span,
+.propulsion-rcs span,
+.immersion-mode span {
+    display: flex;
+    justify-content: space-between;
+}
+
+.ftl-window-info {
+    margin-top: 0.5rem;
+    display: grid;
+    gap: 0.25rem;
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+}
+
+.event-log-small {
+    max-height: 180px;
+    overflow-y: auto;
+}
+
+.crew-scheduler-body {
+    max-height: 240px;
+    overflow-y: auto;
+}
+
+.character-body .compact-table td:last-child {
+    min-width: 120px;
+}
+
+.news-body section {
+    display: grid;
+    gap: 0.4rem;
+}
+
+.news-body .task-list li small {
+    display: block;
+    color: var(--text-secondary);
+}
+
+.immersion-body .slider-control {
+    align-items: center;
+}
+
+.immersion-body .slider-control input[type="range"] {
+    width: 100%;
+}
+
+.immersion-body .slider-control span {
+    min-width: 48px;
+    text-align: right;
+}
+
+.npc-body h3,
+.news-body h3,
+.immersion-body h3,
+.crew-scheduler-body h3 {
+    margin-bottom: 0.4rem;
+}
+
+.propulsion-profile-active {
+    border-left: 3px solid var(--accent);
+}
+
+.propulsion-profile-active strong {
+    color: var(--accent-strong);
+}
+
+.character-body table td,
+.character-body table th {
+    white-space: nowrap;
+}
+
 input,
 select,
 textarea {

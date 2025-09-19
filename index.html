@@ -361,6 +361,101 @@
                         </section>
                     </div>
                 </div>
+                <div class="propulsion module" id="propulsion-module">
+                    <header>
+                        <h2>Sublicht-Antrieb</h2>
+                        <span id="propulsion-status" class="status-pill status-online">Nominal</span>
+                    </header>
+                    <div class="propulsion-body">
+                        <section class="propulsion-overview">
+                            <div id="propulsion-fuel" class="propulsion-fuel"></div>
+                            <div id="propulsion-rcs" class="propulsion-rcs"></div>
+                        </section>
+                        <section class="propulsion-thrusters">
+                            <h3>Triebwerksdaten</h3>
+                            <table class="compact-table">
+                                <thead>
+                                    <tr>
+                                        <th>Triebwerk</th>
+                                        <th>Status</th>
+                                        <th>Schub</th>
+                                        <th>Temp.</th>
+                                        <th>Vibration</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="propulsion-thruster-table"></tbody>
+                            </table>
+                        </section>
+                        <section class="propulsion-profiles">
+                            <h3>Manöverprofile</h3>
+                            <ul id="propulsion-profile-list" class="task-list"></ul>
+                        </section>
+                        <section class="propulsion-maneuvers">
+                            <h3>Manöverplanung</h3>
+                            <ul id="propulsion-maneuver-list" class="task-list"></ul>
+                        </section>
+                        <section class="propulsion-alerts">
+                            <h3>Hinweise</h3>
+                            <ul id="propulsion-alert-list" class="audit-list"></ul>
+                        </section>
+                    </div>
+                </div>
+                <div class="thermal module" id="thermal-module">
+                    <header>
+                        <h2>Thermalkontrolle</h2>
+                        <span id="thermal-status" class="status-pill status-online">Stabil</span>
+                    </header>
+                    <div class="thermal-body">
+                        <section class="thermal-loads">
+                            <h3>Wärmestau</h3>
+                            <table class="compact-table">
+                                <thead>
+                                    <tr>
+                                        <th>Quelle</th>
+                                        <th>Last</th>
+                                        <th>Status</th>
+                                        <th>Maßnahme</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="thermal-load-table"></tbody>
+                            </table>
+                        </section>
+                        <section class="thermal-radiators">
+                            <h3>Radiatorsegmente</h3>
+                            <div id="thermal-radiator-grid" class="radiator-grid"></div>
+                        </section>
+                        <section class="thermal-cooling">
+                            <h3>Notkühlung</h3>
+                            <ul id="thermal-cooling-list" class="task-list"></ul>
+                        </section>
+                        <section class="thermal-signature">
+                            <h3>Signaturmanagement</h3>
+                            <div id="thermal-signature" class="thermal-signature"></div>
+                        </section>
+                    </div>
+                </div>
+                <div class="ftl module" id="ftl-module">
+                    <header>
+                        <h2>FTL Jump Orchestrator</h2>
+                        <span id="ftl-status" class="status-pill status-warning">Ladevorgang</span>
+                    </header>
+                    <div class="ftl-body">
+                        <section class="ftl-charge">
+                            <h3>Ladestatus</h3>
+                            <div class="progress-bar"><div id="ftl-charge-bar" class="progress"></div></div>
+                            <span id="ftl-charge-label">0%</span>
+                            <div id="ftl-window-info" class="ftl-window-info"></div>
+                        </section>
+                        <section class="ftl-checklist">
+                            <h3>Sprung-Checkliste</h3>
+                            <ul id="ftl-checklist" class="checklist"></ul>
+                        </section>
+                        <section class="ftl-abort">
+                            <h3>Abbruchprotokolle</h3>
+                            <ul id="ftl-abort-list" class="audit-list"></ul>
+                        </section>
+                    </div>
+                </div>
             </section>
             <aside class="detail-panel">
                 <div class="crew module">
@@ -506,6 +601,95 @@
                                 <input type="range" id="larp-fog" min="0" max="100" value="25">
                                 <span id="larp-fog-label">25%</span>
                             </div>
+                        </section>
+                    </div>
+                </div>
+                <div class="npc module" id="npc-module">
+                    <header>
+                        <h2>NPC-Interaktionen</h2>
+                        <span id="npc-status" class="status-pill status-online">Bereit</span>
+                    </header>
+                    <div class="npc-body">
+                        <section>
+                            <h3>Funkvorlagen</h3>
+                            <ul id="npc-script-list" class="task-list"></ul>
+                        </section>
+                        <section>
+                            <h3>Impro-Cues</h3>
+                            <ul id="npc-cue-list" class="task-list"></ul>
+                        </section>
+                        <section>
+                            <h3>Interaktionslog</h3>
+                            <div id="npc-log" class="event-log event-log-small"></div>
+                        </section>
+                    </div>
+                </div>
+                <div class="crew-scheduler module" id="crew-scheduler-module">
+                    <header>
+                        <h2>Crew-Rollenspiel</h2>
+                        <span id="crew-scheduler-status" class="status-pill status-online">Geplant</span>
+                    </header>
+                    <div class="crew-scheduler-body">
+                        <ul id="crew-scene-list" class="task-list"></ul>
+                    </div>
+                </div>
+                <div class="immersion module" id="immersion-module">
+                    <header>
+                        <h2>Immersionskontrolle</h2>
+                        <span id="immersion-status" class="status-pill status-online">Aktiv</span>
+                    </header>
+                    <div class="immersion-body">
+                        <section>
+                            <h3>Audio</h3>
+                            <ul id="immersion-audio-list" class="task-list"></ul>
+                        </section>
+                        <section class="immersion-lighting">
+                            <h3>Beleuchtung</h3>
+                            <div class="slider-control">
+                                <input type="range" id="immersion-lighting" min="0" max="100" value="40">
+                                <span id="immersion-lighting-label">40%</span>
+                            </div>
+                            <div id="immersion-lighting-mode" class="immersion-mode"></div>
+                        </section>
+                        <section>
+                            <h3>Requisiten</h3>
+                            <ul id="immersion-prop-list" class="task-list"></ul>
+                        </section>
+                    </div>
+                </div>
+                <div class="character-tracker module" id="character-module">
+                    <header>
+                        <h2>Charakterfortschritt</h2>
+                        <span id="character-status" class="status-pill status-online">Aktiv</span>
+                    </header>
+                    <div class="character-body">
+                        <table class="compact-table">
+                            <thead>
+                                <tr>
+                                    <th>Charakter</th>
+                                    <th>Rolle</th>
+                                    <th>Erfahrung</th>
+                                    <th>Eigenschaften</th>
+                                    <th>Aktionen</th>
+                                </tr>
+                            </thead>
+                            <tbody id="character-roster"></tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="news module" id="news-module">
+                    <header>
+                        <h2>In-Universe Nachrichten</h2>
+                        <span id="news-status" class="status-pill status-online">Bereit</span>
+                    </header>
+                    <div class="news-body">
+                        <section>
+                            <h3>Aktuelle Meldungen</h3>
+                            <ul id="news-feed-list" class="audit-list"></ul>
+                        </section>
+                        <section>
+                            <h3>Entwürfe</h3>
+                            <ul id="news-draft-list" class="task-list"></ul>
                         </section>
                     </div>
                 </div>
