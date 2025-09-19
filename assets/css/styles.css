@@ -616,6 +616,57 @@ body {
     font-weight: 600;
 }
 
+.life-support-metric-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.life-support-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.life-support-status-warning {
+    color: var(--warning);
+}
+
+.life-support-status-critical {
+    color: var(--danger);
+}
+
+.life-support-status-monitoring {
+    color: var(--accent);
+}
+
+.life-support-status-stable {
+    color: var(--success);
+}
+
+.life-support-buffers {
+    display: grid;
+    gap: 0.4rem;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.life-support-buffer {
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 8px;
+    padding: 0.5rem 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.78rem;
+}
+
+.life-support-buffer strong {
+    font-size: 0.8rem;
+    color: var(--accent);
+}
+
 .app-footer {
     position: sticky;
     bottom: 0;

@@ -117,6 +117,164 @@ function parseSystems(root) {
     });
 }
 
+function parseLifeSupport(root) {
+    const lifeSupportEl = root.querySelector('lifeSupport');
+    if (!lifeSupportEl) {
+        return null;
+    }
+
+    const cycles = Array.from(lifeSupportEl.querySelectorAll('cycles > cycle')).map((cycleEl, index) => {
+        const inferredId = cycleEl.getAttribute('id') || `cycle-${index + 1}`;
+        const context = `LifeSupport Zyklus ${inferredId}`;
+        const id = getAttribute(cycleEl, 'id', context, { fallback: inferredId });
+        const label = getAttribute(cycleEl, 'label', context, {
+            fallback: getTextContent(cycleEl, ['label', 'name'], context, { required: true })
+        });
+        const status = getAttribute(cycleEl, 'status', context, {
+            fallback: getTextContent(cycleEl, ['status'], context, { fallback: 'Stabil' })
+        }) || 'Stabil';
+        const note = getTextContent(cycleEl, ['note', 'hinweis'], context, { fallback: '' });
+        const metrics = Array.from(cycleEl.querySelectorAll('metric')).map((metricEl, metricIndex) => {
+            const metricContext = `${context} Metrik ${metricIndex + 1}`;
+            const inferredKey = metricEl.getAttribute('key') || null;
+            const key = getAttribute(metricEl, 'key', metricContext, { fallback: inferredKey });
+            const labelMetric = getAttribute(metricEl, 'label', metricContext, {
+                fallback: getTextContent(metricEl, ['label', 'name'], metricContext, { required: true })
+            });
+            const unit = getAttribute(metricEl, 'unit', metricContext, {
+                fallback: getTextContent(metricEl, ['unit'], metricContext, { fallback: '' })
+            }) || '';
+            const valueRaw = getAttribute(metricEl, 'value', metricContext, {
+                fallback: getTextContent(metricEl, ['value'], metricContext, { required: true })
+            });
+            const value = parseNumber(valueRaw, metricContext, 'Wert', { min: -100000, max: 100000, integer: false });
+            return { key, label: labelMetric, unit, value };
+        });
+        return { id, label, status, metrics, note };
+    });
+
+    const sections = Array.from(lifeSupportEl.querySelectorAll('sections > section')).map((sectionEl, index) => {
+        const inferredId = sectionEl.getAttribute('id') || `section-${index + 1}`;
+        const context = `LifeSupport Sektion ${inferredId}`;
+        const id = getAttribute(sectionEl, 'id', context, { fallback: inferredId });
+        const name = getAttribute(sectionEl, 'name', context, {
+            fallback: getTextContent(sectionEl, ['name', 'bezeichnung', 'label'], context, { required: true })
+        });
+        const pressureRaw = getAttribute(sectionEl, 'pressure', context, { required: true });
+        const pressure = parseNumber(pressureRaw, context, 'Druck', { min: 0, max: 1000, integer: false });
+        const pressureUnit = getAttribute(sectionEl, 'pressureUnit', context, {
+            fallback: getTextContent(sectionEl, ['pressureUnit', 'druckEinheit'], context, { fallback: 'kPa' })
+        }) || 'kPa';
+        const temperatureRaw = getAttribute(sectionEl, 'temperature', context, { required: true });
+        const temperature = parseNumber(temperatureRaw, context, 'Temperatur', { min: -100, max: 200, integer: false });
+        const temperatureUnit = getAttribute(sectionEl, 'temperatureUnit', context, {
+            fallback: getTextContent(sectionEl, ['temperatureUnit', 'temperaturEinheit'], context, { fallback: '°C' })
+        }) || '°C';
+        const humidityRaw = getAttribute(sectionEl, 'humidity', context, {
+            fallback: getTextContent(sectionEl, ['humidity', 'feuchtigkeit'], context, { fallback: null })
+        });
+        const humidity = humidityRaw !== null && humidityRaw !== undefined
+            ? parseNumber(humidityRaw, context, 'Feuchtigkeit', { min: 0, max: 100, integer: false })
+            : null;
+        const status = getAttribute(sectionEl, 'status', context, {
+            fallback: getTextContent(sectionEl, ['status'], context, { fallback: 'Stabil' })
+        }) || 'Stabil';
+        return {
+            id,
+            name,
+            pressure: { value: pressure, unit: pressureUnit },
+            temperature: { value: temperature, unit: temperatureUnit },
+            humidity: humidity !== null ? { value: humidity, unit: '%' } : null,
+            status
+        };
+    });
+
+    const leaks = Array.from(lifeSupportEl.querySelectorAll('leaks > leak')).map((leakEl, index) => {
+        const inferredId = leakEl.getAttribute('id') || `leak-${index + 1}`;
+        const context = `LifeSupport Leck ${inferredId}`;
+        const id = getAttribute(leakEl, 'id', context, { fallback: inferredId });
+        const location = getAttribute(leakEl, 'location', context, {
+            fallback: getTextContent(leakEl, ['location', 'ort', 'name'], context, { required: true })
+        });
+        const severity = getAttribute(leakEl, 'severity', context, {
+            fallback: getTextContent(leakEl, ['severity', 'schwere'], context, { fallback: 'Unbekannt' })
+        }) || 'Unbekannt';
+        const status = getAttribute(leakEl, 'status', context, {
+            fallback: getTextContent(leakEl, ['status'], context, { fallback: 'Analyse läuft' })
+        }) || 'Analyse läuft';
+        const progressRaw = getAttribute(leakEl, 'progress', context, {
+            fallback: getTextContent(leakEl, ['progress', 'fortschritt'], context, { fallback: '0' })
+        });
+        const progress = parseNumber(progressRaw, context, 'Fortschritt', { min: 0, max: 100, integer: false });
+        const note = getTextContent(leakEl, ['note', 'hinweis'], context, { fallback: '' });
+        return { id, location, severity, status, progress, note };
+    });
+
+    const filtersEl = lifeSupportEl.querySelector('filters');
+    let filters = null;
+    if (filtersEl) {
+        const filterContext = 'LifeSupport Filter';
+        const banks = Array.from(filtersEl.querySelectorAll('bank')).map((bankEl, index) => {
+            const inferredId = bankEl.getAttribute('id') || `bank-${index + 1}`;
+            const context = `LifeSupport Filterbank ${inferredId}`;
+            const id = getAttribute(bankEl, 'id', context, { fallback: inferredId });
+            const label = getAttribute(bankEl, 'label', context, {
+                fallback: getTextContent(bankEl, ['label', 'name'], context, { required: true })
+            });
+            const status = getAttribute(bankEl, 'status', context, {
+                fallback: getTextContent(bankEl, ['status'], context, { fallback: 'Bereit' })
+            }) || 'Bereit';
+            const saturationRaw = getAttribute(bankEl, 'saturation', context, { required: true });
+            const saturation = parseNumber(saturationRaw, context, 'Sättigung', { min: 0, max: 100, integer: false });
+            const saturationUnit = getAttribute(bankEl, 'saturationUnit', context, {
+                fallback: getTextContent(bankEl, ['saturationUnit'], context, { fallback: '%' })
+            }) || '%';
+            const timeBufferRaw = getAttribute(bankEl, 'timeBuffer', context, {
+                fallback: getTextContent(bankEl, ['timeBuffer'], context, { fallback: '0' })
+            });
+            const timeBuffer = parseNumber(timeBufferRaw, context, 'Zeitpuffer', { min: 0, max: 100000, integer: false });
+            const timeBufferUnit = getAttribute(bankEl, 'timeBufferUnit', context, {
+                fallback: getTextContent(bankEl, ['timeBufferUnit'], context, { fallback: 'min' })
+            }) || 'min';
+            return {
+                id,
+                label,
+                status,
+                saturation: { value: saturation, unit: saturationUnit },
+                timeBuffer: { value: timeBuffer, unit: timeBufferUnit }
+            };
+        });
+
+        const reserveAirAttr = filtersEl.getAttribute('reserveAirMinutes')
+            ?? filtersEl.getAttribute('reserve')
+            ?? filtersEl.getAttribute('reserveMinutes');
+        const scrubberMarginAttr = filtersEl.getAttribute('scrubberMarginMinutes')
+            ?? filtersEl.getAttribute('scrubberMargin');
+        const emergencyBufferAttr = filtersEl.getAttribute('emergencyBufferMinutes')
+            ?? filtersEl.getAttribute('emergencyBuffer');
+
+        filters = {
+            banks,
+            reserveAirMinutes: reserveAirAttr !== null
+                ? parseNumber(reserveAirAttr, filterContext, 'Reserve-Luft', { min: 0, max: 100000, integer: false })
+                : undefined,
+            scrubberMarginMinutes: scrubberMarginAttr !== null
+                ? parseNumber(scrubberMarginAttr, filterContext, 'Scrubber-Puffer', { min: 0, max: 100000, integer: false })
+                : undefined,
+            emergencyBufferMinutes: emergencyBufferAttr !== null
+                ? parseNumber(emergencyBufferAttr, filterContext, 'Notfall-O₂', { min: 0, max: 100000, integer: false })
+                : undefined
+        };
+    }
+
+    return {
+        cycles,
+        sections,
+        leaks,
+        filters
+    };
+}
+
 function parseSectors(root) {
     const sectorsContainer = firstAvailableElement(root, ['sectors', 'sektoren']);
     if (!sectorsContainer) {
@@ -294,6 +452,7 @@ export function parseScenarioXml(xmlText) {
     }
     const ship = parseShip(shipEl);
     const systems = parseSystems(shipEl);
+    const lifeSupport = parseLifeSupport(shipEl);
     const sectors = parseSectors(scenarioEl);
     const commChannels = parseCommunications(scenarioEl);
     const crew = parseCrew(scenarioEl);
@@ -309,6 +468,7 @@ export function parseScenarioXml(xmlText) {
         version: scenarioEl.getAttribute('version') || null,
         ship,
         systems,
+        lifeSupport,
         sectors,
         commChannels,
         crew,

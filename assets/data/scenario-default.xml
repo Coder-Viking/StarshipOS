@@ -12,9 +12,9 @@
                 <redundanz>Doppelt redundant</redundanz>
                 <letzteWartung>Stardate 4521.4</letzteWartung>
                 <sensoren>
-                    <sensor>CO₂-Level stabil</sensor>
-                    <sensor>O₂-Level 20.9%</sensor>
-                    <sensor>Feuchtigkeit 40%</sensor>
+                    <sensor>O₂ Effizienz 98.6%</sensor>
+                    <sensor>CO₂ Sättigung 27%</sensor>
+                    <sensor>Sektionen 5/6 stabil</sensor>
                 </sensoren>
             </system>
             <system id="engines">
@@ -119,6 +119,43 @@
                 </sensoren>
             </system>
         </systems>
+        <lifeSupport>
+            <cycles>
+                <cycle id="o2-regeneration" label="O₂-Regeneration" status="Stabil">
+                    <metric key="efficiency" label="Effizienz" unit="%" value="98.6" />
+                    <metric key="throughput" label="Durchsatz" unit="kg/h" value="12.4" />
+                    <metric key="loop" label="Loop" unit="min" value="42" />
+                    <note>Reservefeld 2 kalibriert, CO₂-Last bei 41%</note>
+                </cycle>
+                <cycle id="co2-scrubber" label="CO₂-Abscheidung" status="Stabil">
+                    <metric key="saturation" label="Sättigung" unit="%" value="27" />
+                    <metric key="scrub-rate" label="Abscheidung" unit="kg/h" value="11.8" />
+                    <metric key="regen" label="Regeneration" unit="%" value="93" />
+                    <note>Filterbank A aktiv, Regeneration in 18 Minuten</note>
+                </cycle>
+            </cycles>
+            <sections>
+                <section id="bridge" name="Brücke" pressure="101.3" pressureUnit="kPa" temperature="21.8" temperatureUnit="°C" humidity="41" status="Stabil" />
+                <section id="engineering" name="Maschinenraum" pressure="100.9" pressureUnit="kPa" temperature="23.4" temperatureUnit="°C" humidity="45" status="Stabil" />
+                <section id="habitat" name="Habitat-Ring" pressure="101.0" pressureUnit="kPa" temperature="22.6" temperatureUnit="°C" humidity="42" status="Stabil" />
+                <section id="medbay" name="MedBay" pressure="101.5" pressureUnit="kPa" temperature="21.1" temperatureUnit="°C" humidity="38" status="Stabil" />
+                <section id="cargo" name="Frachtraum" pressure="100.6" pressureUnit="kPa" temperature="20.9" temperatureUnit="°C" humidity="36" status="Stabil" />
+                <section id="shuttle-bay" name="Shuttle-Bucht" pressure="99.8" pressureUnit="kPa" temperature="19.8" temperatureUnit="°C" humidity="33" status="Überwachung" />
+            </sections>
+            <leaks>
+                <leak id="cargo-outer" location="Frachtraum 2 – Außenhaut" severity="Gering" status="Versiegelt" progress="100">
+                    <note>Nanopolymer-Patch hält, Monitoring aktiv</note>
+                </leak>
+                <leak id="deck-5" location="Deck 5 – Wartungsschacht" severity="Spur" status="Analyse läuft" progress="18">
+                    <note>Sensorcluster 4 meldet leichte Druckfluktuation</note>
+                </leak>
+            </leaks>
+            <filters reserveAirMinutes="640" scrubberMarginMinutes="180" emergencyBufferMinutes="240">
+                <bank id="primary" label="Filterbank A" status="Aktiv" saturation="34" saturationUnit="%" timeBuffer="540" timeBufferUnit="min" />
+                <bank id="secondary" label="Filterbank B" status="Bereit" saturation="12" saturationUnit="%" timeBuffer="780" timeBufferUnit="min" />
+                <bank id="reserve" label="Reservekassetten" status="Standby" saturation="3" saturationUnit="%" timeBuffer="1020" timeBufferUnit="min" />
+            </filters>
+        </lifeSupport>
     </ship>
     <sectors>
         <sector id="alpha" name="Alpha Quadrant" defaultCoords="A-12-17" baseEta="38" />
