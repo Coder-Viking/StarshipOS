@@ -13,14 +13,14 @@
 - Simulationsteuerung – Start/Pause sowie zufällig generierte Ereignisse zur Dramaturgie-Kontrolle. COMPLETE
 
 ## Wissenschaft, Logistik & Technik (Phase 4)
-- Science Lab Suite – Probenanalyse, Sensoranomalien-Logging und Fortschrittsdarstellung je Forschungsprojekt. INCOMPLETE
-- Cargo & Inventory Control – Verwaltung von Lagerplätzen, Schwerpunktlage und Gefahrgutfreigaben. INCOMPLETE
-- Fabrication & Ersatzteilmanagement – Produktionspipelines, Termintracking und Materialnachschubplanung. INCOMPLETE
-- Medical Bay Console – Vitaldaten-Monitoring, Verletzungsmanagement und Quarantäneprotokolle. INCOMPLETE
-- Security & Access Control – Rollen- und Rechteverwaltung inklusive Audit-Trail-Prüfungen. INCOMPLETE
-- Sublight Propulsion Management – Schub-, Treibstoff- und Manöverprofile mit RCS-/Trägheitsabgleich überwachen. INCOMPLETE
-- Thermal Control Interface – Wärmestau-Analyse, Radiatorensteuerung und Notkühlungsprotokolle. INCOMPLETE
-- FTL Jump Orchestrator – Ladezeitmanagement, Navigationsfenster-Abstimmung und Abbruchprozeduren. INCOMPLETE
+- Science Lab Suite – Probenanalyse, Sensoranomalien-Logging und Fortschrittsdarstellung je Forschungsprojekt. COMPLETE
+- Cargo & Inventory Control – Verwaltung von Lagerplätzen, Schwerpunktlage und Gefahrgutfreigaben. COMPLETE
+- Fabrication & Ersatzteilmanagement – Produktionspipelines, Termintracking und Materialnachschubplanung. COMPLETE
+- Medical Bay Console – Vitaldaten-Monitoring, Verletzungsmanagement und Quarantäneprotokolle. COMPLETE
+- Security & Access Control – Rollen- und Rechteverwaltung inklusive Audit-Trail-Prüfungen. COMPLETE
+- Sublight Propulsion Management – Schub-, Treibstoff- und Manöverprofile mit RCS-/Trägheitsabgleich überwachen. COMPLETE
+- Thermal Control Interface – Wärmestau-Analyse, Radiatorensteuerung und Notkühlungsprotokolle. COMPLETE
+- FTL Jump Orchestrator – Ladezeitmanagement, Navigationsfenster-Abstimmung und Abbruchprozeduren. COMPLETE
 
 ## Brücke, Stationsrollen & Benutzererlebnis (Phase 5)
 - Stationsspezifische Dashboards – Dedizierte Oberflächen für Captain, Pilot, Engineering, Tactical, Science und Comms. INCOMPLETE

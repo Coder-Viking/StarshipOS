@@ -367,4 +367,423 @@
                 hazard="Sensorboje in Reichweite" priority="Überwachung" friendlies="0" hostiles="0" />
         </sectors>
     </tactical>
+
+    <science>
+        <samples>
+            <sample id="sample-nebula" name="Nebelprobe 47-B" type="Ionischer Staub" status="processing" assignedTo="Lt. Hale" progress="68" increment="12" priority="Hoch">
+                <note>Spektralanalyse auf Plasmaanteile läuft.</note>
+            </sample>
+            <sample id="sample-bio" name="Biomatrix Kolonie" type="Organisches Gel" status="pending" assignedTo="Crewman Elan" progress="22" increment="18" priority="Routine">
+                <note>Sterilitätsprüfungen vorbereiten.</note>
+            </sample>
+        </samples>
+        <anomalies>
+            <anomaly id="anomaly-rift" label="Subraum-Riss Signatur" severity="high" status="processing" window="+00:12">
+                <action>Gravitationssensoren neu kalibrieren.</action>
+            </anomaly>
+            <anomaly id="anomaly-aurora" label="Aurora-Partikelsturm" severity="medium" status="verified" window="+02:30">
+                <action>Frequenzband archiviert.</action>
+            </anomaly>
+        </anomalies>
+        <projects>
+            <project id="project-stasis" title="Stasisfeld-Rekalibrierung" lead="Dr. Idris" milestone="Validierung" progress="52" horizon="T-6h">
+                <note>Simulationslauf #12 in Auswertung.</note>
+            </project>
+        </projects>
+        <missions>
+            <mission id="science-scout" title="Aufklärung Nebel X12" verified="false" />
+        </missions>
+        <markers>
+            <marker id="marker-delta" label="Scan Feld Delta" status="aktiv" />
+            <marker id="marker-beta" label="Telemetrie Relais Beta" status="übermittelt" />
+        </markers>
+    </science>
+
+    <cargo>
+        <summary mass="184.2" capacity="320" balance="Ausbalanciert" balanceStatus="status-online" hazards="2" fuelMargin="18" massVector="+02/+01/0" />
+        <holds>
+            <hold id="hold-a" name="Frachtraum A" occupancy="72" capacity="120" mass="84.6" hazard="false">
+                <note>Standardcontainer, Sicherungsnetze geprüft.</note>
+            </hold>
+            <hold id="hold-b" name="Frachtraum B" occupancy="54" capacity="110" mass="61.8" hazard="true">
+                <note>Gefahrgut-Käfig aktiviert, Chem-Alarm auf Gelb.</note>
+            </hold>
+            <hold id="hold-shuttle" name="Shuttle-Bay" occupancy="35" capacity="90" mass="37.8" hazard="false">
+                <note>Docking-Fracht in Vorbereitung.</note>
+            </hold>
+        </holds>
+        <logistics>
+            <task id="cargo-transfer" description="Transfer Ersatzteile → Maschinenraum" window="T-00:20" status="pending" assignedTo="Cargo Team 2" />
+            <task id="cargo-shuttle" description="Verladung Shuttle ECHO" window="Dock+15" status="complete" assignedTo="Deck Crew" />
+        </logistics>
+    </cargo>
+
+    <fabrication>
+        <queue>
+            <job id="job-hullpatch" label="Hüllenpatch D5" type="Reparaturkit" status="active" eta="00:18" priority="Hoch" />
+            <job id="job-stims" label="Stim-Pack Serie 3" type="Medizin" status="queued" eta="00:45" priority="Routine" />
+        </queue>
+        <kits>
+            <kit id="kit-alpha" label="Notfallset Alpha" stock="3" status="ok" />
+            <kit id="kit-beta" label="Druckschott-Kit" stock="1" status="low" threshold="2" />
+        </kits>
+        <consumables>
+            <item id="consumable-fuel" label="Deuterium-Kartuschen" stock="12" threshold="5" unit="Stk" />
+            <item id="consumable-fiber" label="Nano-Faserrollen" stock="6" threshold="3" unit="Rollen" />
+        </consumables>
+    </fabrication>
+
+    <medical>
+        <roster>
+            <patient id="crew-tavish" name="Lt. Tavish" status="stabil" vitals="BP 118/76 | O₂ 98%" treatment="Regenerationsspray" priority="Routine" />
+            <patient id="crew-lian" name="Cmdr. Lian" status="kritisch" vitals="BP 89/54 | O₂ 92%" treatment="Trauma-Protokoll B" priority="Dringend" />
+        </roster>
+        <resources>
+            <item id="medpacks" label="Medpacks" stock="8" status="ok" />
+            <item id="stims" label="Stim-Dosen" stock="5" status="low" />
+            <item id="stasis" label="Stasis-Kapseln" stock="2/4" status="ok" />
+        </resources>
+        <quarantine status="aktiv" countdown="02:30">
+            <note>Forschungsteam D in Dekontamination.</note>
+        </quarantine>
+    </medical>
+
+    <security>
+        <roles>
+            <role id="role-captain" name="Captain" clearance="Alpha">
+                <permission>Alert-Status setzen</permission>
+                <permission>Waffenfreigabe</permission>
+                <critical>Selbstzerstörung</critical>
+                <critical>Not-Jump</critical>
+            </role>
+            <role id="role-tactical" name="Tactical" clearance="Beta">
+                <permission>Waffenziele wählen</permission>
+                <permission>Schild-Fokus</permission>
+                <critical>Sekundärbewaffnung</critical>
+            </role>
+            <role id="role-engineering" name="Engineering" clearance="Beta">
+                <permission>Energieverteilung</permission>
+                <permission>Not-Bypass</permission>
+                <critical>Reaktor Override</critical>
+            </role>
+        </roles>
+        <authorizations>
+            <authorization id="auth-torpedo" action="Torpedo Startfreigabe" station="Tactical" requestedBy="Lt. Kareem" status="pending" requires="Captain">
+                <note>Hostiler Kontakt in Sektor Delta.</note>
+            </authorization>
+            <authorization id="auth-hangar" action="Hangar-Dekompression" station="Engineering" requestedBy="Chief Holt" status="approved" requires="XO">
+                <note>Shuttle ECHO Auswurf bestätigt.</note>
+            </authorization>
+        </authorizations>
+        <audit>
+            <entry id="audit-1" timestamp="12:04">Crew-Login Lt. Kareem (Tac)</entry>
+            <entry id="audit-2" timestamp="12:12">Systemzugriff Fabrication freigegeben</entry>
+        </audit>
+    </security>
+
+    <propulsion activeProfile="profile-cruise">
+        <thrusters>
+            <thruster id="thruster-main-a" name="Haupttriebwerk A" status="online" thrust="92" unit="MN" temperature="612" temperatureUnit="K" vibration="1.4">
+                <note>Plasmafluss stabilisiert nach letzter Kalibrierung.</note>
+            </thruster>
+            <thruster id="thruster-main-b" name="Haupttriebwerk B" status="online" thrust="88" unit="MN" temperature="607" temperatureUnit="K" vibration="1.7">
+                <note>Sekundäre Injektoren werden überwacht.</note>
+            </thruster>
+            <thruster id="thruster-aux" name="Hilfstriebwerke" status="idle" thrust="14" unit="MN" temperature="345" temperatureUnit="K" vibration="0.6">
+                <note>Bereit für Feinmanöver.</note>
+            </thruster>
+        </thrusters>
+        <fuel main="68" reserve="24" consumption="4.8" reserveEta="5h 20m" />
+        <rcs status="nominal" balance="+0.2° Pitch" drift="0.3°/h">
+            <note>Automatische Trimmung aktiv.</note>
+        </rcs>
+        <profiles>
+            <profile id="profile-cruise" name="Cruise" thrust="54" rcs="22" status="ready" active="true">
+                <description>Effizientes Patrouillenprofil für den Delta-Nebel.</description>
+            </profile>
+            <profile id="profile-intercept" name="Abfang" thrust="86" rcs="44" status="ready">
+                <description>Maximale Schubabgabe zur Zielverfolgung.</description>
+            </profile>
+            <profile id="profile-drift" name="Station Keeping" thrust="18" rcs="12" status="standby">
+                <description>Feintrimmung für Docking- und EVA-Operationen.</description>
+            </profile>
+        </profiles>
+        <maneuvers>
+            <maneuver id="maneuver-rendezvous" title="Rendezvous mit Konvoi" window="T+00:25" status="in-progress" assigned="Pilot / Navigation">
+                <note>Annäherung mit 12 m/s Relativgeschwindigkeit.</note>
+            </maneuver>
+            <maneuver id="maneuver-escape" title="Fluchtkorridor vorbereiten" window="Standby" status="planned" assigned="Engineering">
+                <note>Reserve-Kurs auf Alpha-Relay.</note>
+            </maneuver>
+        </maneuvers>
+        <alerts>
+            <alert id="propulsion-temp" severity="warning">Temperaturanstieg Injektor 3 erkannt.</alert>
+            <alert id="propulsion-trim" severity="info">RCS-Drift über Soll – Trimmung empfohlen.</alert>
+        </alerts>
+    </propulsion>
+
+    <thermalControl>
+        <heatLoads>
+            <load id="heat-reactor" source="Reaktorkern" value="68.4" unit="%" status="stable">
+                <mitigation>Kühlmittelfluss auf 105% erhöht.</mitigation>
+            </load>
+            <load id="heat-weapons" source="Phaserbänke" value="44.2" unit="%" status="warning">
+                <mitigation>Sekundärer Wärmetauscher aktiv.</mitigation>
+            </load>
+            <load id="heat-shields" source="Deflektorschilde" value="31.5" unit="%" status="stable">
+                <mitigation>Lastverteilung erfolgt.</mitigation>
+            </load>
+        </heatLoads>
+        <radiators>
+            <radiator id="radiator-port" name="Radiator Backbord" status="deployed" output="74" angle="32°">
+                <note>Segment 3 zeigt leichten Partikelschlag.</note>
+            </radiator>
+            <radiator id="radiator-starboard" name="Radiator Steuerbord" status="deployed" output="78" angle="29°">
+                <note>Kühlleistung nominal.</note>
+            </radiator>
+        </radiators>
+        <cooling>
+            <task id="cool-loop-delta" description="Kühlkreislauf Delta spülen" status="in-progress" eta="00:12" owner="Engineering">
+                <note>Temperaturen sinken planmäßig.</note>
+            </task>
+            <task id="cool-vent" description="Ventilationsschächte entlüften" status="pending" eta="00:20" owner="Damage Control">
+                <note>Freigabe durch Sicherheit erforderlich.</note>
+            </task>
+        </cooling>
+        <signature level="Moderate" target="Konvoi" mode="Stealth-Sync">
+            <note>Emissionen an Eskorte angepasst.</note>
+        </signature>
+    </thermalControl>
+
+    <ftl>
+        <capacitor charge="64" target="100" eta="00:18" />
+        <window opensIn="00:24" duration="00:06" vector="Delta-314" />
+        <checklist>
+            <step id="ftl-diagnostics" label="Feld-Diagnostik" owner="Engineering" completed="false" />
+            <step id="ftl-lattice" label="Lattice-Synchronisierung" owner="Science" completed="true" />
+            <step id="ftl-bridge" label="Brücke bestätigt Kurs" owner="Captain" completed="false" />
+            <step id="ftl-medbay" label="MedBay sichert Patienten" owner="Medical" completed="false" optional="true" />
+        </checklist>
+        <abort>
+            <procedure id="ftl-abort-flow" label="Plasmafluss entkoppeln" status="ready" />
+            <procedure id="ftl-abort-dump" label="Energie in Strahlungsbänke ableiten" status="ready" />
+            <procedure id="ftl-abort-lockdown" label="Sprungabbruch-Protokoll Delta" status="armed">
+                <note>Freigabe Captain erforderlich.</note>
+            </procedure>
+        </abort>
+    </ftl>
+
+    <stations>
+        <station id="station-captain" role="Captain" status="bereit" readiness="90" crew="Capt. Sol">
+            <focus>
+                <item>Entscheidungen</item>
+                <item>Alert Levels</item>
+            </focus>
+        </station>
+        <station id="station-pilot" role="Pilot" status="bereit" readiness="75" crew="Lt. Osei">
+            <focus>
+                <item>Navigation</item>
+                <item>Manöver</item>
+            </focus>
+        </station>
+        <station id="station-engineering" role="Engineering" status="bereit" readiness="60" crew="Chief Holt">
+            <focus>
+                <item>Power</item>
+                <item>Damage Control</item>
+            </focus>
+        </station>
+        <station id="station-tactical" role="Tactical" status="bereit" readiness="80" crew="Lt. Kareem">
+            <focus>
+                <item>Waffen</item>
+                <item>Schilde</item>
+            </focus>
+        </station>
+        <station id="station-science" role="Science" status="bereit" readiness="55" crew="Dr. Idris">
+            <focus>
+                <item>Sensorik</item>
+                <item>Analyse</item>
+            </focus>
+        </station>
+        <station id="station-comms" role="Comms" status="bereit" readiness="65" crew="Ensign Mira">
+            <focus>
+                <item>Kommunikation</item>
+                <item>Briefing</item>
+            </focus>
+        </station>
+    </stations>
+
+    <procedures>
+        <procedure id="proc-startup" name="Start-Up Sequenz">
+            <step id="startup-power" completed="true">Reaktor Vorheizen</step>
+            <step id="startup-systems" completed="false">Subsysteme prüfen</step>
+            <step id="startup-briefing" completed="false">Crew-Briefing abschließen</step>
+        </procedure>
+        <procedure id="proc-battlestations" name="Battle Stations">
+            <step id="battle-alert" completed="false">Alarm Rot setzen</step>
+            <step id="battle-shields" completed="false">Schilde auf 120%</step>
+            <step id="battle-weapons" completed="false">Waffen laden</step>
+        </procedure>
+        <procedure id="proc-docking" name="Docking Flow">
+            <step id="dock-vector" completed="false">Annäherungsvektor bestätigen</step>
+            <step id="dock-clearance" completed="false">Freigabe anfordern</step>
+            <step id="dock-seal" completed="false">Druckschleuse verriegeln</step>
+        </procedure>
+    </procedures>
+
+    <briefing>
+        <markers>
+            <marker id="marker-approach" label="Anflug Korridor" status="aktiv" />
+            <marker id="marker-rescue" label="Rettungskapsel Tracking" status="markiert" />
+        </markers>
+        <summary>Primäres Ziel: Frachterkonvoi sichern und Anomalie untersuchen.</summary>
+        <report>
+            <entry id="report-engagement" title="Gefechtsentscheidung" decision="Torpedo Salve verzögert" outcome="Kontakt abgelenkt" />
+        </report>
+    </briefing>
+
+    <director>
+        <phases>
+            <phase id="phase-startup" name="Start-Up" status="active" />
+            <phase id="phase-patrol" name="Patrouille" status="pending" />
+            <phase id="phase-docking" name="Docking" status="pending" />
+        </phases>
+        <triggers>
+            <trigger id="trigger-startup-complete" name="Start-Up abgeschlossen" status="armed" auto="true">
+                <condition type="objective-complete" objective="objective-startup" />
+                <action type="phase" id="phase-patrol" />
+                <action type="log">Patrouillenphase eingeleitet.</action>
+            </trigger>
+            <trigger id="trigger-red-alert" name="Alarm Rot" status="armed" auto="true">
+                <condition type="alert" level="red" />
+                <action type="log">Alarm Rot bestätigt – Crew auf Gefechtsstationen.</action>
+                <action type="encounter" id="encounter-korsar" behavior="hostile" />
+            </trigger>
+        </triggers>
+    </director>
+
+    <encounters>
+        <encounter id="encounter-korsar" callsign="Korsar Sigma" behavior="hostile" morale="hoch" target="NV-01" contactId="corsair-sigma" status="pursuit" />
+        <encounter id="encounter-escort" callsign="ESV Nova" behavior="friendly" morale="stabil" target="Konvoi" contactId="escort-nova" status="escort" />
+    </encounters>
+
+    <telemetry paused="false">
+        <metrics>
+            <metric id="metric-reactor" label="Reaktorauslastung" value="68" unit="%" trend="stabil" />
+            <metric id="metric-shields" label="Schildladung" value="82" unit="%" trend="stabil" />
+            <metric id="metric-hull" label="Hüllenstress" value="14" unit="%" trend="fallend" />
+        </metrics>
+        <events>
+            <event id="telemetry-boot" timestamp="12:00">Telemetrie initialisiert.</event>
+        </events>
+    </telemetry>
+
+    <faults>
+        <templates>
+            <fault id="fault-sensor-drift" label="Sensor-Drift" target="sensors">
+                <description>Langsame Abweichung der Zielerfassung</description>
+            </fault>
+            <fault id="fault-power-drop" label="Energieabfall" target="aux">
+                <description>Kurzzeitiger Spannungsverlust in Aux-Systemen</description>
+            </fault>
+        </templates>
+        <active />
+    </faults>
+
+    <larp fog="25">
+        <parameters>
+            <parameter id="param-morale" label="Crew Moral" value="68" min="0" max="100" step="5" />
+            <parameter id="param-pressure" label="Kommandodruck" value="42" min="0" max="100" step="5" />
+        </parameters>
+        <cues>
+            <cue id="cue-distress">"Mayday – Frachter Alnair unter Beschuss"</cue>
+            <cue id="cue-clue">Anomalie sendet periodische Signale.</cue>
+        </cues>
+    </larp>
+
+    <npc>
+        <scripts>
+            <script id="npc-distress" label="Notruf Frachter Alnair" channel="distress" status="ready">
+                <prompt>"Mayday – Frachter Alnair unter Beschuss, benötigen sofortige Eskorte!"</prompt>
+            </script>
+            <script id="npc-escort" label="ESV Nova Status" channel="fleet" status="ready">
+                <prompt>"Nova hier – halten Position, warten auf taktische Freigabe."</prompt>
+            </script>
+        </scripts>
+        <cues>
+            <cue id="npc-cue-threat" label="Korsaren Ultimatum" status="queued">
+                <note>Feind droht mit Angriff auf Konvoi.</note>
+            </cue>
+            <cue id="npc-cue-clue" label="Anomalie pulsiert" status="queued">
+                <note>Sensorische Fluktuationen verstärken sich.</note>
+            </cue>
+        </cues>
+        <log />
+    </npc>
+
+    <crewSchedule>
+        <scene id="scene-briefing" title="Missionsbriefing" time="T-00:20" location="Briefingraum" cast="Führungsteam" status="scheduled">
+            <note>Prioritäten Delta-Nebel festlegen.</note>
+        </scene>
+        <scene id="scene-science" title="Science Field Log" time="T+00:30" location="Science Lab" cast="Dr. Idris, Lt. Hale" status="scheduled">
+            <note>Anomalie-Befunde austauschen.</note>
+        </scene>
+        <scene id="scene-debrief" title="Gefechtsdebrief" time="Nach Einsatz" location="Tactical" cast="Captain, Tactical, Engineering" status="scheduled">
+            <note>Lessons Learned dokumentieren.</note>
+        </scene>
+    </crewSchedule>
+
+    <immersion>
+        <audio>
+            <track id="audio-nebula" label="Delta Nebel Ambience" status="ready" level="35">
+                <note>Leises Pulsieren und Funkrauschen.</note>
+            </track>
+            <track id="audio-redalert" label="Alarm Rot Cue" status="ready" level="65">
+                <note>Kurz vor Auslösung bereithalten.</note>
+            </track>
+        </audio>
+        <lighting mode="Nebelmodus" intensity="42" />
+        <props>
+            <prop id="prop-datapad" label="Wissenschafts-Datapad" status="ready">
+                <note>Anomalieberichte vorbereiten.</note>
+            </prop>
+            <prop id="prop-intel" label="Taktisches Dossier" status="ready">
+                <note>Korsarenprofile enthalten.</note>
+            </prop>
+        </props>
+    </immersion>
+
+    <characters>
+        <character id="char-mira" name="Captain Mira Sol" role="Kommandantin" xp="120" nextUnlock="Flaggenbrief Freigabe">
+            <trait>Diplomatie</trait>
+            <trait>Entschlossen</trait>
+        </character>
+        <character id="char-talin" name="Cmdr. Talin Roe" role="Erster Offizier" xp="95" nextUnlock="Flottenprotokoll Zugriff">
+            <trait>Analytisch</trait>
+            <trait>Mentor</trait>
+        </character>
+        <character id="char-sora" name="Lt. Cmdr. Sora Kade" role="Chefingenieur" xp="110" nextUnlock="Prototyp-Kit">
+            <trait>Improvisation</trait>
+            <trait>Belastbar</trait>
+        </character>
+    </characters>
+
+    <news>
+        <feeds>
+            <item id="news-fleet" headline="Flottenkommando warnt vor Korsarenaktivität im Delta-Nebel" category="Flotte" status="published" priority="Normal" timestamp="4521.6">
+                <summary>Eskorten werden angehalten, Konvois eng zu begleiten.</summary>
+            </item>
+            <item id="news-science" headline="Anomalie sendet regelmäßige Gravitonpulse" category="Wissenschaft" status="published" priority="Hoch" timestamp="4521.7">
+                <summary>Sensorbuoy L-17 bestätigt verstärkte Aktivität.</summary>
+            </item>
+        </feeds>
+        <drafts>
+            <item id="draft-status" title="Statusbericht Delta-Nebel" category="Operations" status="draft" priority="Hoch">
+                <summary>Zwischenfallberichte und Systemstatus für Flottenarchiv.</summary>
+            </item>
+            <item id="draft-morale" title="Crew-Moral Update" category="Crew" status="draft" priority="Normal">
+                <summary>Positiver Effekt nach erfolgreichem Konvoi-Manöver.</summary>
+            </item>
+        </drafts>
+    </news>
+
 </scenario>

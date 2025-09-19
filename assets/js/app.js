@@ -90,6 +90,27 @@ const initialState = {
         authorizations: [],
         audit: []
     },
+    propulsion: {
+        thrusters: [],
+        fuel: null,
+        rcs: null,
+        profiles: [],
+        maneuvers: [],
+        alerts: [],
+        activeProfileId: null
+    },
+    thermal: {
+        heatLoads: [],
+        radiators: [],
+        cooling: [],
+        signature: null
+    },
+    ftl: {
+        capacitor: null,
+        window: null,
+        checklist: [],
+        abort: []
+    },
     stations: [],
     procedures: [],
     briefing: {
@@ -115,6 +136,26 @@ const initialState = {
         parameters: [],
         cues: [],
         fogLevel: 25
+    },
+    npc: {
+        scripts: [],
+        cues: [],
+        log: []
+    },
+    crewSchedule: {
+        scenes: []
+    },
+    immersion: {
+        audio: [],
+        lighting: null,
+        props: []
+    },
+    characters: {
+        roster: []
+    },
+    news: {
+        feeds: [],
+        drafts: []
     },
     simulationPaused: false,
     selectedSystemId: null
@@ -257,6 +298,49 @@ function cacheDom() {
     elements.larpCues = document.getElementById('larp-cues');
     elements.larpFog = document.getElementById('larp-fog');
     elements.larpFogLabel = document.getElementById('larp-fog-label');
+
+    elements.propulsionStatus = document.getElementById('propulsion-status');
+    elements.propulsionFuel = document.getElementById('propulsion-fuel');
+    elements.propulsionRcs = document.getElementById('propulsion-rcs');
+    elements.propulsionThrusterTable = document.getElementById('propulsion-thruster-table');
+    elements.propulsionProfileList = document.getElementById('propulsion-profile-list');
+    elements.propulsionManeuverList = document.getElementById('propulsion-maneuver-list');
+    elements.propulsionAlertList = document.getElementById('propulsion-alert-list');
+
+    elements.thermalStatus = document.getElementById('thermal-status');
+    elements.thermalLoadTable = document.getElementById('thermal-load-table');
+    elements.thermalRadiatorGrid = document.getElementById('thermal-radiator-grid');
+    elements.thermalCoolingList = document.getElementById('thermal-cooling-list');
+    elements.thermalSignature = document.getElementById('thermal-signature');
+
+    elements.ftlStatus = document.getElementById('ftl-status');
+    elements.ftlChargeBar = document.getElementById('ftl-charge-bar');
+    elements.ftlChargeLabel = document.getElementById('ftl-charge-label');
+    elements.ftlWindowInfo = document.getElementById('ftl-window-info');
+    elements.ftlChecklist = document.getElementById('ftl-checklist');
+    elements.ftlAbortList = document.getElementById('ftl-abort-list');
+
+    elements.npcStatus = document.getElementById('npc-status');
+    elements.npcScriptList = document.getElementById('npc-script-list');
+    elements.npcCueList = document.getElementById('npc-cue-list');
+    elements.npcLog = document.getElementById('npc-log');
+
+    elements.crewSchedulerStatus = document.getElementById('crew-scheduler-status');
+    elements.crewSceneList = document.getElementById('crew-scene-list');
+
+    elements.immersionStatus = document.getElementById('immersion-status');
+    elements.immersionAudioList = document.getElementById('immersion-audio-list');
+    elements.immersionLighting = document.getElementById('immersion-lighting');
+    elements.immersionLightingLabel = document.getElementById('immersion-lighting-label');
+    elements.immersionLightingMode = document.getElementById('immersion-lighting-mode');
+    elements.immersionPropList = document.getElementById('immersion-prop-list');
+
+    elements.characterStatus = document.getElementById('character-status');
+    elements.characterRoster = document.getElementById('character-roster');
+
+    elements.newsStatus = document.getElementById('news-status');
+    elements.newsFeedList = document.getElementById('news-feed-list');
+    elements.newsDraftList = document.getElementById('news-draft-list');
 }
 
 /** === Hilfen für Szenario-Normalisierung === */
@@ -3038,6 +3122,635 @@ function resolveSecurityAuthorization(authId, status) {
     addLog('security', `Autorisierung ${authId} ${status === 'approved' ? 'freigegeben' : 'verweigert'}.`);
 }
 
+/** === Propulsion Management === */
+function normalizePropulsion(propulsion = {}) {
+    const safeArray = value => (Array.isArray(value) ? value : []);
+    const toNumber = (value, fallback = 0) => {
+        const parsed = Number.parseFloat(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+    };
+    const thrusters = safeArray(propulsion.thrusters).map((thruster, index) => ({
+        id: thruster.id ?? `thruster-${index + 1}`,
+        name: thruster.name ?? `Triebwerk ${index + 1}`,
+        status: (thruster.status ?? 'online').toLowerCase(),
+        thrust: toNumber(thruster.thrust ?? thruster.output),
+        thrustUnit: thruster.thrustUnit ?? thruster.unit ?? 'MN',
+        temperature: toNumber(thruster.temperature ?? thruster.temp),
+        temperatureUnit: thruster.temperatureUnit ?? thruster.tempUnit ?? 'K',
+        vibration: toNumber(thruster.vibration ?? thruster.vibe ?? 0),
+        note: thruster.note ?? ''
+    }));
+    const fuel = propulsion.fuel
+        ? {
+            main: toNumber(propulsion.fuel.main ?? propulsion.fuel.level),
+            reserve: toNumber(propulsion.fuel.reserve ?? propulsion.fuel.reserves),
+            consumption: toNumber(propulsion.fuel.consumption ?? propulsion.fuel.rate),
+            reserveEta: propulsion.fuel.reserveEta ?? propulsion.fuel.autonomy ?? ''
+        }
+        : null;
+    const rcs = propulsion.rcs
+        ? {
+            status: propulsion.rcs.status ?? 'nominal',
+            balance: propulsion.rcs.balance ?? propulsion.rcs.offset ?? '',
+            drift: propulsion.rcs.drift ?? '',
+            note: propulsion.rcs.note ?? ''
+        }
+        : null;
+    const profiles = safeArray(propulsion.profiles).map((profile, index) => ({
+        id: profile.id ?? `profile-${index + 1}`,
+        name: profile.name ?? `Profil ${index + 1}`,
+        thrust: toNumber(profile.thrust),
+        rcsUsage: toNumber(profile.rcsUsage ?? profile.rcs),
+        description: profile.description ?? '',
+        status: (profile.status ?? 'ready').toLowerCase(),
+        active: Boolean(profile.active)
+    }));
+    const maneuvers = safeArray(propulsion.maneuvers).map((entry, index) => ({
+        id: entry.id ?? `maneuver-${index + 1}`,
+        title: entry.title ?? entry.name ?? `Manöver ${index + 1}`,
+        window: entry.window ?? entry.time ?? '',
+        status: (entry.status ?? 'planned').toLowerCase(),
+        assigned: entry.assigned ?? entry.team ?? '',
+        note: entry.note ?? ''
+    }));
+    const alerts = safeArray(propulsion.alerts).map((alert, index) => ({
+        id: alert.id ?? `propulsion-alert-${index + 1}`,
+        message: alert.message ?? alert.text ?? '',
+        severity: (alert.severity ?? 'info').toLowerCase()
+    }));
+    const activeProfileId = propulsion.activeProfileId
+        ?? profiles.find(profile => profile.active)?.id
+        ?? null;
+    return { thrusters, fuel, rcs, profiles, maneuvers, alerts, activeProfileId };
+}
+
+function renderPropulsion() {
+    if (!state.propulsion) {
+        state.propulsion = normalizePropulsion();
+    }
+    renderPropulsionThrusters();
+    renderPropulsionFuel();
+    renderPropulsionProfiles();
+    renderPropulsionManeuvers();
+    renderPropulsionAlerts();
+    updatePropulsionStatus();
+}
+
+function renderPropulsionThrusters() {
+    if (!elements.propulsionThrusterTable) return;
+    const propulsion = state.propulsion ?? { thrusters: [] };
+    elements.propulsionThrusterTable.innerHTML = '';
+    if (!propulsion.thrusters.length) {
+        const row = document.createElement('tr');
+        row.innerHTML = '<td colspan="5" class="empty-placeholder">Keine Triebwerksdaten.</td>';
+        elements.propulsionThrusterTable.appendChild(row);
+        return;
+    }
+    propulsion.thrusters.forEach(thruster => {
+        const row = document.createElement('tr');
+        const thrustDisplay = Number.isFinite(thruster.thrust) && thruster.thrust !== 0
+            ? `${thruster.thrust.toFixed(1)} ${thruster.thrustUnit}`
+            : '—';
+        const tempDisplay = Number.isFinite(thruster.temperature) && thruster.temperature !== 0
+            ? `${Math.round(thruster.temperature)} ${thruster.temperatureUnit}`
+            : '—';
+        const vibrationDisplay = Number.isFinite(thruster.vibration) && thruster.vibration !== 0
+            ? `${thruster.vibration.toFixed(1)} mm/s`
+            : '—';
+        row.innerHTML = `
+            <td>
+                <strong>${thruster.name}</strong>
+                ${thruster.note ? `<small>${thruster.note}</small>` : ''}
+            </td>
+            <td><span class="status-pill ${statusClass(thruster.status)}">${translateStatus(thruster.status)}</span></td>
+            <td>${thrustDisplay}</td>
+            <td>${tempDisplay}</td>
+            <td>${vibrationDisplay}</td>
+        `;
+        elements.propulsionThrusterTable.appendChild(row);
+    });
+}
+
+function renderPropulsionFuel() {
+    if (elements.propulsionFuel) {
+        const propulsion = state.propulsion ?? { fuel: null };
+        const { fuel } = propulsion;
+        if (!fuel) {
+            elements.propulsionFuel.innerHTML = '<p class="empty-placeholder">Keine Treibstoffdaten.</p>';
+        } else {
+            elements.propulsionFuel.innerHTML = `
+                <strong>Treibstoffreserven</strong>
+                <span><span>Haupttanks</span><span>${fuel.main.toFixed(1)}%</span></span>
+                <span><span>Reserve</span><span>${fuel.reserve.toFixed(1)}%</span></span>
+                <span><span>Verbrauch</span><span>${fuel.consumption.toFixed(2)} kg/s</span></span>
+                ${fuel.reserveEta ? `<span><span>Autonomie</span><span>${fuel.reserveEta}</span></span>` : ''}
+            `;
+        }
+    }
+    if (elements.propulsionRcs) {
+        const propulsion = state.propulsion ?? { rcs: null };
+        const { rcs } = propulsion;
+        if (!rcs) {
+            elements.propulsionRcs.innerHTML = '<p class="empty-placeholder">Keine RCS-Daten.</p>';
+        } else {
+            elements.propulsionRcs.innerHTML = `
+                <strong>RCS-Kalibrierung</strong>
+                <span><span>Status</span><span>${rcs.status}</span></span>
+                ${rcs.balance ? `<span><span>Balance</span><span>${rcs.balance}</span></span>` : ''}
+                ${rcs.drift ? `<span><span>Drift</span><span>${rcs.drift}</span></span>` : ''}
+                ${rcs.note ? `<span>${rcs.note}</span>` : ''}
+            `;
+        }
+    }
+}
+
+function renderPropulsionProfiles() {
+    if (!elements.propulsionProfileList) return;
+    const propulsion = state.propulsion ?? { profiles: [], activeProfileId: null };
+    elements.propulsionProfileList.innerHTML = '';
+    if (!propulsion.profiles.length) {
+        elements.propulsionProfileList.innerHTML = '<li class="empty-placeholder">Keine Profile definiert.</li>';
+        return;
+    }
+    propulsion.profiles.forEach(profile => {
+        const li = document.createElement('li');
+        const active = propulsion.activeProfileId === profile.id;
+        li.className = `task-item${active ? ' propulsion-profile-active' : ''}`;
+        li.innerHTML = `
+            <div>
+                <strong>${profile.name}</strong>
+                <small>Schub ${Math.round(profile.thrust)}% · RCS ${Math.round(profile.rcsUsage)}%</small>
+                ${profile.description ? `<p>${profile.description}</p>` : ''}
+            </div>
+            <div class="task-actions">
+                ${active ? '<span class="status-pill status-online">Aktiv</span>' : `<button class="mini-button" data-action="propulsion-set-profile" data-profile="${profile.id}">Aktivieren</button>`}
+            </div>
+        `;
+        elements.propulsionProfileList.appendChild(li);
+    });
+}
+
+function renderPropulsionManeuvers() {
+    if (!elements.propulsionManeuverList) return;
+    const propulsion = state.propulsion ?? { maneuvers: [] };
+    elements.propulsionManeuverList.innerHTML = '';
+    if (!propulsion.maneuvers.length) {
+        elements.propulsionManeuverList.innerHTML = '<li class="empty-placeholder">Keine Manöver geplant.</li>';
+        return;
+    }
+    propulsion.maneuvers.forEach(maneuver => {
+        const li = document.createElement('li');
+        li.className = 'task-item';
+        li.innerHTML = `
+            <div>
+                <strong>${maneuver.title}</strong>
+                <small>${maneuver.window || 'Fenster offen'}${maneuver.assigned ? ` · ${maneuver.assigned}` : ''}</small>
+                ${maneuver.note ? `<p>${maneuver.note}</p>` : ''}
+            </div>
+            <div class="task-actions">
+                ${maneuver.status === 'done'
+                    ? '<span class="status-pill status-online">Abgeschlossen</span>'
+                    : `<button class="mini-button" data-action="propulsion-complete-maneuver" data-maneuver="${maneuver.id}">Erledigt</button>`}
+            </div>
+        `;
+        elements.propulsionManeuverList.appendChild(li);
+    });
+}
+
+function renderPropulsionAlerts() {
+    if (!elements.propulsionAlertList) return;
+    const propulsion = state.propulsion ?? { alerts: [] };
+    elements.propulsionAlertList.innerHTML = '';
+    if (!propulsion.alerts.length) {
+        elements.propulsionAlertList.innerHTML = '<li class="empty-placeholder">Keine Hinweise.</li>';
+        return;
+    }
+    propulsion.alerts.forEach(alert => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <span class="status-pill ${alertSeverityClass(alert.severity)}">${alertSeverityLabel(alert.severity)}</span>
+            <span>${alert.message}</span>
+        `;
+        elements.propulsionAlertList.appendChild(li);
+    });
+}
+
+function alertSeverityClass(severity) {
+    if (severity === 'critical') return 'status-critical';
+    if (severity === 'warning' || severity === 'high') return 'status-warning';
+    return 'status-idle';
+}
+
+function alertSeverityLabel(severity) {
+    const labelMap = {
+        critical: 'KRITISCH',
+        warning: 'WARNUNG',
+        high: 'WARNUNG',
+        info: 'INFO'
+    };
+    return labelMap[severity] ?? severity?.toUpperCase() ?? 'INFO';
+}
+
+function updatePropulsionStatus() {
+    if (!elements.propulsionStatus) return;
+    const propulsion = state.propulsion ?? { thrusters: [], alerts: [] };
+    if (!propulsion.thrusters.length && !propulsion.alerts.length) {
+        elements.propulsionStatus.textContent = 'Keine Daten';
+        elements.propulsionStatus.className = 'status-pill status-idle';
+        return;
+    }
+    const hasCritical = propulsion.alerts.some(alert => alert.severity === 'critical')
+        || propulsion.thrusters.some(thruster => ['critical', 'offline'].includes(thruster.status));
+    const hasWarning = propulsion.alerts.some(alert => alert.severity === 'warning' || alert.severity === 'high')
+        || propulsion.thrusters.some(thruster => thruster.status === 'warning');
+    if (hasCritical) {
+        elements.propulsionStatus.textContent = 'Alarm';
+        elements.propulsionStatus.className = 'status-pill status-critical';
+    } else if (hasWarning) {
+        elements.propulsionStatus.textContent = 'Überwachen';
+        elements.propulsionStatus.className = 'status-pill status-warning';
+    } else {
+        elements.propulsionStatus.textContent = 'Nominal';
+        elements.propulsionStatus.className = 'status-pill status-online';
+    }
+}
+
+function handlePropulsionClick(event) {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const propulsion = state.propulsion ?? normalizePropulsion();
+    if (button.dataset.action === 'propulsion-set-profile') {
+        const profileId = button.dataset.profile;
+        const updatedProfiles = propulsion.profiles.map(profile => ({
+            ...profile,
+            active: profile.id === profileId
+        }));
+        const activeProfile = updatedProfiles.find(profile => profile.id === profileId);
+        kernel.setState('propulsion', { ...propulsion, profiles: updatedProfiles, activeProfileId: profileId });
+        renderPropulsion();
+        if (activeProfile) {
+            addLog('propulsion', `Profil ${activeProfile.name} aktiviert.`);
+        }
+    } else if (button.dataset.action === 'propulsion-complete-maneuver') {
+        const maneuverId = button.dataset.maneuver;
+        const updatedManeuvers = propulsion.maneuvers.map(maneuver => maneuver.id === maneuverId
+            ? { ...maneuver, status: 'done' }
+            : maneuver
+        );
+        const maneuver = updatedManeuvers.find(entry => entry.id === maneuverId);
+        kernel.setState('propulsion', { ...propulsion, maneuvers: updatedManeuvers });
+        renderPropulsion();
+        if (maneuver) {
+            addLog('propulsion', `Manöver ${maneuver.title} abgeschlossen.`);
+        }
+    }
+}
+
+/** === Thermal Control === */
+function normalizeThermal(thermal = {}) {
+    const safeArray = value => (Array.isArray(value) ? value : []);
+    const toNumber = (value, fallback = 0) => {
+        const parsed = Number.parseFloat(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+    };
+    const heatLoads = safeArray(thermal.heatLoads).map((entry, index) => ({
+        id: entry.id ?? `heat-${index + 1}`,
+        source: entry.source ?? entry.name ?? `Quelle ${index + 1}`,
+        load: toNumber(entry.load ?? entry.value),
+        unit: entry.unit ?? '%',
+        status: (entry.status ?? 'stable').toLowerCase(),
+        mitigation: entry.mitigation ?? entry.action ?? ''
+    }));
+    const radiators = safeArray(thermal.radiators).map((entry, index) => ({
+        id: entry.id ?? `radiator-${index + 1}`,
+        name: entry.name ?? `Segment ${index + 1}`,
+        status: (entry.status ?? 'deployed').toLowerCase(),
+        output: toNumber(entry.output ?? entry.efficiency),
+        angle: entry.angle ?? entry.orientation ?? '',
+        note: entry.note ?? ''
+    }));
+    const cooling = safeArray(thermal.cooling).map((entry, index) => ({
+        id: entry.id ?? `cooling-${index + 1}`,
+        description: entry.description ?? entry.task ?? `Maßnahme ${index + 1}`,
+        status: (entry.status ?? 'pending').toLowerCase(),
+        eta: entry.eta ?? '',
+        owner: entry.owner ?? entry.team ?? '',
+        note: entry.note ?? ''
+    }));
+    const signature = thermal.signature
+        ? {
+            level: thermal.signature.level ?? thermal.signature.status ?? 'Moderate',
+            target: thermal.signature.target ?? '',
+            note: thermal.signature.note ?? '',
+            mode: thermal.signature.mode ?? ''
+        }
+        : null;
+    return { heatLoads, radiators, cooling, signature };
+}
+
+function renderThermal() {
+    if (!state.thermal) {
+        state.thermal = normalizeThermal();
+    }
+    renderThermalLoads();
+    renderThermalRadiators();
+    renderThermalCooling();
+    renderThermalSignature();
+    updateThermalStatus();
+}
+
+function renderThermalLoads() {
+    if (!elements.thermalLoadTable) return;
+    const thermal = state.thermal ?? { heatLoads: [] };
+    elements.thermalLoadTable.innerHTML = '';
+    if (!thermal.heatLoads.length) {
+        const row = document.createElement('tr');
+        row.innerHTML = '<td colspan="4" class="empty-placeholder">Keine Wärmedaten.</td>';
+        elements.thermalLoadTable.appendChild(row);
+        return;
+    }
+    thermal.heatLoads.forEach(load => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${load.source}</td>
+            <td>${load.load.toFixed(1)} ${load.unit}</td>
+            <td><span class="status-pill ${thermalStatusClass(load.status)}">${thermalStatusLabel(load.status)}</span></td>
+            <td>${load.mitigation || '–'}</td>
+        `;
+        elements.thermalLoadTable.appendChild(row);
+    });
+}
+
+function thermalStatusClass(status) {
+    if (['critical', 'offline'].includes(status)) return 'status-critical';
+    if (['high', 'warning', 'monitor', 'watch'].includes(status)) return 'status-warning';
+    return 'status-online';
+}
+
+function thermalStatusLabel(status) {
+    const map = {
+        critical: 'Kritisch',
+        high: 'Hoch',
+        warning: 'Warnung',
+        monitor: 'Überwachung',
+        watch: 'Überwachung',
+        stable: 'Stabil',
+        normal: 'Nominal',
+        online: 'Stabil'
+    };
+    return map[status] ?? status;
+}
+
+function renderThermalRadiators() {
+    if (!elements.thermalRadiatorGrid) return;
+    const thermal = state.thermal ?? { radiators: [] };
+    elements.thermalRadiatorGrid.innerHTML = '';
+    if (!thermal.radiators.length) {
+        elements.thermalRadiatorGrid.innerHTML = '<p class="empty-placeholder">Keine Radiatorsegmente verfügbar.</p>';
+        return;
+    }
+    thermal.radiators.forEach(radiator => {
+        const card = document.createElement('div');
+        card.className = 'radiator-card';
+        card.innerHTML = `
+            <strong>${radiator.name}</strong>
+            <span>Status: <span class="status-pill ${statusClass(radiator.status)}">${translateStatus(radiator.status)}</span></span>
+            <span>Abstrahlung: ${Math.round(radiator.output)}%</span>
+            ${radiator.angle ? `<span>Winkel: ${radiator.angle}</span>` : ''}
+            ${radiator.note ? `<small>${radiator.note}</small>` : ''}
+        `;
+        elements.thermalRadiatorGrid.appendChild(card);
+    });
+}
+
+function renderThermalCooling() {
+    if (!elements.thermalCoolingList) return;
+    const thermal = state.thermal ?? { cooling: [] };
+    elements.thermalCoolingList.innerHTML = '';
+    if (!thermal.cooling.length) {
+        elements.thermalCoolingList.innerHTML = '<li class="empty-placeholder">Keine Maßnahmen offen.</li>';
+        return;
+    }
+    thermal.cooling.forEach(task => {
+        const li = document.createElement('li');
+        li.className = 'task-item';
+        li.innerHTML = `
+            <div>
+                <strong>${task.description}</strong>
+                <small>${task.owner || 'Engineering'}${task.eta ? ` · ${task.eta}` : ''}</small>
+                ${task.note ? `<p>${task.note}</p>` : ''}
+            </div>
+            <div class="task-actions">
+                ${task.status === 'done'
+                    ? '<span class="status-pill status-online">Abgeschlossen</span>'
+                    : `<button class="mini-button" data-action="thermal-complete" data-cooling="${task.id}">Fertig</button>`}
+            </div>
+        `;
+        elements.thermalCoolingList.appendChild(li);
+    });
+}
+
+function renderThermalSignature() {
+    if (!elements.thermalSignature) return;
+    const thermal = state.thermal ?? { signature: null };
+    if (!thermal.signature) {
+        elements.thermalSignature.innerHTML = '<p class="empty-placeholder">Keine Signaturdaten.</p>';
+        return;
+    }
+    const { signature } = thermal;
+    elements.thermalSignature.innerHTML = `
+        <strong>Signaturmanagement</strong>
+        <span><span>Level</span><span>${signature.level}</span></span>
+        ${signature.target ? `<span><span>Ziel</span><span>${signature.target}</span></span>` : ''}
+        ${signature.mode ? `<span><span>Modus</span><span>${signature.mode}</span></span>` : ''}
+        ${signature.note ? `<span>${signature.note}</span>` : ''}
+    `;
+}
+
+function updateThermalStatus() {
+    if (!elements.thermalStatus) return;
+    const thermal = state.thermal ?? { heatLoads: [], radiators: [] };
+    const hasCritical = thermal.heatLoads.some(load => ['critical'].includes(load.status))
+        || thermal.radiators.some(radiator => ['critical', 'offline'].includes(radiator.status));
+    const hasWarning = thermal.heatLoads.some(load => ['high', 'warning', 'monitor', 'watch'].includes(load.status))
+        || thermal.radiators.some(radiator => radiator.status === 'warning');
+    if (hasCritical) {
+        elements.thermalStatus.textContent = 'Überhitzt';
+        elements.thermalStatus.className = 'status-pill status-critical';
+    } else if (hasWarning) {
+        elements.thermalStatus.textContent = 'Überwachen';
+        elements.thermalStatus.className = 'status-pill status-warning';
+    } else {
+        elements.thermalStatus.textContent = 'Stabil';
+        elements.thermalStatus.className = 'status-pill status-online';
+    }
+}
+
+function handleThermalClick(event) {
+    const button = event.target.closest('button[data-action="thermal-complete"]');
+    if (!button) return;
+    const coolingId = button.dataset.cooling;
+    if (!coolingId) return;
+    const thermal = state.thermal ?? normalizeThermal();
+    const updatedCooling = thermal.cooling.map(task => task.id === coolingId ? { ...task, status: 'done' } : task);
+    kernel.setState('thermal', { ...thermal, cooling: updatedCooling });
+    renderThermal();
+    const task = updatedCooling.find(entry => entry.id === coolingId);
+    if (task) {
+        addLog('thermal', `Kühlmaßnahme ${task.description} abgeschlossen.`);
+    }
+}
+
+/** === FTL Jump Orchestrator === */
+function normalizeFtl(ftl = {}) {
+    const safeArray = value => (Array.isArray(value) ? value : []);
+    const toNumber = (value, fallback = 0) => {
+        const parsed = Number.parseFloat(value);
+        return Number.isFinite(parsed) ? parsed : fallback;
+    };
+    const capacitor = ftl.capacitor
+        ? {
+            charge: toNumber(ftl.capacitor.charge ?? ftl.capacitor.level),
+            target: toNumber(ftl.capacitor.target ?? 100) || 100,
+            eta: ftl.capacitor.eta ?? ''
+        }
+        : null;
+    const window = ftl.window
+        ? {
+            opensIn: ftl.window.opensIn ?? ftl.window.open ?? '',
+            duration: ftl.window.duration ?? '',
+            vector: ftl.window.vector ?? ''
+        }
+        : null;
+    const checklist = safeArray(ftl.checklist).map((step, index) => ({
+        id: step.id ?? `ftl-step-${index + 1}`,
+        label: step.label ?? step.name ?? `Schritt ${index + 1}`,
+        completed: Boolean(step.completed),
+        optional: Boolean(step.optional),
+        owner: step.owner ?? step.team ?? ''
+    }));
+    const abort = safeArray(ftl.abort).map((entry, index) => ({
+        id: entry.id ?? `ftl-abort-${index + 1}`,
+        label: entry.label ?? entry.name ?? `Protokoll ${index + 1}`,
+        status: (entry.status ?? 'ready').toLowerCase(),
+        note: entry.note ?? ''
+    }));
+    return { capacitor, window, checklist, abort };
+}
+
+function renderFtl() {
+    if (!state.ftl) {
+        state.ftl = normalizeFtl();
+    }
+    renderFtlCharge();
+    renderFtlChecklist();
+    renderFtlAbort();
+    updateFtlStatus();
+}
+
+function renderFtlCharge() {
+    if (!elements.ftlChargeBar) return;
+    const ftl = state.ftl ?? { capacitor: null, window: null };
+    if (!ftl.capacitor) {
+        elements.ftlChargeBar.style.width = '0%';
+        if (elements.ftlChargeLabel) elements.ftlChargeLabel.textContent = '--';
+    } else {
+        const target = ftl.capacitor.target > 0 ? ftl.capacitor.target : 100;
+        const progress = clamp((ftl.capacitor.charge / target) * 100, 0, 100);
+        elements.ftlChargeBar.style.width = `${progress}%`;
+        if (elements.ftlChargeLabel) {
+            const etaPart = ftl.capacitor.eta ? ` (ETA ${ftl.capacitor.eta})` : '';
+            elements.ftlChargeLabel.textContent = `${Math.round(ftl.capacitor.charge)}%${etaPart}`;
+        }
+    }
+    if (elements.ftlWindowInfo) {
+        if (!ftl.window) {
+            elements.ftlWindowInfo.innerHTML = '<p class="empty-placeholder">Kein Sprungfenster berechnet.</p>';
+        } else {
+            elements.ftlWindowInfo.innerHTML = `
+                <span><strong>Vector</strong> ${ftl.window.vector || '—'}</span>
+                <span><strong>Öffnet in</strong> ${ftl.window.opensIn || '—'}</span>
+                <span><strong>Dauer</strong> ${ftl.window.duration || '—'}</span>
+            `;
+        }
+    }
+}
+
+function renderFtlChecklist() {
+    if (!elements.ftlChecklist) return;
+    const ftl = state.ftl ?? { checklist: [] };
+    elements.ftlChecklist.innerHTML = '';
+    if (!ftl.checklist.length) {
+        elements.ftlChecklist.innerHTML = '<li class="empty-placeholder">Keine Checkliste hinterlegt.</li>';
+        return;
+    }
+    ftl.checklist.forEach(step => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <label>
+                <input type="checkbox" data-action="ftl-toggle-step" data-step="${step.id}" ${step.completed ? 'checked' : ''}>
+                <span>${step.label}${step.optional ? ' (optional)' : ''}${step.owner ? ` – ${step.owner}` : ''}</span>
+            </label>
+        `;
+        elements.ftlChecklist.appendChild(li);
+    });
+}
+
+function renderFtlAbort() {
+    if (!elements.ftlAbortList) return;
+    const ftl = state.ftl ?? { abort: [] };
+    elements.ftlAbortList.innerHTML = '';
+    if (!ftl.abort.length) {
+        elements.ftlAbortList.innerHTML = '<li class="empty-placeholder">Keine Abbruchprotokolle.</li>';
+        return;
+    }
+    ftl.abort.forEach(entry => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <span class="status-pill ${alertSeverityClass(entry.status)}">${alertSeverityLabel(entry.status)}</span>
+            <span>${entry.label}</span>
+            ${entry.note ? `<small>${entry.note}</small>` : ''}
+        `;
+        elements.ftlAbortList.appendChild(li);
+    });
+}
+
+function updateFtlStatus() {
+    if (!elements.ftlStatus) return;
+    const ftl = state.ftl ?? { checklist: [], abort: [], capacitor: null };
+    const requiredDone = ftl.checklist.filter(step => !step.optional).every(step => step.completed);
+    const abortCritical = ftl.abort.some(entry => ['critical', 'fault', 'blocked'].includes(entry.status));
+    let chargeReady = false;
+    if (ftl.capacitor) {
+        const target = ftl.capacitor.target > 0 ? ftl.capacitor.target : 100;
+        chargeReady = ftl.capacitor.charge >= target;
+    }
+    if (abortCritical) {
+        elements.ftlStatus.textContent = 'Blockiert';
+        elements.ftlStatus.className = 'status-pill status-critical';
+    } else if (requiredDone && chargeReady) {
+        elements.ftlStatus.textContent = 'Bereit';
+        elements.ftlStatus.className = 'status-pill status-online';
+    } else {
+        elements.ftlStatus.textContent = 'Ladevorgang';
+        elements.ftlStatus.className = 'status-pill status-warning';
+    }
+}
+
+function handleFtlChecklistToggle(event) {
+    const checkbox = event.target.closest('input[type="checkbox"][data-action="ftl-toggle-step"]');
+    if (!checkbox) return;
+    const stepId = checkbox.dataset.step;
+    const ftl = state.ftl ?? normalizeFtl();
+    const checklist = ftl.checklist.map(step => step.id === stepId ? { ...step, completed: checkbox.checked } : step);
+    kernel.setState('ftl', { ...ftl, checklist });
+    renderFtl();
+    const step = checklist.find(entry => entry.id === stepId);
+    if (step) {
+        addLog('ftl', `Checkliste: ${step.label} ${checkbox.checked ? 'bestätigt' : 'zurückgesetzt'}.`);
+    }
+}
+
 /** === Stations / Consoles === */
 function normalizeStations(stations = []) {
     return Array.isArray(stations)
@@ -3761,6 +4474,562 @@ function handleLarpFogChange(event) {
     addLog('larp', `Fog-of-War angepasst auf ${value}%.`);
 }
 
+/** === NPC Interaction Manager === */
+function normalizeNpc(npc = {}) {
+    const safeArray = value => (Array.isArray(value) ? value : []);
+    const scripts = safeArray(npc.scripts).map((script, index) => ({
+        id: script.id ?? `npc-script-${index + 1}`,
+        label: script.label ?? script.name ?? `Script ${index + 1}`,
+        channel: script.channel ?? script.target ?? 'Allgemein',
+        status: (script.status ?? 'ready').toLowerCase(),
+        prompt: script.prompt ?? script.message ?? ''
+    }));
+    const cues = safeArray(npc.cues).map((cue, index) => ({
+        id: cue.id ?? `npc-cue-${index + 1}`,
+        label: cue.label ?? cue.name ?? `Cue ${index + 1}`,
+        status: (cue.status ?? 'queued').toLowerCase(),
+        note: cue.note ?? ''
+    }));
+    const log = safeArray(npc.log).map((entry, index) => ({
+        id: entry.id ?? `npc-log-${index + 1}`,
+        timestamp: entry.timestamp ?? formatTime(),
+        message: entry.message ?? ''
+    }));
+    return { scripts, cues, log };
+}
+
+function renderNpcManager() {
+    if (!state.npc) {
+        state.npc = normalizeNpc();
+    }
+    renderNpcScripts();
+    renderNpcCues();
+    renderNpcLog();
+    updateNpcStatus();
+}
+
+function renderNpcScripts() {
+    if (!elements.npcScriptList) return;
+    const npc = state.npc ?? { scripts: [] };
+    elements.npcScriptList.innerHTML = '';
+    if (!npc.scripts.length) {
+        elements.npcScriptList.innerHTML = '<li class="empty-placeholder">Keine Funkvorlagen.</li>';
+        return;
+    }
+    npc.scripts.forEach(script => {
+        const li = document.createElement('li');
+        li.className = 'task-item';
+        li.innerHTML = `
+            <div>
+                <strong>${script.label}</strong>
+                <small>Kanal: ${script.channel}</small>
+                ${script.prompt ? `<p>${script.prompt}</p>` : ''}
+            </div>
+            <div class="task-actions">
+                ${script.status === 'sent'
+                    ? '<span class="status-pill status-online">Gesendet</span>'
+                    : `<button class="mini-button" data-action="npc-trigger-script" data-script="${script.id}">Senden</button>`}
+            </div>
+        `;
+        elements.npcScriptList.appendChild(li);
+    });
+}
+
+function renderNpcCues() {
+    if (!elements.npcCueList) return;
+    const npc = state.npc ?? { cues: [] };
+    elements.npcCueList.innerHTML = '';
+    if (!npc.cues.length) {
+        elements.npcCueList.innerHTML = '<li class="empty-placeholder">Keine Cues in der Warteschlange.</li>';
+        return;
+    }
+    npc.cues.forEach(cue => {
+        const li = document.createElement('li');
+        li.className = 'task-item';
+        li.innerHTML = `
+            <div>
+                <strong>${cue.label}</strong>
+                ${cue.note ? `<p>${cue.note}</p>` : ''}
+            </div>
+            <div class="task-actions">
+                ${cue.status === 'used'
+                    ? '<span class="status-pill status-idle">Verwendet</span>'
+                    : `<button class="mini-button" data-action="npc-trigger-cue" data-cue="${cue.id}">Auslösen</button>`}
+            </div>
+        `;
+        elements.npcCueList.appendChild(li);
+    });
+}
+
+function renderNpcLog() {
+    if (!elements.npcLog) return;
+    const npc = state.npc ?? { log: [] };
+    if (!npc.log.length) {
+        elements.npcLog.innerHTML = '<p class="empty-placeholder">Noch keine Interaktionen.</p>';
+        return;
+    }
+    elements.npcLog.innerHTML = npc.log.slice(-10).map(entry => `
+        <div class="log-entry"><time>${entry.timestamp}</time><p>${entry.message}</p></div>
+    `).join('');
+}
+
+function updateNpcStatus() {
+    if (!elements.npcStatus) return;
+    const npc = state.npc ?? { scripts: [], cues: [] };
+    const pendingCue = npc.cues.some(cue => cue.status !== 'used');
+    const pendingScript = npc.scripts.some(script => script.status !== 'sent');
+    if (pendingCue) {
+        elements.npcStatus.textContent = 'Cues bereit';
+        elements.npcStatus.className = 'status-pill status-warning';
+    } else if (pendingScript) {
+        elements.npcStatus.textContent = 'Vorlagen offen';
+        elements.npcStatus.className = 'status-pill status-warning';
+    } else {
+        elements.npcStatus.textContent = 'Bereit';
+        elements.npcStatus.className = 'status-pill status-online';
+    }
+}
+
+function handleNpcClick(event) {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const npc = state.npc ?? normalizeNpc();
+    if (button.dataset.action === 'npc-trigger-script') {
+        const scriptId = button.dataset.script;
+        const scripts = npc.scripts.map(script => script.id === scriptId ? { ...script, status: 'sent' } : script);
+        const script = scripts.find(entry => entry.id === scriptId);
+        const logEntry = script
+            ? { id: `npc-log-${Date.now()}`, timestamp: formatTime(), message: `Funk ${script.label} (${script.channel}) gesendet.` }
+            : null;
+        const log = logEntry ? [...npc.log, logEntry] : npc.log;
+        kernel.setState('npc', { ...npc, scripts, log });
+        renderNpcManager();
+        if (script) addLog('npc', `Funk gesendet: ${script.label}.`);
+    } else if (button.dataset.action === 'npc-trigger-cue') {
+        const cueId = button.dataset.cue;
+        const cues = npc.cues.map(cue => cue.id === cueId ? { ...cue, status: 'used' } : cue);
+        const cue = cues.find(entry => entry.id === cueId);
+        const logEntry = cue
+            ? { id: `npc-log-${Date.now()}`, timestamp: formatTime(), message: `Cue ausgelöst: ${cue.label}.` }
+            : null;
+        const log = logEntry ? [...npc.log, logEntry] : npc.log;
+        kernel.setState('npc', { ...npc, cues, log });
+        renderNpcManager();
+        if (cue) addLog('npc', `Cue ausgelöst: ${cue.label}.`);
+    }
+}
+
+/** === Crew Roleplay Scheduler === */
+function normalizeCrewSchedule(schedule = {}) {
+    const safeArray = value => (Array.isArray(value) ? value : []);
+    const scenes = safeArray(schedule.scenes).map((scene, index) => ({
+        id: scene.id ?? `scene-${index + 1}`,
+        title: scene.title ?? scene.name ?? `Szene ${index + 1}`,
+        time: scene.time ?? scene.slot ?? '',
+        location: scene.location ?? '',
+        cast: scene.cast ?? scene.participants ?? '',
+        status: (scene.status ?? 'scheduled').toLowerCase(),
+        note: scene.note ?? ''
+    }));
+    return { scenes };
+}
+
+function renderCrewSchedule() {
+    if (!state.crewSchedule) {
+        state.crewSchedule = normalizeCrewSchedule();
+    }
+    if (!elements.crewSceneList) return;
+    const { scenes } = state.crewSchedule;
+    elements.crewSceneList.innerHTML = '';
+    if (!scenes.length) {
+        elements.crewSceneList.innerHTML = '<li class="empty-placeholder">Keine Szenen geplant.</li>';
+    } else {
+        scenes.forEach(scene => {
+            const li = document.createElement('li');
+            li.className = 'task-item';
+            const meta = [scene.time, scene.location].filter(Boolean).join(' · ');
+            li.innerHTML = `
+                <div>
+                    <strong>${scene.title}</strong>
+                    ${meta ? `<small>${meta}</small>` : ''}
+                    ${scene.cast ? `<p>${scene.cast}</p>` : ''}
+                    ${scene.note ? `<p>${scene.note}</p>` : ''}
+                </div>
+                <div class="task-actions">
+                    ${scene.status === 'done'
+                        ? '<span class="status-pill status-online">Abgeschlossen</span>'
+                        : `<button class="mini-button" data-action="crew-advance" data-scene="${scene.id}">${scene.status === 'scheduled' ? 'Starten' : 'Abschließen'}</button>`}
+                </div>
+            `;
+            elements.crewSceneList.appendChild(li);
+        });
+    }
+    updateCrewSchedulerStatus();
+}
+
+function updateCrewSchedulerStatus() {
+    if (!elements.crewSchedulerStatus) return;
+    const { scenes = [] } = state.crewSchedule ?? {};
+    const active = scenes.some(scene => scene.status === 'in-progress');
+    const pending = scenes.some(scene => scene.status !== 'done');
+    if (active) {
+        elements.crewSchedulerStatus.textContent = 'Laufend';
+        elements.crewSchedulerStatus.className = 'status-pill status-warning';
+    } else if (pending) {
+        elements.crewSchedulerStatus.textContent = 'Geplant';
+        elements.crewSchedulerStatus.className = 'status-pill status-warning';
+    } else {
+        elements.crewSchedulerStatus.textContent = 'Abgeschlossen';
+        elements.crewSchedulerStatus.className = 'status-pill status-online';
+    }
+}
+
+function handleCrewScheduleClick(event) {
+    const button = event.target.closest('button[data-action="crew-advance"]');
+    if (!button) return;
+    const sceneId = button.dataset.scene;
+    const schedule = state.crewSchedule ?? normalizeCrewSchedule();
+    const scenes = schedule.scenes.map(scene => {
+        if (scene.id !== sceneId) return scene;
+        const nextStatus = scene.status === 'scheduled' ? 'in-progress' : 'done';
+        return { ...scene, status: nextStatus };
+    });
+    const updatedScene = scenes.find(scene => scene.id === sceneId);
+    kernel.setState('crewSchedule', { ...schedule, scenes });
+    renderCrewSchedule();
+    if (updatedScene) {
+        const message = updatedScene.status === 'done'
+            ? `Szene ${updatedScene.title} abgeschlossen.`
+            : `Szene ${updatedScene.title} gestartet.`;
+        addLog('crew', message);
+    }
+}
+
+/** === Immersion Control === */
+function normalizeImmersion(immersion = {}) {
+    const safeArray = value => (Array.isArray(value) ? value : []);
+    const audio = safeArray(immersion.audio).map((track, index) => ({
+        id: track.id ?? `audio-${index + 1}`,
+        label: track.label ?? track.name ?? `Audio ${index + 1}`,
+        status: (track.status ?? 'ready').toLowerCase(),
+        level: Number.parseFloat(track.level ?? track.volume ?? 0) || 0,
+        note: track.note ?? ''
+    }));
+    const lighting = immersion.lighting
+        ? {
+            mode: immersion.lighting.mode ?? immersion.lighting.scene ?? 'Standard',
+            intensity: Number.parseFloat(immersion.lighting.intensity ?? immersion.lighting.level ?? 40) || 40
+        }
+        : { mode: 'Standard', intensity: 40 };
+    const props = safeArray(immersion.props).map((prop, index) => ({
+        id: prop.id ?? `prop-${index + 1}`,
+        label: prop.label ?? prop.name ?? `Requisite ${index + 1}`,
+        status: (prop.status ?? 'ready').toLowerCase(),
+        note: prop.note ?? ''
+    }));
+    return { audio, lighting, props };
+}
+
+function renderImmersion() {
+    if (!state.immersion) {
+        state.immersion = normalizeImmersion();
+    }
+    renderImmersionAudio();
+    renderImmersionLighting();
+    renderImmersionProps();
+    updateImmersionStatus();
+}
+
+function renderImmersionAudio() {
+    if (!elements.immersionAudioList) return;
+    const immersion = state.immersion ?? { audio: [] };
+    elements.immersionAudioList.innerHTML = '';
+    if (!immersion.audio.length) {
+        elements.immersionAudioList.innerHTML = '<li class="empty-placeholder">Keine Audiospuren.</li>';
+        return;
+    }
+    immersion.audio.forEach(track => {
+        const li = document.createElement('li');
+        li.className = 'task-item';
+        li.innerHTML = `
+            <div>
+                <strong>${track.label}</strong>
+                <small>Level ${Math.round(track.level)}%</small>
+                ${track.note ? `<p>${track.note}</p>` : ''}
+            </div>
+            <div class="task-actions">
+                <button class="mini-button" data-action="immersion-toggle-audio" data-audio="${track.id}">${track.status === 'playing' ? 'Stoppen' : 'Starten'}</button>
+            </div>
+        `;
+        elements.immersionAudioList.appendChild(li);
+    });
+}
+
+function renderImmersionLighting() {
+    if (!elements.immersionLighting || !elements.immersionLightingLabel) return;
+    const immersion = state.immersion ?? { lighting: { mode: 'Standard', intensity: 40 } };
+    const intensity = Math.round(immersion.lighting?.intensity ?? 40);
+    elements.immersionLighting.value = intensity;
+    elements.immersionLightingLabel.textContent = `${intensity}%`;
+    if (elements.immersionLightingMode) {
+        elements.immersionLightingMode.innerHTML = `
+            <strong>Modus</strong>
+            <span>${immersion.lighting?.mode ?? 'Standard'}</span>
+        `;
+    }
+}
+
+function renderImmersionProps() {
+    if (!elements.immersionPropList) return;
+    const immersion = state.immersion ?? { props: [] };
+    elements.immersionPropList.innerHTML = '';
+    if (!immersion.props.length) {
+        elements.immersionPropList.innerHTML = '<li class="empty-placeholder">Keine Requisiten gemeldet.</li>';
+        return;
+    }
+    immersion.props.forEach(prop => {
+        const li = document.createElement('li');
+        li.className = 'task-item';
+        li.innerHTML = `
+            <div>
+                <strong>${prop.label}</strong>
+                ${prop.note ? `<p>${prop.note}</p>` : ''}
+            </div>
+            <div class="task-actions">
+                <button class="mini-button" data-action="immersion-toggle-prop" data-prop="${prop.id}">${prop.status === 'in-use' ? 'Bereit' : 'Einsetzen'}</button>
+            </div>
+        `;
+        elements.immersionPropList.appendChild(li);
+    });
+}
+
+function updateImmersionStatus() {
+    if (!elements.immersionStatus) return;
+    const immersion = state.immersion ?? { audio: [], props: [] };
+    const playing = immersion.audio.some(track => track.status === 'playing');
+    const activeProps = immersion.props.some(prop => prop.status === 'in-use');
+    if (playing || activeProps) {
+        elements.immersionStatus.textContent = 'Aktiv';
+        elements.immersionStatus.className = 'status-pill status-online';
+    } else {
+        elements.immersionStatus.textContent = 'Bereit';
+        elements.immersionStatus.className = 'status-pill status-idle';
+    }
+}
+
+function handleImmersionClick(event) {
+    const button = event.target.closest('button[data-action]');
+    if (!button) return;
+    const immersion = state.immersion ?? normalizeImmersion();
+    if (button.dataset.action === 'immersion-toggle-audio') {
+        const audioId = button.dataset.audio;
+        const audio = immersion.audio.map(track => track.id === audioId ? { ...track, status: track.status === 'playing' ? 'ready' : 'playing' } : track);
+        const track = audio.find(entry => entry.id === audioId);
+        kernel.setState('immersion', { ...immersion, audio });
+        renderImmersion();
+        if (track) addLog('immersion', `Audio ${track.label} ${track.status === 'playing' ? 'gestartet' : 'gestoppt'}.`);
+    } else if (button.dataset.action === 'immersion-toggle-prop') {
+        const propId = button.dataset.prop;
+        const props = immersion.props.map(prop => prop.id === propId ? { ...prop, status: prop.status === 'in-use' ? 'ready' : 'in-use' } : prop);
+        const prop = props.find(entry => entry.id === propId);
+        kernel.setState('immersion', { ...immersion, props });
+        renderImmersion();
+        if (prop) addLog('immersion', `Requisite ${prop.label} ${prop.status === 'in-use' ? 'im Einsatz' : 'bereitgestellt'}.`);
+    }
+}
+
+function handleImmersionLightingChange(event) {
+    if (!event.target) return;
+    const value = Number.parseInt(event.target.value, 10) || 0;
+    const immersion = state.immersion ?? normalizeImmersion();
+    const lighting = { ...(immersion.lighting ?? { mode: 'Standard', intensity: 40 }), intensity: value };
+    kernel.setState('immersion', { ...immersion, lighting });
+    renderImmersionLighting();
+    if (event.type === 'change') {
+        addLog('immersion', `Beleuchtung auf ${value}% gesetzt.`);
+    }
+}
+
+/** === Character Progress Tracker === */
+function normalizeCharacters(characters = {}) {
+    const safeArray = value => (Array.isArray(value) ? value : []);
+    const roster = safeArray(characters.roster).map((entry, index) => ({
+        id: entry.id ?? `character-${index + 1}`,
+        name: entry.name ?? `Crew ${index + 1}`,
+        role: entry.role ?? entry.position ?? '',
+        xp: Number.parseInt(entry.xp ?? entry.experience ?? 0, 10) || 0,
+        traits: safeArray(entry.traits ?? entry.attributes ?? []),
+        nextUnlock: entry.nextUnlock ?? entry.unlock ?? ''
+    }));
+    return { roster };
+}
+
+function renderCharacters() {
+    if (!state.characters) {
+        state.characters = normalizeCharacters();
+    }
+    if (!elements.characterRoster) return;
+    const { roster } = state.characters;
+    elements.characterRoster.innerHTML = '';
+    if (!roster.length) {
+        elements.characterRoster.innerHTML = '<tr><td colspan="5" class="empty-placeholder">Keine Charakterdaten.</td></tr>';
+        return;
+    }
+    roster.forEach(character => {
+        const row = document.createElement('tr');
+        const traits = Array.isArray(character.traits) ? character.traits.join(', ') : (character.traits || '–');
+        row.innerHTML = `
+            <td>${character.name}</td>
+            <td>${character.role || '–'}</td>
+            <td>${character.xp} XP${character.nextUnlock ? `<br><small>Nächste Freischaltung: ${character.nextUnlock}</small>` : ''}</td>
+            <td>${traits || '–'}</td>
+            <td><button class="mini-button" data-action="character-award" data-character="${character.id}">+10 XP</button></td>
+        `;
+        elements.characterRoster.appendChild(row);
+    });
+    updateCharacterStatus();
+}
+
+function updateCharacterStatus() {
+    if (!elements.characterStatus) return;
+    const roster = state.characters?.roster ?? [];
+    const advancing = roster.some(character => character.nextUnlock);
+    if (advancing) {
+        elements.characterStatus.textContent = 'Aktualisiert';
+        elements.characterStatus.className = 'status-pill status-online';
+    } else {
+        elements.characterStatus.textContent = 'Aktiv';
+        elements.characterStatus.className = 'status-pill status-idle';
+    }
+}
+
+function handleCharacterClick(event) {
+    const button = event.target.closest('button[data-action="character-award"]');
+    if (!button) return;
+    const characterId = button.dataset.character;
+    const characters = state.characters ?? normalizeCharacters();
+    const roster = characters.roster.map(character => character.id === characterId ? { ...character, xp: character.xp + 10 } : character);
+    const character = roster.find(entry => entry.id === characterId);
+    kernel.setState('characters', { ...characters, roster });
+    renderCharacters();
+    if (character) {
+        addLog('characters', `Charakter ${character.name} erhält 10 XP.`);
+    }
+}
+
+/** === In-Universe News === */
+function normalizeNews(news = {}) {
+    const safeArray = value => (Array.isArray(value) ? value : []);
+    const feeds = safeArray(news.feeds).map((entry, index) => ({
+        id: entry.id ?? `news-${index + 1}`,
+        headline: entry.headline ?? entry.title ?? `Meldung ${index + 1}`,
+        category: entry.category ?? entry.type ?? 'Allgemein',
+        status: entry.status ?? 'published',
+        priority: entry.priority ?? 'Normal',
+        timestamp: entry.timestamp ?? '',
+        summary: entry.summary ?? ''
+    }));
+    const drafts = safeArray(news.drafts).map((entry, index) => ({
+        id: entry.id ?? `draft-${index + 1}`,
+        title: entry.title ?? entry.headline ?? `Entwurf ${index + 1}`,
+        summary: entry.summary ?? entry.message ?? '',
+        status: entry.status ?? 'draft',
+        category: entry.category ?? entry.type ?? 'Allgemein',
+        priority: entry.priority ?? 'Normal'
+    }));
+    return { feeds, drafts };
+}
+
+function renderNews() {
+    if (!state.news) {
+        state.news = normalizeNews();
+    }
+    renderNewsFeed();
+    renderNewsDrafts();
+    updateNewsStatus();
+}
+
+function renderNewsFeed() {
+    if (!elements.newsFeedList) return;
+    const news = state.news ?? { feeds: [] };
+    elements.newsFeedList.innerHTML = '';
+    if (!news.feeds.length) {
+        elements.newsFeedList.innerHTML = '<li class="empty-placeholder">Noch keine Meldungen.</li>';
+        return;
+    }
+    news.feeds.slice().reverse().forEach(entry => {
+        const li = document.createElement('li');
+        li.innerHTML = `
+            <strong>${entry.headline}</strong>
+            <small>${entry.category}${entry.timestamp ? ` · ${entry.timestamp}` : ''}</small>
+            ${entry.summary ? `<p>${entry.summary}</p>` : ''}
+        `;
+        elements.newsFeedList.appendChild(li);
+    });
+}
+
+function renderNewsDrafts() {
+    if (!elements.newsDraftList) return;
+    const news = state.news ?? { drafts: [] };
+    elements.newsDraftList.innerHTML = '';
+    if (!news.drafts.length) {
+        elements.newsDraftList.innerHTML = '<li class="empty-placeholder">Keine Entwürfe vorhanden.</li>';
+        return;
+    }
+    news.drafts.forEach(draft => {
+        const li = document.createElement('li');
+        li.className = 'task-item';
+        li.innerHTML = `
+            <div>
+                <strong>${draft.title}</strong>
+                <small>${draft.category}</small>
+                ${draft.summary ? `<p>${draft.summary}</p>` : ''}
+            </div>
+            <div class="task-actions">
+                <button class="mini-button" data-action="news-publish" data-draft="${draft.id}">Veröffentlichen</button>
+            </div>
+        `;
+        elements.newsDraftList.appendChild(li);
+    });
+}
+
+function updateNewsStatus() {
+    if (!elements.newsStatus) return;
+    const drafts = state.news?.drafts ?? [];
+    if (drafts.length > 0) {
+        elements.newsStatus.textContent = `${drafts.length} Entwürfe`;
+        elements.newsStatus.className = 'status-pill status-warning';
+    } else {
+        elements.newsStatus.textContent = 'Bereit';
+        elements.newsStatus.className = 'status-pill status-online';
+    }
+}
+
+function handleNewsClick(event) {
+    const button = event.target.closest('button[data-action="news-publish"]');
+    if (!button) return;
+    const draftId = button.dataset.draft;
+    const news = state.news ?? normalizeNews();
+    const draft = news.drafts.find(entry => entry.id === draftId);
+    const drafts = news.drafts.filter(entry => entry.id !== draftId);
+    let feeds = news.feeds;
+    if (draft) {
+        const published = {
+            id: `news-${Date.now()}`,
+            headline: draft.title,
+            category: draft.category ?? 'Allgemein',
+            status: 'published',
+            priority: draft.priority ?? 'Normal',
+            timestamp: formatTime(),
+            summary: draft.summary ?? ''
+        };
+        feeds = [...news.feeds, published];
+        addLog('news', `Meldung veröffentlicht: ${published.headline}.`);
+    }
+    kernel.setState('news', { ...news, drafts, feeds });
+    renderNews();
+}
+
 /** === Alarmzustände === */
 function applyAlertTheme(level) {
     const normalized = typeof level === 'string' ? level.toLowerCase() : '';
@@ -3994,6 +5263,19 @@ function bindEvents() {
     elements.larpParameters?.addEventListener('input', handleLarpInteraction);
     elements.larpCues?.addEventListener('click', handleLarpInteraction);
     elements.larpFog?.addEventListener('input', handleLarpFogChange);
+    elements.propulsionProfileList?.addEventListener('click', handlePropulsionClick);
+    elements.propulsionManeuverList?.addEventListener('click', handlePropulsionClick);
+    elements.thermalCoolingList?.addEventListener('click', handleThermalClick);
+    elements.ftlChecklist?.addEventListener('click', handleFtlChecklistToggle);
+    elements.npcScriptList?.addEventListener('click', handleNpcClick);
+    elements.npcCueList?.addEventListener('click', handleNpcClick);
+    elements.crewSceneList?.addEventListener('click', handleCrewScheduleClick);
+    elements.immersionAudioList?.addEventListener('click', handleImmersionClick);
+    elements.immersionPropList?.addEventListener('click', handleImmersionClick);
+    elements.immersionLighting?.addEventListener('input', handleImmersionLightingChange);
+    elements.immersionLighting?.addEventListener('change', handleImmersionLightingChange);
+    elements.characterRoster?.addEventListener('click', handleCharacterClick);
+    elements.newsDraftList?.addEventListener('click', handleNewsClick);
 }
 
 /** === Manuelles Reload & Hot-Reload === */
@@ -4121,6 +5403,9 @@ function initializeStateFromScenario(scenario, {
     state.fabrication = normalizeFabrication(scenario.fabrication);
     state.medical = normalizeMedical(scenario.medical);
     state.security = normalizeSecurity(scenario.security);
+    state.propulsion = normalizePropulsion(scenario.propulsion ?? DEFAULT_SCENARIO.propulsion);
+    state.thermal = normalizeThermal(scenario.thermal ?? scenario.thermalControl ?? DEFAULT_SCENARIO.thermal);
+    state.ftl = normalizeFtl(scenario.ftl ?? scenario.jump ?? DEFAULT_SCENARIO.ftl);
     state.stations = normalizeStations(scenario.stations);
     state.procedures = normalizeProcedures(scenario.procedures);
     state.briefing = normalizeBriefing(scenario.briefing);
@@ -4129,6 +5414,11 @@ function initializeStateFromScenario(scenario, {
     state.telemetry = normalizeTelemetry(scenario.telemetry);
     state.faults = normalizeFaults(scenario.faults);
     state.larp = normalizeLarp(scenario.larp);
+    state.npc = normalizeNpc(scenario.npc ?? scenario.npcManager ?? DEFAULT_SCENARIO.npc);
+    state.crewSchedule = normalizeCrewSchedule(scenario.crewSchedule ?? scenario.roleplay ?? DEFAULT_SCENARIO.crewSchedule);
+    state.immersion = normalizeImmersion(scenario.immersion ?? DEFAULT_SCENARIO.immersion);
+    state.characters = normalizeCharacters(scenario.characters ?? DEFAULT_SCENARIO.characters);
+    state.news = normalizeNews(scenario.news ?? DEFAULT_SCENARIO.news);
 
     if (resetLogs) {
         state.logs = prepareLogEntries(scenario.initialLog);
@@ -4146,6 +5436,9 @@ function initializeStateFromScenario(scenario, {
     renderFabrication();
     renderMedical();
     renderSecurity();
+    renderPropulsion();
+    renderThermal();
+    renderFtl();
     renderStations();
     renderProcedures();
     renderBriefing();
@@ -4153,6 +5446,11 @@ function initializeStateFromScenario(scenario, {
     renderTelemetry();
     renderFaults();
     renderLarpConsole();
+    renderNpcManager();
+    renderCrewSchedule();
+    renderImmersion();
+    renderCharacters();
+    renderNews();
 
     if (resetNav) {
         resetNavigation();

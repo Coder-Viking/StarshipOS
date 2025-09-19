@@ -895,6 +895,359 @@ const SECURITY_DATA = {
     ]
 };
 
+const PROPULSION_DATA = {
+    thrusters: [
+        {
+            id: 'thruster-main-a',
+            name: 'Haupttriebwerk A',
+            status: 'online',
+            thrust: 92,
+            thrustUnit: 'MN',
+            temperature: 612,
+            temperatureUnit: 'K',
+            vibration: 1.4,
+            note: 'Plasmafluss stabilisiert nach letzter Kalibrierung.'
+        },
+        {
+            id: 'thruster-main-b',
+            name: 'Haupttriebwerk B',
+            status: 'online',
+            thrust: 88,
+            thrustUnit: 'MN',
+            temperature: 607,
+            temperatureUnit: 'K',
+            vibration: 1.7,
+            note: 'Sekundäre Injektoren werden überwacht.'
+        },
+        {
+            id: 'thruster-aux',
+            name: 'Hilfstriebwerke',
+            status: 'idle',
+            thrust: 14,
+            thrustUnit: 'MN',
+            temperature: 345,
+            temperatureUnit: 'K',
+            vibration: 0.6,
+            note: 'Bereit für Feinmanöver.'
+        }
+    ],
+    fuel: {
+        main: 68,
+        reserve: 24,
+        consumption: 4.8,
+        reserveEta: '5h 20m'
+    },
+    rcs: {
+        status: 'nominal',
+        balance: '+0.2° Pitch',
+        drift: '0.3°/h',
+        note: 'Automatische Trimmung aktiv.'
+    },
+    profiles: [
+        {
+            id: 'profile-cruise',
+            name: 'Cruise',
+            thrust: 54,
+            rcsUsage: 22,
+            description: 'Effizientes Patrouillenprofil für den Delta-Nebel.',
+            status: 'ready',
+            active: true
+        },
+        {
+            id: 'profile-intercept',
+            name: 'Abfang',
+            thrust: 86,
+            rcsUsage: 44,
+            description: 'Maximale Schubabgabe zur Zielverfolgung.',
+            status: 'ready',
+            active: false
+        },
+        {
+            id: 'profile-drift',
+            name: 'Station Keeping',
+            thrust: 18,
+            rcsUsage: 12,
+            description: 'Feintrimmung für Docking- und EVA-Operationen.',
+            status: 'standby',
+            active: false
+        }
+    ],
+    maneuvers: [
+        {
+            id: 'maneuver-rendezvous',
+            title: 'Rendezvous mit Konvoi',
+            window: 'T+00:25',
+            status: 'in-progress',
+            assigned: 'Pilot / Navigation',
+            note: 'Annäherung mit 12 m/s Relativgeschwindigkeit.'
+        },
+        {
+            id: 'maneuver-escape',
+            title: 'Fluchtkorridor vorbereiten',
+            window: 'Standby',
+            status: 'planned',
+            assigned: 'Engineering',
+            note: 'Reserve-Kurs auf Alpha-Relay.'
+        }
+    ],
+    alerts: [
+        {
+            id: 'propulsion-temp',
+            message: 'Temperaturanstieg Injektor 3 erkannt.',
+            severity: 'warning'
+        },
+        {
+            id: 'propulsion-trim',
+            message: 'RCS-Drift über Soll – Trimmung empfohlen.',
+            severity: 'info'
+        }
+    ],
+    activeProfileId: 'profile-cruise'
+};
+
+const THERMAL_DATA = {
+    heatLoads: [
+        {
+            id: 'heat-reactor',
+            source: 'Reaktorkern',
+            load: 68.4,
+            unit: '%',
+            status: 'stable',
+            mitigation: 'Kühlmittelfluss auf 105% erhöht.'
+        },
+        {
+            id: 'heat-weapons',
+            source: 'Phaserbänke',
+            load: 44.2,
+            unit: '%',
+            status: 'warning',
+            mitigation: 'Sekundärer Wärmetauscher aktiv.'
+        },
+        {
+            id: 'heat-shields',
+            source: 'Deflektorschilde',
+            load: 31.5,
+            unit: '%',
+            status: 'stable',
+            mitigation: 'Lastverteilung erfolgt.'
+        }
+    ],
+    radiators: [
+        {
+            id: 'radiator-port',
+            name: 'Radiator Backbord',
+            status: 'deployed',
+            output: 74,
+            angle: '32°',
+            note: 'Segment 3 zeigt leichten Partikelschlag.'
+        },
+        {
+            id: 'radiator-starboard',
+            name: 'Radiator Steuerbord',
+            status: 'deployed',
+            output: 78,
+            angle: '29°',
+            note: 'Kühlleistung nominal.'
+        }
+    ],
+    cooling: [
+        {
+            id: 'cool-loop-delta',
+            description: 'Kühlkreislauf Delta spülen',
+            status: 'in-progress',
+            eta: '00:12',
+            owner: 'Engineering',
+            note: 'Temperaturen sinken planmäßig.'
+        },
+        {
+            id: 'cool-vent',
+            description: 'Ventilationsschächte entlüften',
+            status: 'pending',
+            eta: '00:20',
+            owner: 'Damage Control',
+            note: 'Freigabe durch Sicherheit erforderlich.'
+        }
+    ],
+    signature: {
+        level: 'Moderate',
+        target: 'Konvoi',
+        note: 'Emissionen an Eskorte angepasst.',
+        mode: 'Stealth-Sync'
+    }
+};
+
+const FTL_DATA = {
+    capacitor: {
+        charge: 64,
+        target: 100,
+        eta: '00:18'
+    },
+    window: {
+        opensIn: '00:24',
+        duration: '00:06',
+        vector: 'Delta-314'
+    },
+    checklist: [
+        { id: 'ftl-diagnostics', label: 'Feld-Diagnostik', completed: false, optional: false, owner: 'Engineering' },
+        { id: 'ftl-lattice', label: 'Lattice-Synchronisierung', completed: true, optional: false, owner: 'Science' },
+        { id: 'ftl-bridge', label: 'Brücke bestätigt Kurs', completed: false, optional: false, owner: 'Captain' },
+        { id: 'ftl-medbay', label: 'MedBay sichert Patienten', completed: false, optional: true, owner: 'Medical' }
+    ],
+    abort: [
+        { id: 'ftl-abort-flow', label: 'Plasmafluss entkoppeln', status: 'ready', note: '' },
+        { id: 'ftl-abort-dump', label: 'Energie in Strahlungsbänke ableiten', status: 'ready', note: '' },
+        { id: 'ftl-abort-lockdown', label: 'Sprungabbruch-Protokoll Delta', status: 'armed', note: 'Freigabe Captain erforderlich.' }
+    ]
+};
+
+const NPC_DATA = {
+    scripts: [
+        {
+            id: 'npc-distress',
+            label: 'Notruf Frachter Alnair',
+            channel: 'distress',
+            status: 'ready',
+            prompt: '"Mayday – Frachter Alnair unter Beschuss, benötigen sofortige Eskorte!"'
+        },
+        {
+            id: 'npc-escort',
+            label: 'ESV Nova Status',
+            channel: 'fleet',
+            status: 'ready',
+            prompt: '"Nova hier – halten Position, warten auf taktische Freigabe."'
+        }
+    ],
+    cues: [
+        {
+            id: 'npc-cue-threat',
+            label: 'Korsaren Ultimatum',
+            status: 'queued',
+            note: 'Feind droht mit Angriff auf Konvoi.'
+        },
+        {
+            id: 'npc-cue-clue',
+            label: 'Anomalie pulsiert',
+            status: 'queued',
+            note: 'Sensorische Fluktuationen verstärken sich.'
+        }
+    ],
+    log: []
+};
+
+const CREW_SCHEDULE_DATA = {
+    scenes: [
+        {
+            id: 'scene-briefing',
+            title: 'Missionsbriefing',
+            time: 'T-00:20',
+            location: 'Briefingraum',
+            cast: 'Führungsteam',
+            status: 'scheduled',
+            note: 'Prioritäten Delta-Nebel festlegen.'
+        },
+        {
+            id: 'scene-science',
+            title: 'Science Field Log',
+            time: 'T+00:30',
+            location: 'Science Lab',
+            cast: 'Dr. Idris, Lt. Hale',
+            status: 'scheduled',
+            note: 'Anomalie-Befunde austauschen.'
+        },
+        {
+            id: 'scene-debrief',
+            title: 'Gefechtsdebrief',
+            time: 'Nach Einsatz',
+            location: 'Tactical',
+            cast: 'Captain, Tactical, Engineering',
+            status: 'scheduled',
+            note: 'Lessons Learned dokumentieren.'
+        }
+    ]
+};
+
+const IMMERSION_DATA = {
+    audio: [
+        { id: 'audio-nebula', label: 'Delta Nebel Ambience', status: 'ready', level: 35, note: 'Leises Pulsieren und Funkrauschen.' },
+        { id: 'audio-redalert', label: 'Alarm Rot Cue', status: 'ready', level: 65, note: 'Kurz vor Auslösung bereithalten.' }
+    ],
+    lighting: { mode: 'Nebelmodus', intensity: 42 },
+    props: [
+        { id: 'prop-datapad', label: 'Wissenschafts-Datapad', status: 'ready', note: 'Anomalieberichte vorbereiten.' },
+        { id: 'prop-intel', label: 'Taktisches Dossier', status: 'ready', note: 'Korsarenprofile enthalten.' }
+    ]
+};
+
+const CHARACTER_DATA = {
+    roster: [
+        {
+            id: 'char-mira',
+            name: 'Captain Mira Sol',
+            role: 'Kommandantin',
+            xp: 120,
+            traits: ['Diplomatie', 'Entschlossen'],
+            nextUnlock: 'Flaggenbrief Freigabe'
+        },
+        {
+            id: 'char-talin',
+            name: 'Cmdr. Talin Roe',
+            role: 'Erster Offizier',
+            xp: 95,
+            traits: ['Analytisch', 'Mentor'],
+            nextUnlock: 'Flottenprotokoll Zugriff'
+        },
+        {
+            id: 'char-sora',
+            name: 'Lt. Cmdr. Sora Kade',
+            role: 'Chefingenieur',
+            xp: 110,
+            traits: ['Improvisation', 'Belastbar'],
+            nextUnlock: 'Prototyp-Kit'
+        }
+    ]
+};
+
+const NEWS_DATA = {
+    feeds: [
+        {
+            id: 'news-fleet',
+            headline: 'Flottenkommando warnt vor Korsarenaktivität im Delta-Nebel',
+            category: 'Flotte',
+            status: 'published',
+            priority: 'Normal',
+            timestamp: '4521.6',
+            summary: 'Eskorten werden angehalten, Konvois eng zu begleiten.'
+        },
+        {
+            id: 'news-science',
+            headline: 'Anomalie sendet regelmäßige Gravitonpulse',
+            category: 'Wissenschaft',
+            status: 'published',
+            priority: 'Hoch',
+            timestamp: '4521.7',
+            summary: 'Sensorbuoy L-17 bestätigt verstärkte Aktivität.'
+        }
+    ],
+    drafts: [
+        {
+            id: 'draft-status',
+            title: 'Statusbericht Delta-Nebel',
+            summary: 'Zwischenfallberichte und Systemstatus für Flottenarchiv.',
+            status: 'draft',
+            category: 'Operations',
+            priority: 'Hoch'
+        },
+        {
+            id: 'draft-morale',
+            title: 'Crew-Moral Update',
+            summary: 'Positiver Effekt nach erfolgreichem Konvoi-Manöver.',
+            status: 'draft',
+            category: 'Crew',
+            priority: 'Normal'
+        }
+    ]
+};
+
 const STATION_DATA = [
     { id: 'station-captain', role: 'Captain', focus: ['Entscheidungen', 'Alert Levels'], readiness: 90, crew: 'Capt. Sol', status: 'bereit' },
     { id: 'station-pilot', role: 'Pilot', focus: ['Navigation', 'Manöver'], readiness: 75, crew: 'Lt. Osei', status: 'bereit' },
@@ -1064,6 +1417,9 @@ export const DEFAULT_SCENARIO = {
     fabrication: JSON.parse(JSON.stringify(FABRICATION_DATA)),
     medical: JSON.parse(JSON.stringify(MEDICAL_DATA)),
     security: JSON.parse(JSON.stringify(SECURITY_DATA)),
+    propulsion: JSON.parse(JSON.stringify(PROPULSION_DATA)),
+    thermal: JSON.parse(JSON.stringify(THERMAL_DATA)),
+    ftl: JSON.parse(JSON.stringify(FTL_DATA)),
     stations: STATION_DATA.map(station => ({ ...station })),
     procedures: PROCEDURE_DATA.map(proc => ({
         ...proc,
@@ -1074,5 +1430,10 @@ export const DEFAULT_SCENARIO = {
     encounters: ENCOUNTERS_DATA.map(encounter => ({ ...encounter })),
     telemetry: JSON.parse(JSON.stringify(TELEMETRY_DATA)),
     faults: JSON.parse(JSON.stringify(FAULT_DATA)),
-    larp: JSON.parse(JSON.stringify(LARP_DATA))
+    larp: JSON.parse(JSON.stringify(LARP_DATA)),
+    npc: JSON.parse(JSON.stringify(NPC_DATA)),
+    crewSchedule: JSON.parse(JSON.stringify(CREW_SCHEDULE_DATA)),
+    immersion: JSON.parse(JSON.stringify(IMMERSION_DATA)),
+    characters: JSON.parse(JSON.stringify(CHARACTER_DATA)),
+    news: JSON.parse(JSON.stringify(NEWS_DATA))
 };
