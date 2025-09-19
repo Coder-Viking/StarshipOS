@@ -47,6 +47,14 @@ function formatValue(value) {
     return value;
 }
 
+function formatReading(value, unit) {
+    if (value === null || value === undefined || value === '') {
+        return '—';
+    }
+    const suffix = unit ? ` ${unit}` : '';
+    return `${formatValue(value)}${suffix}`;
+}
+
 function createMetric({ label, value, unit = '', status = 'normal', note, min = 0, max = 100 }) {
     const wrapper = document.createElement('div');
     wrapper.className = `operations-metric operations-metric--${status}`;
@@ -352,6 +360,42 @@ function appendEmptyState(container, message) {
     container.appendChild(empty);
 }
 
+function getConduitToggleLabels(switchInfo = {}) {
+    if (switchInfo.onLabel || switchInfo.offLabel) {
+        return {
+            on: switchInfo.onLabel || switchInfo.offLabel || 'An',
+            off: switchInfo.offLabel || switchInfo.onLabel || 'Aus'
+        };
+    }
+
+    switch (switchInfo.type) {
+        case 'breaker':
+            return { on: 'Geschlossen', off: 'Offen' };
+        case 'valve':
+            return { on: 'Offen', off: 'Geschlossen' };
+        case 'relay':
+            return { on: 'Aktiv', off: 'Inaktiv' };
+        default:
+            return { on: 'An', off: 'Aus' };
+    }
+}
+
+function isSwitchEngaged(state, type) {
+    const key = safeLower(state);
+    if (!key) {
+        return false;
+    }
+
+    if (key === 'closed') {
+        return type !== 'valve';
+    }
+    if (key === 'open') {
+        return type === 'valve';
+    }
+
+    return ['engaged', 'active', 'on', 'true'].includes(key);
+}
+
 const STATUS_LABEL_MAP = {
     online: 'Online',
     warning: 'Warnung',
@@ -366,7 +410,16 @@ const STATUS_LABEL_MAP = {
     'in-progress': 'In Arbeit',
     stabilized: 'Stabilisiert',
     completed: 'Abgeschlossen',
-    complete: 'Abgeschlossen'
+    complete: 'Abgeschlossen',
+    success: 'In Ordnung',
+    stabil: 'Stabil',
+    'überwachung': 'Überwachung',
+    versiegelt: 'Versiegelt',
+    'analyse läuft': 'Analyse läuft',
+    aktiv: 'Aktiv',
+    bereit: 'Bereit',
+    standby: 'Standby',
+    laufend: 'Laufend'
 };
 
 const STATUS_TONE_MAP = {
@@ -383,14 +436,27 @@ const STATUS_TONE_MAP = {
     'in-progress': 'warning',
     stabilized: 'success',
     completed: 'success',
-    complete: 'success'
+    complete: 'success',
+    success: 'success',
+    stabil: 'success',
+    'überwachung': 'warning',
+    versiegelt: 'success',
+    'analyse läuft': 'warning',
+    aktiv: 'accent',
+    bereit: 'accent',
+    laufend: 'accent'
 };
 
 const SEVERITY_INFO = {
     critical: { label: 'Kritisch', tone: 'danger' },
     major: { label: 'Schwer', tone: 'warning' },
     moderate: { label: 'Moderat', tone: 'accent' },
-    minor: { label: 'Gering', tone: 'success' }
+    minor: { label: 'Gering', tone: 'success' },
+    gering: { label: 'Gering', tone: 'success' },
+    moderat: { label: 'Moderat', tone: 'accent' },
+    schwer: { label: 'Schwer', tone: 'warning' },
+    kritisch: { label: 'Kritisch', tone: 'danger' },
+    spur: { label: 'Spur', tone: 'accent' }
 };
 
 const METRIC_STATUS_MAP = {
@@ -399,7 +465,13 @@ const METRIC_STATUS_MAP = {
     critical: 'critical',
     offline: 'danger',
     idle: 'accent',
-    standby: 'accent'
+    standby: 'accent',
+    stabil: 'success',
+    'überwachung': 'warning',
+    aktiv: 'accent',
+    bereit: 'accent',
+    versiegelt: 'accent',
+    'analyse läuft': 'warning'
 };
 
 function safeLower(value) {
@@ -1150,10 +1222,18 @@ async function renderEngDamage(container) {
     }
 
     const damageControl = scenarioData?.damageControl ?? {};
+    const lifeSupport = scenarioData?.lifeSupport ?? {};
+
     const reports = Array.isArray(damageControl.reports) ? damageControl.reports : [];
     const systemNodes = flattenDamageNodes(damageControl.systems ?? []);
     const bypasses = Array.isArray(damageControl.bypasses) ? damageControl.bypasses : [];
     const repairs = Array.isArray(damageControl.repairs) ? damageControl.repairs : [];
+    const conduits = Array.isArray(damageControl.conduits) ? damageControl.conduits : [];
+    const inventory = Array.isArray(damageControl.inventory) ? damageControl.inventory : [];
+    const sections = Array.isArray(lifeSupport.sections) ? lifeSupport.sections : [];
+    const leaks = Array.isArray(lifeSupport.leaks) ? lifeSupport.leaks : [];
+    const filters = lifeSupport?.filters ?? null;
+    const filterBanks = Array.isArray(filters?.banks) ? filters.banks : [];
 
     const reportBody = createPanel(container, {
         title: 'Schadenmeldungen',
@@ -1259,6 +1339,230 @@ async function renderEngDamage(container) {
         systemBody.appendChild(grid);
     }
 
+    const sectionsBody = createPanel(container, {
+        title: 'Sektionen & Atmosphäre',
+        description: 'Druck, Temperatur und Statusmeldungen der überwachten Sektionen.'
+    });
+
+    if (!sections.length) {
+        appendEmptyState(sectionsBody, 'Keine Sektionsdaten verfügbar.');
+    } else {
+        const grid = document.createElement('div');
+        grid.className = 'operations-section-grid';
+
+        sections.forEach((section, index) => {
+            const card = document.createElement('div');
+            card.className = 'operations-section-card';
+
+            const header = document.createElement('div');
+            header.className = 'operations-section-card__header';
+
+            const title = document.createElement('span');
+            title.className = 'operations-section-card__title';
+            title.textContent = section.name || section.id || `Sektion ${index + 1}`;
+            header.appendChild(title);
+
+            const statusInfo = getStatusInfo(section.status, { fallbackLabel: section.status || 'Status' });
+            header.appendChild(createStatusBadge(statusInfo));
+            card.appendChild(header);
+
+            const stats = document.createElement('div');
+            stats.className = 'operations-section-card__stats';
+
+            const pressure = document.createElement('span');
+            pressure.className = 'operations-section-card__stat';
+            pressure.textContent = `Druck: ${formatReading(section.pressure, section.pressureUnit || 'kPa')}`;
+            stats.appendChild(pressure);
+
+            const temperature = document.createElement('span');
+            temperature.className = 'operations-section-card__stat';
+            temperature.textContent = `Temperatur: ${formatReading(section.temperature, section.temperatureUnit || '°C')}`;
+            stats.appendChild(temperature);
+
+            const humidity = document.createElement('span');
+            humidity.className = 'operations-section-card__stat';
+            humidity.textContent = `Feuchte: ${formatReading(section.humidity, '%')}`;
+            stats.appendChild(humidity);
+
+            card.appendChild(stats);
+            grid.appendChild(card);
+        });
+
+        sectionsBody.appendChild(grid);
+        sectionsBody.appendChild(
+            createButtonRow([{ label: 'Sektion markieren' }, { label: 'Status an Brücke melden', tone: 'ghost' }])
+        );
+    }
+
+    const leakBody = createPanel(container, {
+        title: 'Leck- & Schottüberwachung',
+        description: 'Hüllenbrüche, Abdichtungen und laufende Drucktests im Blick.'
+    });
+
+    if (!leaks.length) {
+        appendEmptyState(leakBody, 'Keine gemeldeten Lecks in den Sektionsdaten.');
+    } else {
+        const table = document.createElement('table');
+        table.className = 'operations-table';
+
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        ['Ort', 'Schwere', 'Status', 'Fortschritt'].forEach((header) => {
+            const th = document.createElement('th');
+            th.textContent = header;
+            headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        leaks.forEach((leak) => {
+            const row = document.createElement('tr');
+
+            const locationCell = document.createElement('td');
+            const title = document.createElement('strong');
+            title.textContent = leak.location || leak.id || 'Position unbekannt';
+            locationCell.appendChild(title);
+            if (leak.note) {
+                const note = document.createElement('small');
+                note.textContent = leak.note;
+                locationCell.appendChild(note);
+            }
+            row.appendChild(locationCell);
+
+            const severityCell = document.createElement('td');
+            severityCell.appendChild(createStatusBadge(getSeverityInfo(leak.severity)));
+            row.appendChild(severityCell);
+
+            const statusCell = document.createElement('td');
+            statusCell.appendChild(createStatusBadge(getStatusInfo(leak.status, { fallbackLabel: 'Status' })));
+            row.appendChild(statusCell);
+
+            const progressCell = document.createElement('td');
+            progressCell.textContent =
+                leak.progress != null ? `${formatValue(leak.progress)}%` : '—';
+            row.appendChild(progressCell);
+
+            tbody.appendChild(row);
+        });
+
+        table.appendChild(tbody);
+        leakBody.appendChild(table);
+        leakBody.appendChild(
+            createButtonRow([{ label: 'Drucktest starten' }, { label: 'Logbucheintrag erstellen', tone: 'ghost' }])
+        );
+    }
+
+    const conduitsBody = createPanel(container, {
+        title: 'Leitungsnetz & Busse',
+        description: 'EPS-Busse, Ventile und Relais überwachen und steuern.'
+    });
+
+    if (!conduits.length) {
+        appendEmptyState(conduitsBody, 'Keine Leitungsdaten im Szenario verfügbar.');
+    } else {
+        const list = document.createElement('div');
+        list.className = 'operations-conduit-list';
+
+        conduits.forEach((conduit, conduitIndex) => {
+            const item = document.createElement('div');
+            item.className = 'operations-conduit';
+
+            const header = document.createElement('div');
+            header.className = 'operations-conduit__header';
+
+            const title = document.createElement('span');
+            title.className = 'operations-conduit__title';
+            title.textContent = conduit.name || conduit.id || 'Leitung';
+            header.appendChild(title);
+
+            header.appendChild(
+                createStatusBadge(getStatusInfo(conduit.status, { fallbackLabel: 'Status' }))
+            );
+            item.appendChild(header);
+
+            if (conduit.route || conduit.integrity != null) {
+                const meta = document.createElement('div');
+                meta.className = 'operations-conduit__meta';
+                const metaParts = [];
+                if (conduit.route) {
+                    metaParts.push(conduit.route);
+                }
+                if (conduit.integrity != null) {
+                    metaParts.push(`Integrität ${formatValue(conduit.integrity)}%`);
+                }
+                meta.textContent = metaParts.join(' • ');
+                item.appendChild(meta);
+            }
+
+            const metricNote = [];
+            if (conduit.capacity != null) {
+                metricNote.push(`Kapazität ${formatValue(conduit.capacity)}%`);
+            }
+            if (conduit.integrity != null && !metricNote.includes(`Integrität ${formatValue(conduit.integrity)}%`)) {
+                metricNote.push(`Integrität ${formatValue(conduit.integrity)}%`);
+            }
+
+            item.appendChild(
+                createMetric({
+                    label: 'Last',
+                    value: conduit.load ?? 0,
+                    unit: '%',
+                    status: mapMetricStatus(conduit.status),
+                    note: metricNote.join(' • ') || undefined,
+                    min: 0,
+                    max: conduit.capacity ?? 120
+                })
+            );
+
+            const switches = Array.isArray(conduit.switches) ? conduit.switches : [];
+            if (switches.length) {
+                const controls = document.createElement('div');
+                controls.className = 'operations-conduit__controls';
+
+                switches.forEach((switchInfo, switchIndex) => {
+                    const control = document.createElement('div');
+                    control.className = 'operations-conduit__control';
+                    if (switchInfo.critical) {
+                        control.classList.add('operations-conduit__control--critical');
+                    }
+
+                    const label = document.createElement('span');
+                    label.className = 'operations-conduit__control-label';
+                    label.textContent = switchInfo.label || 'Schalter';
+                    control.appendChild(label);
+
+                    const labels = getConduitToggleLabels(switchInfo);
+                    const toggle = createCompactToggle({
+                        id: switchInfo.id || `conduit-${conduitIndex}-${switchIndex}`,
+                        onLabel: labels.on,
+                        offLabel: labels.off,
+                        defaultChecked: isSwitchEngaged(switchInfo.state, switchInfo.type)
+                    });
+                    control.appendChild(toggle);
+
+                    controls.appendChild(control);
+                });
+
+                item.appendChild(controls);
+            }
+
+            if (conduit.note) {
+                const note = document.createElement('p');
+                note.className = 'operations-conduit__note';
+                note.textContent = conduit.note;
+                item.appendChild(note);
+            }
+
+            list.appendChild(item);
+        });
+
+        conduitsBody.appendChild(list);
+        conduitsBody.appendChild(
+            createButtonRow([{ label: 'Bypass planen' }, { label: 'Routing protokollieren', tone: 'ghost' }])
+        );
+    }
+
     const bypassBody = createPanel(container, {
         title: 'Bypässe & Isolation',
         description: 'Ventile und Stromkreise gemäß Szenario-Status schalten.'
@@ -1312,6 +1616,120 @@ async function renderEngDamage(container) {
         });
 
         bypassBody.appendChild(list);
+    }
+
+    const filtersBody = createPanel(container, {
+        title: 'Filter & Vorräte',
+        description: 'Filterbänke, Luftpuffer und Reservekapazitäten überwachen.'
+    });
+
+    const hasFilterMetrics =
+        typeof filters?.reserveAirMinutes === 'number' ||
+        typeof filters?.scrubberMarginMinutes === 'number' ||
+        typeof filters?.emergencyBufferMinutes === 'number';
+
+    if (!hasFilterMetrics && !filterBanks.length) {
+        appendEmptyState(filtersBody, 'Keine Filter- oder Pufferdaten im Szenario hinterlegt.');
+    } else {
+        if (hasFilterMetrics) {
+            const metrics = document.createElement('div');
+            metrics.className = 'operations-metric-grid';
+
+            if (typeof filters?.reserveAirMinutes === 'number') {
+                metrics.append(
+                    createMetric({
+                        label: 'Luftreserve',
+                        value: filters.reserveAirMinutes,
+                        unit: ' min',
+                        status: 'accent',
+                        note: 'Mindestziel 480 min',
+                        min: 0,
+                        max: Math.max(filters.reserveAirMinutes, 720)
+                    })
+                );
+            }
+
+            if (typeof filters?.scrubberMarginMinutes === 'number') {
+                metrics.append(
+                    createMetric({
+                        label: 'Scrubber-Puffer',
+                        value: filters.scrubberMarginMinutes,
+                        unit: ' min',
+                        status: 'normal',
+                        note: 'Zeit bis zur Regeneration',
+                        min: 0,
+                        max: Math.max(filters.scrubberMarginMinutes, 360)
+                    })
+                );
+            }
+
+            if (typeof filters?.emergencyBufferMinutes === 'number') {
+                metrics.append(
+                    createMetric({
+                        label: 'Notfallpuffer',
+                        value: filters.emergencyBufferMinutes,
+                        unit: ' min',
+                        status: 'accent',
+                        note: 'Für Druckverlust-Szenarien',
+                        min: 0,
+                        max: Math.max(filters.emergencyBufferMinutes, 360)
+                    })
+                );
+            }
+
+            filtersBody.appendChild(metrics);
+        }
+
+        if (filterBanks.length) {
+            const table = document.createElement('table');
+            table.className = 'operations-table';
+
+            const thead = document.createElement('thead');
+            const headRow = document.createElement('tr');
+            ['Bank', 'Status', 'Sättigung', 'Puffer'].forEach((header) => {
+                const th = document.createElement('th');
+                th.textContent = header;
+                headRow.appendChild(th);
+            });
+            thead.appendChild(headRow);
+            table.appendChild(thead);
+
+            const tbody = document.createElement('tbody');
+            filterBanks.forEach((bank) => {
+                const row = document.createElement('tr');
+
+                const labelCell = document.createElement('td');
+                const title = document.createElement('strong');
+                title.textContent = bank.label || bank.id || 'Bank';
+                labelCell.appendChild(title);
+                row.appendChild(labelCell);
+
+                const statusCell = document.createElement('td');
+                statusCell.appendChild(createStatusBadge(getStatusInfo(bank.status, { fallbackLabel: 'Status' })));
+                row.appendChild(statusCell);
+
+                const saturationCell = document.createElement('td');
+                const saturationUnit = bank.saturationUnit || '%';
+                saturationCell.textContent =
+                    bank.saturation != null ? `${formatValue(bank.saturation)} ${saturationUnit}` : '—';
+                row.appendChild(saturationCell);
+
+                const bufferCell = document.createElement('td');
+                const bufferUnit = bank.timeBufferUnit || 'min';
+                bufferCell.textContent =
+                    bank.timeBuffer != null ? `${formatValue(bank.timeBuffer)} ${bufferUnit}` : '—';
+                row.appendChild(bufferCell);
+
+                tbody.appendChild(row);
+            });
+
+            table.appendChild(tbody);
+            filtersBody.appendChild(table);
+        }
+
+        filtersBody.appendChild(
+            createButtonRow([{ label: 'Reserve aktivieren' }, { label: 'Wartung protokollieren', tone: 'ghost' }])
+        );
     }
 
     const repairBody = createPanel(container, {
@@ -1385,7 +1803,77 @@ async function renderEngDamage(container) {
 
         table.appendChild(tbody);
         repairBody.appendChild(table);
-        repairBody.appendChild(createButtonRow([{ label: 'Aufträge aktualisieren' }, { label: 'Status an Brücke melden', tone: 'ghost' }]));
+        repairBody.appendChild(
+            createButtonRow([{ label: 'Aufträge aktualisieren' }, { label: 'Status an Brücke melden', tone: 'ghost' }])
+        );
+    }
+
+    const inventoryBody = createPanel(container, {
+        title: 'Ersatzteilbestand',
+        description: 'Lagerbestände, Mindestmengen und Anforderungsstatus prüfen.'
+    });
+
+    if (!inventory.length) {
+        appendEmptyState(inventoryBody, 'Keine Lagerdaten für diese Station hinterlegt.');
+    } else {
+        const table = document.createElement('table');
+        table.className = 'operations-table';
+
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        ['Material', 'Bestand', 'Minimum', 'Status'].forEach((header) => {
+            const th = document.createElement('th');
+            th.textContent = header;
+            headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        inventory.forEach((item) => {
+            const row = document.createElement('tr');
+
+            const labelCell = document.createElement('td');
+            const title = document.createElement('strong');
+            title.textContent = item.name || item.id || 'Material';
+            labelCell.appendChild(title);
+            if (item.location) {
+                const location = document.createElement('span');
+                location.className = 'operations-subline';
+                location.textContent = item.location;
+                labelCell.appendChild(location);
+            }
+            if (item.note) {
+                const note = document.createElement('small');
+                note.textContent = item.note;
+                labelCell.appendChild(note);
+            }
+            row.appendChild(labelCell);
+
+            const quantityCell = document.createElement('td');
+            if (item.capacity != null) {
+                quantityCell.textContent = `${formatValue(item.quantity ?? 0)} / ${formatValue(item.capacity)}`;
+            } else {
+                quantityCell.textContent = item.quantity != null ? formatValue(item.quantity) : '—';
+            }
+            row.appendChild(quantityCell);
+
+            const thresholdCell = document.createElement('td');
+            thresholdCell.textContent = item.threshold != null ? formatValue(item.threshold) : '—';
+            row.appendChild(thresholdCell);
+
+            const statusCell = document.createElement('td');
+            statusCell.appendChild(createStatusBadge(getStatusInfo(item.status, { fallbackLabel: 'Status' })));
+            row.appendChild(statusCell);
+
+            tbody.appendChild(row);
+        });
+
+        table.appendChild(tbody);
+        inventoryBody.appendChild(table);
+        inventoryBody.appendChild(
+            createButtonRow([{ label: 'Nachschub anfordern' }, { label: 'Bestand sichern', tone: 'ghost' }])
+        );
     }
 }
 
