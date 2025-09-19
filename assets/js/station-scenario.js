@@ -213,7 +213,220 @@ const FALLBACK_SCENARIO_DATA = {
                 eta: '00:25',
                 parts: [{ id: 'part-emitter', name: 'Emitter Cluster', quantity: 3 }]
             }
+        ],
+        conduits: [
+            {
+                id: 'conduit-eps-a',
+                name: 'EPS-Hauptbus A',
+                status: 'warning',
+                load: 82,
+                capacity: 110,
+                integrity: 88,
+                route: 'Maschinenraum → Deck 5 → Bug',
+                note: 'Segment Deck 5 isoliert, Leistungsabfall wird überwacht.',
+                switches: [
+                    {
+                        id: 'switch-breaker-d5',
+                        type: 'breaker',
+                        label: 'Deck 5 Breaker',
+                        state: 'closed',
+                        critical: true
+                    },
+                    {
+                        id: 'switch-bypass-5b',
+                        type: 'valve',
+                        label: 'Bypass 5B',
+                        state: 'open'
+                    }
+                ]
+            },
+            {
+                id: 'conduit-life-support',
+                name: 'Lebenserhaltung Verteiler',
+                status: 'online',
+                load: 56,
+                capacity: 95,
+                integrity: 92,
+                route: 'Deck 3 → Habitat-Ring → MedBay',
+                note: 'Reservekreis Beta aktiv.',
+                switches: [
+                    {
+                        id: 'switch-filter-bank-a',
+                        type: 'valve',
+                        label: 'Filterbank A Ventil',
+                        state: 'open'
+                    },
+                    {
+                        id: 'switch-filter-bank-b',
+                        type: 'valve',
+                        label: 'Filterbank B Ventil',
+                        state: 'closed'
+                    }
+                ]
+            },
+            {
+                id: 'conduit-aux-power',
+                name: 'Aux-Energieverteiler',
+                status: 'warning',
+                load: 44,
+                capacity: 80,
+                integrity: 74,
+                route: 'Maschinenraum Hilfsgang → Wissenschaftssektion',
+                note: 'EPS 4B läuft über Hilfsbus – Temperatur beobachten.',
+                switches: [
+                    {
+                        id: 'switch-aux-relay',
+                        type: 'relay',
+                        label: 'Aux-Relay 4B',
+                        state: 'engaged',
+                        critical: true
+                    }
+                ]
+            }
+        ],
+        inventory: [
+            {
+                id: 'stock-nano',
+                name: 'Nanopolymer-Patches',
+                quantity: 7,
+                capacity: 12,
+                threshold: 4,
+                status: 'warning',
+                note: 'Lieferung vom Depot angefordert.'
+            },
+            {
+                id: 'stock-brace',
+                name: 'Verstrebung Typ C',
+                quantity: 3,
+                capacity: 6,
+                threshold: 2,
+                status: 'success'
+            },
+            {
+                id: 'stock-eps',
+                name: 'EPS-Koppler',
+                quantity: 14,
+                capacity: 20,
+                threshold: 8,
+                status: 'success'
+            }
         ]
+    },
+    lifeSupport: {
+        sections: [
+            {
+                id: 'bridge',
+                name: 'Brücke',
+                pressure: 101.3,
+                pressureUnit: 'kPa',
+                temperature: 21.8,
+                temperatureUnit: '°C',
+                humidity: 41,
+                status: 'stabil'
+            },
+            {
+                id: 'engineering',
+                name: 'Maschinenraum',
+                pressure: 100.9,
+                pressureUnit: 'kPa',
+                temperature: 23.4,
+                temperatureUnit: '°C',
+                humidity: 45,
+                status: 'stabil'
+            },
+            {
+                id: 'habitat',
+                name: 'Habitat-Ring',
+                pressure: 101,
+                pressureUnit: 'kPa',
+                temperature: 22.6,
+                temperatureUnit: '°C',
+                humidity: 42,
+                status: 'stabil'
+            },
+            {
+                id: 'medbay',
+                name: 'MedBay',
+                pressure: 101.5,
+                pressureUnit: 'kPa',
+                temperature: 21.1,
+                temperatureUnit: '°C',
+                humidity: 38,
+                status: 'stabil'
+            },
+            {
+                id: 'cargo',
+                name: 'Frachtraum',
+                pressure: 100.6,
+                pressureUnit: 'kPa',
+                temperature: 20.9,
+                temperatureUnit: '°C',
+                humidity: 36,
+                status: 'stabil'
+            },
+            {
+                id: 'shuttle-bay',
+                name: 'Shuttle-Bucht',
+                pressure: 99.8,
+                pressureUnit: 'kPa',
+                temperature: 19.8,
+                temperatureUnit: '°C',
+                humidity: 33,
+                status: 'überwachung'
+            }
+        ],
+        leaks: [
+            {
+                id: 'cargo-outer',
+                location: 'Frachtraum 2 – Außenhaut',
+                severity: 'gering',
+                status: 'versiegelt',
+                progress: 100,
+                note: 'Nanopolymer-Patch hält, Monitoring aktiv.'
+            },
+            {
+                id: 'deck-5',
+                location: 'Deck 5 – Wartungsschacht',
+                severity: 'spur',
+                status: 'analyse läuft',
+                progress: 18,
+                note: 'Sensorcluster 4 meldet leichte Druckfluktuation.'
+            }
+        ],
+        filters: {
+            reserveAirMinutes: 640,
+            scrubberMarginMinutes: 180,
+            emergencyBufferMinutes: 240,
+            banks: [
+                {
+                    id: 'primary',
+                    label: 'Filterbank A',
+                    status: 'aktiv',
+                    saturation: 34,
+                    saturationUnit: '%',
+                    timeBuffer: 540,
+                    timeBufferUnit: 'min'
+                },
+                {
+                    id: 'secondary',
+                    label: 'Filterbank B',
+                    status: 'bereit',
+                    saturation: 12,
+                    saturationUnit: '%',
+                    timeBuffer: 780,
+                    timeBufferUnit: 'min'
+                },
+                {
+                    id: 'reserve',
+                    label: 'Reservekassetten',
+                    status: 'standby',
+                    saturation: 3,
+                    saturationUnit: '%',
+                    timeBuffer: 1020,
+                    timeBufferUnit: 'min'
+                }
+            ]
+        }
     }
 };
 
@@ -256,7 +469,8 @@ function parseScenarioXml(xmlText) {
 
     return {
         systems: parseSystems(doc),
-        damageControl: parseDamageControl(doc)
+        damageControl: parseDamageControl(doc),
+        lifeSupport: parseLifeSupport(doc)
     };
 }
 
@@ -284,15 +498,15 @@ function parseSystems(doc) {
 function parseDamageControl(doc) {
     const damageRoot = doc.querySelector('scenario > damageControl');
     if (!damageRoot) {
-        return { reports: [], systems: [], bypasses: [], repairs: [] };
+        return { reports: [], systems: [], bypasses: [], repairs: [], conduits: [], inventory: [] };
     }
 
     const reports = Array.from(damageRoot.querySelectorAll('reports > report')).map((reportEl) => ({
         id: reportEl.getAttribute('id') || null,
         system: reportEl.getAttribute('system') || '',
         location: reportEl.getAttribute('location') || '',
-        severity: (reportEl.getAttribute('severity') || '').toLowerCase(),
-        status: (reportEl.getAttribute('status') || '').toLowerCase(),
+        severity: safeLower(reportEl.getAttribute('severity')),
+        status: safeLower(reportEl.getAttribute('status')),
         eta: reportEl.getAttribute('eta') || '',
         note: getChildText(reportEl, 'note') || ''
     }));
@@ -312,7 +526,7 @@ function parseDamageControl(doc) {
                   id: bypassEl.getAttribute('id') || null,
                   description: bypassEl.getAttribute('description') || '',
                   owner: bypassEl.getAttribute('owner') || '',
-                  status: (bypassEl.getAttribute('status') || '').toLowerCase(),
+                  status: safeLower(bypassEl.getAttribute('status')),
                   eta: bypassEl.getAttribute('eta') || '',
                   note: getChildText(bypassEl, 'note') || ''
               }))
@@ -327,13 +541,59 @@ function parseDamageControl(doc) {
                   label: orderEl.getAttribute('label') || '',
                   system: orderEl.getAttribute('system') || '',
                   team: orderEl.getAttribute('team') || '',
-                  status: (orderEl.getAttribute('status') || '').toLowerCase(),
+                  status: safeLower(orderEl.getAttribute('status')),
                   eta: orderEl.getAttribute('eta') || '',
                   parts: parseParts(orderEl)
               }))
         : [];
 
-    return { reports, systems, bypasses, repairs };
+    const conduitsEl = findChild(damageRoot, 'conduits');
+    const conduits = conduitsEl
+        ? Array.from(conduitsEl.children)
+              .filter((child) => isTag(child, 'conduit'))
+              .map((conduitEl) => ({
+                  id: conduitEl.getAttribute('id') || null,
+                  name: conduitEl.getAttribute('name') || '',
+                  status: safeLower(conduitEl.getAttribute('status')),
+                  load: toNumber(conduitEl.getAttribute('load')),
+                  capacity: toNumber(conduitEl.getAttribute('capacity')),
+                  integrity: toNumber(conduitEl.getAttribute('integrity')),
+                  route: conduitEl.getAttribute('route') || getChildText(conduitEl, 'route') || '',
+                  note: getChildText(conduitEl, 'note') || '',
+                  switches: Array.from(conduitEl.children)
+                      .filter((child) => isTag(child, 'switch'))
+                      .map((switchEl) => ({
+                          id: switchEl.getAttribute('id') || null,
+                          label: switchEl.getAttribute('label') || '',
+                          type: safeLower(switchEl.getAttribute('type')) || 'switch',
+                          state: safeLower(switchEl.getAttribute('state')),
+                          critical:
+                              switchEl.getAttribute('critical') === 'true' ||
+                              switchEl.getAttribute('critical') === '1' ||
+                              safeLower(switchEl.getAttribute('critical')) === 'ja',
+                          onLabel: switchEl.getAttribute('onLabel') || switchEl.getAttribute('onlabel') || '',
+                          offLabel: switchEl.getAttribute('offLabel') || switchEl.getAttribute('offlabel') || ''
+                      }))
+              }))
+        : [];
+
+    const inventoryEl = findChild(damageRoot, 'inventory');
+    const inventory = inventoryEl
+        ? Array.from(inventoryEl.children)
+              .filter((child) => isTag(child, 'item'))
+              .map((itemEl) => ({
+                  id: itemEl.getAttribute('id') || null,
+                  name: itemEl.getAttribute('name') || '',
+                  quantity: toNumber(itemEl.getAttribute('quantity')),
+                  capacity: toNumber(itemEl.getAttribute('capacity')),
+                  threshold: toNumber(itemEl.getAttribute('threshold')),
+                  status: safeLower(itemEl.getAttribute('status')),
+                  location: itemEl.getAttribute('location') || '',
+                  note: getChildText(itemEl, 'note') || ''
+              }))
+        : [];
+
+    return { reports, systems, bypasses, repairs, conduits, inventory };
 }
 
 function parseParts(orderEl) {
@@ -349,6 +609,54 @@ function parseParts(orderEl) {
             name: partEl.getAttribute('name') || '',
             quantity: toNumber(partEl.getAttribute('quantity'))
         }));
+}
+
+function parseLifeSupport(doc) {
+    const root = doc.querySelector('scenario > ship > lifeSupport');
+    if (!root) {
+        return null;
+    }
+
+    const sections = Array.from(root.querySelectorAll('sections > section')).map((sectionEl) => ({
+        id: sectionEl.getAttribute('id') || null,
+        name: sectionEl.getAttribute('name') || '',
+        pressure: toNumber(sectionEl.getAttribute('pressure')),
+        pressureUnit: sectionEl.getAttribute('pressureUnit') || sectionEl.getAttribute('pressureunit') || 'kPa',
+        temperature: toNumber(sectionEl.getAttribute('temperature')),
+        temperatureUnit:
+            sectionEl.getAttribute('temperatureUnit') || sectionEl.getAttribute('temperatureunit') || '°C',
+        humidity: toNumber(sectionEl.getAttribute('humidity')),
+        status: safeLower(sectionEl.getAttribute('status'))
+    }));
+
+    const leaks = Array.from(root.querySelectorAll('leaks > leak')).map((leakEl) => ({
+        id: leakEl.getAttribute('id') || null,
+        location: leakEl.getAttribute('location') || '',
+        severity: safeLower(leakEl.getAttribute('severity')),
+        status: safeLower(leakEl.getAttribute('status')),
+        progress: toNumber(leakEl.getAttribute('progress')),
+        note: getChildText(leakEl, 'note') || ''
+    }));
+
+    const filtersEl = root.querySelector('filters');
+    const filters = filtersEl
+        ? {
+              reserveAirMinutes: toNumber(filtersEl.getAttribute('reserveAirMinutes')),
+              scrubberMarginMinutes: toNumber(filtersEl.getAttribute('scrubberMarginMinutes')),
+              emergencyBufferMinutes: toNumber(filtersEl.getAttribute('emergencyBufferMinutes')),
+              banks: Array.from(filtersEl.querySelectorAll('bank')).map((bankEl) => ({
+                  id: bankEl.getAttribute('id') || null,
+                  label: bankEl.getAttribute('label') || '',
+                  status: safeLower(bankEl.getAttribute('status')),
+                  saturation: toNumber(bankEl.getAttribute('saturation')),
+                  saturationUnit: bankEl.getAttribute('saturationUnit') || bankEl.getAttribute('saturationunit') || '%',
+                  timeBuffer: toNumber(bankEl.getAttribute('timeBuffer')),
+                  timeBufferUnit: bankEl.getAttribute('timeBufferUnit') || bankEl.getAttribute('timebufferunit') || 'min'
+              }))
+          }
+        : null;
+
+    return { sections, leaks, filters };
 }
 
 function parseDamageNode(nodeEl) {
@@ -398,4 +706,8 @@ function toNumber(value) {
     }
     const parsed = Number.parseFloat(String(value).replace(',', '.'));
     return Number.isFinite(parsed) ? parsed : null;
+}
+
+function safeLower(value) {
+    return typeof value === 'string' ? value.trim().toLowerCase() : '';
 }

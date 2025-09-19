@@ -2656,6 +2656,113 @@ body.station-body {
     line-height: 1.4;
 }
 
+.operations-section-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.75rem;
+}
+
+.operations-section-card {
+    background: rgba(12, 28, 52, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 0.75rem 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+
+.operations-section-card__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.operations-section-card__title {
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.operations-section-card__stats {
+    display: grid;
+    gap: 0.25rem;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.operations-section-card__stat {
+    display: flex;
+    justify-content: space-between;
+}
+
+.operations-conduit-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.operations-conduit {
+    background: rgba(12, 28, 52, 0.78);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 0.85rem 0.95rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.operations-conduit__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+}
+
+.operations-conduit__title {
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.operations-conduit__meta {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.operations-conduit__controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem 1rem;
+}
+
+.operations-conduit__control {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    padding: 0.45rem 0.6rem;
+}
+
+.operations-conduit__control--critical {
+    border: 1px solid rgba(255, 95, 109, 0.6);
+}
+
+.operations-conduit__control-label {
+    font-size: 0.8rem;
+    font-weight: 500;
+}
+
+.operations-conduit__control--critical .operations-conduit__control-label {
+    color: var(--danger);
+}
+
+.operations-conduit__note {
+    margin: 0;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
 .station-meta {
     margin: 0;
     display: grid;

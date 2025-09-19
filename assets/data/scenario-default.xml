@@ -307,6 +307,32 @@
                 </parts>
             </order>
         </repairs>
+        <conduits>
+            <conduit id="conduit-eps-a" name="EPS-Hauptbus A" status="warning" load="82" capacity="110" integrity="88">
+                <route>Maschinenraum → Deck 5 → Bug</route>
+                <note>Segment Deck 5 isoliert, Leistungsabfall wird überwacht.</note>
+                <switch id="switch-breaker-d5" type="breaker" label="Deck 5 Breaker" state="closed" critical="true" />
+                <switch id="switch-bypass-5b" type="valve" label="Bypass 5B" state="open" />
+            </conduit>
+            <conduit id="conduit-life-support" name="Lebenserhaltung Verteiler" status="online" load="56" capacity="95" integrity="92">
+                <route>Deck 3 → Habitat-Ring → MedBay</route>
+                <note>Reservekreis Beta aktiv.</note>
+                <switch id="switch-filter-bank-a" type="valve" label="Filterbank A Ventil" state="open" />
+                <switch id="switch-filter-bank-b" type="valve" label="Filterbank B Ventil" state="closed" />
+            </conduit>
+            <conduit id="conduit-aux-power" name="Aux-Energieverteiler" status="warning" load="44" capacity="80" integrity="74">
+                <route>Maschinenraum Hilfsgang → Wissenschaftssektion</route>
+                <note>EPS 4B läuft über Hilfsbus – Temperatur beobachten.</note>
+                <switch id="switch-aux-relay" type="relay" label="Aux-Relay 4B" state="engaged" critical="true" />
+            </conduit>
+        </conduits>
+        <inventory>
+            <item id="stock-nano" name="Nanopolymer-Patches" quantity="7" capacity="12" threshold="4" status="warning">
+                <note>Lieferung vom Depot angefordert.</note>
+            </item>
+            <item id="stock-brace" name="Verstrebung Typ C" quantity="3" capacity="6" threshold="2" status="success" />
+            <item id="stock-eps" name="EPS-Koppler" quantity="14" capacity="20" threshold="8" status="success" />
+        </inventory>
     </damageControl>
 
     <tactical>
