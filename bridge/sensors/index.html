@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StarshipOS Station</title>
+    <link rel="stylesheet" href="../../assets/css/styles.css">
+</head>
+<body class="station-body" data-station="bridge-sensors">
+    <div class="station-shell">
+        <header class="station-header">
+            <a href="/" class="back-link">&larr; Zurück zur Stationsübersicht</a>
+            <div class="station-heading">
+                <span id="station-code" class="station-code"></span>
+                <h1 id="station-title">Stationsansicht</h1>
+                <p id="station-breadcrumb" class="station-breadcrumb"></p>
+            </div>
+        </header>
+        <main class="station-main">
+            <section class="station-column">
+                <article class="station-card" id="station-summary-card">
+                    <h2>Zusammenfassung</h2>
+                    <p id="station-summary"></p>
+                </article>
+                <article class="station-card">
+                    <h2>Primäre Aufgaben</h2>
+                    <ul id="station-tasks" class="station-list"></ul>
+                </article>
+                <article class="station-card">
+                    <h2>Bedienelemente &amp; Anzeigen</h2>
+                    <ul id="station-controls" class="station-list"></ul>
+                </article>
+            </section>
+            <aside class="station-column station-sidebar">
+                <article class="station-card">
+                    <h2>Betriebsmodus</h2>
+                    <p id="station-locality"></p>
+                </article>
+                <article class="station-card">
+                    <h2>Eingaben &amp; Abhängigkeiten</h2>
+                    <ul id="station-dependencies" class="station-list"></ul>
+                </article>
+                <article class="station-card">
+                    <h2>Dateipfade</h2>
+                    <dl class="station-meta">
+                        <div>
+                            <dt>HTML</dt>
+                            <dd id="station-html"></dd>
+                        </div>
+                        <div>
+                            <dt>JS-Module</dt>
+                            <dd id="station-js"></dd>
+                        </div>
+                    </dl>
+                </article>
+                <article class="station-card">
+                    <h2>Verwandte Stationen</h2>
+                    <ul id="station-related" class="station-list"></ul>
+                </article>
+            </aside>
+        </main>
+    </div>
+    <noscript>
+        <div class="noscript-warning">Diese Stationsseite benötigt JavaScript, um die Inhalte zu laden.</div>
+    </noscript>
+    <script type="module" src="../../assets/js/station-page.js"></script>
+</body>
+</html>
