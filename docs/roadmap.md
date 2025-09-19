@@ -31,6 +31,12 @@
 - [ ] Autorisierungen für kritische Aktionen verwalten.
 - [ ] Audit-Trail auf Vollständigkeit und Manipulation prüfen.
 
+### Thermal Control
+- [ ] Wärmestau-Analysen mit Hotspot-Priorisierung etablieren.
+- [ ] Radiatorenwinkel, Segmentierung und Pumpen dynamisch regeln.
+- [ ] Signaturmanagement zwischen Abstrahlung und Tarnung abstimmen.
+- [ ] Notkühlungs- und Abschaltprotokolle trainieren und dokumentieren.
+
 ## Phase 5 – Brücke, Stationen, UX
 
 ### Stations/Consoles
