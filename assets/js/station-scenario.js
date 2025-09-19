@@ -1,23 +1,248 @@
 const SCENARIO_URL = new URL('../data/scenario-default.xml', import.meta.url).href;
 let scenarioPromise = null;
 
+const FALLBACK_SCENARIO_DATA = {
+    systems: [
+        {
+            id: 'life-support',
+            name: 'Lebenserhaltung',
+            status: 'online',
+            power: 75,
+            integrity: 96,
+            load: 35,
+            description: 'Verantwortlich für Atmosphärenkontrolle, Temperatur und Recycling.',
+            redundancy: 'Doppelt redundant',
+            lastService: 'Stardate 4521.4'
+        },
+        {
+            id: 'engines',
+            name: 'Antrieb',
+            status: 'online',
+            power: 80,
+            integrity: 89,
+            load: 62,
+            description: 'Fusionstriebwerke für Unterlicht- und Überlichtreisen.',
+            redundancy: 'Primär + Hilfsaggregat',
+            lastService: 'Stardate 4519.1'
+        },
+        {
+            id: 'shields',
+            name: 'Schilde',
+            status: 'idle',
+            power: 60,
+            integrity: 72,
+            load: 44,
+            description: 'Defensives Deflektorfeld gegen Projektil- und Energieangriffe.',
+            redundancy: 'Segmentiert in 6 Quadranten',
+            lastService: 'Stardate 4515.7'
+        },
+        {
+            id: 'weapons',
+            name: 'Waffensysteme',
+            status: 'idle',
+            power: 45,
+            integrity: 88,
+            load: 20,
+            description: 'Phaserbänke und Torpedowerfer.',
+            redundancy: 'Autarkes Backup-Steuerungssystem',
+            lastService: 'Stardate 4510.9'
+        },
+        {
+            id: 'communications',
+            name: 'Kommunikation',
+            status: 'online',
+            power: 35,
+            integrity: 94,
+            load: 28,
+            description: 'Langstrecken- und Kurzstreckentransmitter.',
+            redundancy: 'Triangulierte Relaisstationen',
+            lastService: 'Stardate 4520.2'
+        },
+        {
+            id: 'sensors',
+            name: 'Sensoren',
+            status: 'online',
+            power: 55,
+            integrity: 91,
+            load: 47,
+            description: 'Aktive und passive Arrays für wissenschaftliche und taktische Daten.',
+            redundancy: 'Adaptive Netzstruktur',
+            lastService: 'Stardate 4522.6'
+        },
+        {
+            id: 'science',
+            name: 'Wissenschaftslabore',
+            status: 'online',
+            power: 40,
+            integrity: 99,
+            load: 32,
+            description: 'Labore zur Probenanalyse, Forschung und Datenverarbeitung.',
+            redundancy: 'Dedizierter Notstromkreis',
+            lastService: 'Stardate 4518.4'
+        },
+        {
+            id: 'medical',
+            name: 'Medizinische Abteilung',
+            status: 'online',
+            power: 30,
+            integrity: 97,
+            load: 18,
+            description: 'MedBay mit Autodoc, Quarantäne und Nanitenversorgung.',
+            redundancy: 'Mobiles Feldhospital verfügbar',
+            lastService: 'Stardate 4523.3'
+        }
+    ],
+    damageControl: {
+        reports: [
+            {
+                id: 'report-dorsal-array',
+                system: 'Sensor-Array',
+                location: 'Deck 4 – Dorsaler Träger',
+                severity: 'major',
+                status: 'in-progress',
+                eta: '00:22',
+                note: 'Plasmafackel beschädigte Verkabelung, Leistung auf 60% begrenzt.'
+            },
+            {
+                id: 'report-cargo-breach',
+                system: 'Frachtraum 2',
+                location: 'Sektion 12 – Außenhaut',
+                severity: 'moderate',
+                status: 'stabilized',
+                eta: '00:08',
+                note: 'Notversiegelung aktiv, Druck stabil. EVA-Team unterwegs.'
+            },
+            {
+                id: 'report-conduit',
+                system: 'EPS-Leitung',
+                location: 'Maschinenraum Leitungsfeld',
+                severity: 'minor',
+                status: 'queued',
+                eta: '00:30',
+                note: 'Überhitzung festgestellt, Last auf Aux-Kreis umgeleitet.'
+            }
+        ],
+        systems: [
+            {
+                id: 'tree-reactor',
+                name: 'Reaktorkern',
+                status: 'online',
+                integrity: 93,
+                power: 82,
+                note: 'Plasmafluss stabil.',
+                children: [
+                    {
+                        id: 'tree-injectors',
+                        name: 'Plasma-Injektoren',
+                        status: 'warning',
+                        integrity: 71,
+                        power: 64,
+                        note: 'Injektor 3 zeigt Schwingungen.'
+                    },
+                    {
+                        id: 'tree-containment',
+                        name: 'Containment-Feld',
+                        status: 'online',
+                        integrity: 96,
+                        power: 78,
+                        note: 'Feldphase synchron.'
+                    }
+                ]
+            },
+            {
+                id: 'tree-structural',
+                name: 'Strukturraster',
+                status: 'warning',
+                integrity: 68,
+                note: 'Segment D5 unter Beobachtung.',
+                children: [
+                    {
+                        id: 'tree-hull-d5',
+                        name: 'Außenhülle D5',
+                        status: 'critical',
+                        integrity: 42,
+                        note: 'Patch angebracht, Druck fällt langsam.'
+                    },
+                    {
+                        id: 'tree-rib-delta',
+                        name: 'Verstrebung Delta',
+                        status: 'offline',
+                        integrity: 0,
+                        note: 'Notstütze erforderlich.'
+                    }
+                ]
+            }
+        ],
+        bypasses: [
+            {
+                id: 'bypass-life-support',
+                description: 'Lebenserhaltung auf Reservekreis umschalten',
+                owner: 'Team Beta',
+                status: 'engaged',
+                eta: 'laufend',
+                note: 'Druckwerte stabil, Monitoring aktiv.'
+            },
+            {
+                id: 'bypass-eps',
+                description: 'EPS-Leitung 4B über Hilfsbus führen',
+                owner: 'Team Alpha',
+                status: 'planned',
+                eta: '00:12',
+                note: 'Freigabe durch Engineering ausstehend.'
+            }
+        ],
+        repairs: [
+            {
+                id: 'repair-hull',
+                label: 'Hüllenpatch D5',
+                system: 'Struktur',
+                team: 'EVA Team 1',
+                status: 'active',
+                eta: '00:18',
+                parts: [
+                    { id: 'part-nano', name: 'Nanopolymer-Patch', quantity: 2 },
+                    { id: 'part-brace', name: 'Verstrebung Typ C', quantity: 1 }
+                ]
+            },
+            {
+                id: 'repair-array',
+                label: 'Sensor-Array neu ausrichten',
+                system: 'Sensorik',
+                team: 'Decktrupp 3',
+                status: 'queued',
+                eta: '00:25',
+                parts: [{ id: 'part-emitter', name: 'Emitter Cluster', quantity: 3 }]
+            }
+        ]
+    }
+};
+
+function cloneFallbackScenarioData() {
+    if (typeof structuredClone === 'function') {
+        return structuredClone(FALLBACK_SCENARIO_DATA);
+    }
+    return JSON.parse(JSON.stringify(FALLBACK_SCENARIO_DATA));
+}
+
 export async function loadScenarioData() {
     if (!scenarioPromise) {
-        scenarioPromise = fetch(SCENARIO_URL)
-            .then((response) => {
-                if (!response.ok) {
-                    throw new Error(`Szenariodatei konnte nicht geladen werden (Status ${response.status})`);
-                }
-                return response.text();
-            })
-            .then((text) => parseScenarioXml(text))
-            .catch((error) => {
-                console.error('Fehler beim Laden der Szenariodatei:', error);
-                scenarioPromise = null;
-                throw error;
-            });
+        scenarioPromise = fetchScenarioWithFallback();
     }
     return scenarioPromise;
+}
+
+async function fetchScenarioWithFallback() {
+    try {
+        const response = await fetch(SCENARIO_URL);
+        if (!response.ok) {
+            throw new Error(`Szenariodatei konnte nicht geladen werden (Status ${response.status})`);
+        }
+        const text = await response.text();
+        return parseScenarioXml(text);
+    } catch (error) {
+        console.warn('Szenariodatei konnte nicht geladen werden, Fallback-Daten werden verwendet.', error);
+        return cloneFallbackScenarioData();
+    }
 }
 
 function parseScenarioXml(xmlText) {
