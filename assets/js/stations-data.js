@@ -185,7 +185,7 @@ export const STATION_DEFINITIONS = [
         ],
         locality: 'Lokale Bedienung zwingend erforderlich, Remote nur Anzeige und Not-SCRAM',
         htmlPath: 'eng/reactor/',
-        jsModules: ['assets/js/stations-data.js', 'assets/js/station-page.js']
+        jsModules: ['assets/js/stations-data.js', 'assets/js/station-page.js', 'assets/js/station-operations.js']
     },
     {
         id: 'eng-power',
@@ -212,7 +212,7 @@ export const STATION_DEFINITIONS = [
         ],
         locality: 'Maschinenraum-Bedienung empfohlen, Remote-Übersicht möglich',
         htmlPath: 'eng/power/',
-        jsModules: ['assets/js/stations-data.js', 'assets/js/station-page.js']
+        jsModules: ['assets/js/stations-data.js', 'assets/js/station-page.js', 'assets/js/station-operations.js']
     },
     {
         id: 'eng-thermal',
@@ -239,7 +239,7 @@ export const STATION_DEFINITIONS = [
         ],
         locality: 'Lokale Bedienung im Maschinenraum bevorzugt',
         htmlPath: 'eng/thermal/',
-        jsModules: ['assets/js/stations-data.js', 'assets/js/station-page.js']
+        jsModules: ['assets/js/stations-data.js', 'assets/js/station-page.js', 'assets/js/station-operations.js']
     },
     {
         id: 'eng-propulsion',
@@ -266,7 +266,7 @@ export const STATION_DEFINITIONS = [
         ],
         locality: 'Maschinenraumstation mit Flugfreigabe-Schnittstelle',
         htmlPath: 'eng/propulsion/',
-        jsModules: ['assets/js/stations-data.js', 'assets/js/station-page.js']
+        jsModules: ['assets/js/stations-data.js', 'assets/js/station-page.js', 'assets/js/station-operations.js']
     },
     {
         id: 'eng-ftl',
@@ -293,7 +293,7 @@ export const STATION_DEFINITIONS = [
         ],
         locality: 'Maschinenraum (lokal) mit Mehrfachfreigabe',
         htmlPath: 'eng/ftl/',
-        jsModules: ['assets/js/stations-data.js', 'assets/js/station-page.js']
+        jsModules: ['assets/js/stations-data.js', 'assets/js/station-page.js', 'assets/js/station-operations.js']
     },
     {
         id: 'eng-damage',
@@ -320,7 +320,7 @@ export const STATION_DEFINITIONS = [
         ],
         locality: 'Lokale Maschinenraumzentrale, Remote-Bestätigung möglich',
         htmlPath: 'eng/damage/',
-        jsModules: ['assets/js/stations-data.js', 'assets/js/station-page.js']
+        jsModules: ['assets/js/stations-data.js', 'assets/js/station-page.js', 'assets/js/station-operations.js']
     },
     {
         id: 'def-shields',
