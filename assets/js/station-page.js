@@ -27,7 +27,7 @@ function createRelatedStations(station) {
     return related.map((item) => ({ name: item.name, htmlPath: item.htmlPath }));
 }
 
-function renderStation(stationId) {
+async function renderStation(stationId) {
     const station = getStationById(stationId);
     const titleElement = document.getElementById('station-title');
     const breadcrumb = document.getElementById('station-breadcrumb');
@@ -136,6 +136,10 @@ function renderStation(stationId) {
         );
         modules.add('assets/js/stations-data.js');
         modules.add('assets/js/station-utils.js');
+        if (canRenderOperations) {
+            modules.add('assets/js/station-operations.js');
+            modules.add('assets/js/station-scenario.js');
+        }
 
         Array.from(modules)
             .sort((a, b) => a.localeCompare(b, 'de'))
@@ -174,7 +178,7 @@ function renderStation(stationId) {
         operationsIntro.textContent = `Interaktive Bedienelemente und Anzeigen für ${station.name}.`;
     }
     if (operationsContainer) {
-        renderOperationsForStation(station, operationsContainer);
+        await renderOperationsForStation(station, operationsContainer);
     }
 }
 
@@ -184,5 +188,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.warn('Keine Stations-ID am Body gefunden.');
         return;
     }
-    renderStation(stationId);
+    renderStation(stationId).catch((error) => {
+        console.error('Fehler beim Rendern der Station:', error);
+    });
 });

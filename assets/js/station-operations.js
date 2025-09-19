@@ -1,3 +1,4 @@
+import { loadScenarioData } from './station-scenario.js';
 
 const OPERATIONS_RENDERERS = {
     'eng-reactor': renderEngReactor,
@@ -344,7 +345,125 @@ function createCompactToggle({ id, onLabel = 'Aktiv', offLabel = 'Inaktiv', defa
     return wrapper;
 }
 
-function renderEngReactor(container) {
+function appendEmptyState(container, message) {
+    const empty = document.createElement('p');
+    empty.className = 'operations-placeholder';
+    empty.textContent = message;
+    container.appendChild(empty);
+}
+
+const STATUS_LABEL_MAP = {
+    online: 'Online',
+    warning: 'Warnung',
+    critical: 'Kritisch',
+    offline: 'Offline',
+    idle: 'Bereit',
+    standby: 'Standby',
+    engaged: 'Aktiv',
+    active: 'Aktiv',
+    planned: 'Geplant',
+    queued: 'Wartet',
+    'in-progress': 'In Arbeit',
+    stabilized: 'Stabilisiert',
+    completed: 'Abgeschlossen',
+    complete: 'Abgeschlossen'
+};
+
+const STATUS_TONE_MAP = {
+    online: 'success',
+    warning: 'warning',
+    critical: 'danger',
+    offline: 'danger',
+    idle: 'accent',
+    standby: 'accent',
+    engaged: 'accent',
+    active: 'accent',
+    planned: 'default',
+    queued: 'default',
+    'in-progress': 'warning',
+    stabilized: 'success',
+    completed: 'success',
+    complete: 'success'
+};
+
+const SEVERITY_INFO = {
+    critical: { label: 'Kritisch', tone: 'danger' },
+    major: { label: 'Schwer', tone: 'warning' },
+    moderate: { label: 'Moderat', tone: 'accent' },
+    minor: { label: 'Gering', tone: 'success' }
+};
+
+const METRIC_STATUS_MAP = {
+    online: 'success',
+    warning: 'warning',
+    critical: 'critical',
+    offline: 'danger',
+    idle: 'accent',
+    standby: 'accent'
+};
+
+function safeLower(value) {
+    return typeof value === 'string' ? value.toLowerCase() : '';
+}
+
+function getStatusInfo(status, { fallbackLabel } = {}) {
+    const key = safeLower(status);
+    return {
+        label: STATUS_LABEL_MAP[key] || fallbackLabel || (status ? String(status) : 'Unbekannt'),
+        tone: STATUS_TONE_MAP[key] || 'default'
+    };
+}
+
+function getSeverityInfo(severity) {
+    const key = safeLower(severity);
+    return SEVERITY_INFO[key] || { label: severity ? String(severity) : 'Unbekannt', tone: 'default' };
+}
+
+function mapMetricStatus(status) {
+    const key = safeLower(status);
+    return METRIC_STATUS_MAP[key] || 'normal';
+}
+
+function toNumber(value) {
+    if (value === null || value === undefined || value === '') {
+        return null;
+    }
+    const parsed = Number.parseFloat(String(value).replace(',', '.'));
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function flattenDamageNodes(nodes, parentName = null) {
+    if (!Array.isArray(nodes) || nodes.length === 0) {
+        return [];
+    }
+    return nodes.flatMap((node) => {
+        const entry = {
+            id: node.id || null,
+            name: node.name || node.id || 'Unbenannt',
+            status: node.status || '',
+            integrity: node.integrity ?? null,
+            power: node.power ?? null,
+            note: node.note || '',
+            parentName
+        };
+        const children = Array.isArray(node.children) ? node.children : [];
+        return [entry, ...flattenDamageNodes(children, node.name || parentName)];
+    });
+}
+
+async function renderEngReactor(container) {
+    let scenarioData = null;
+    try {
+        scenarioData = await loadScenarioData();
+    } catch (error) {
+        console.error('Fehler beim Laden der Szenariodaten für Reaktorsteuerung:', error);
+    }
+
+    const damageNodes = flattenDamageNodes(scenarioData?.damageControl?.systems ?? []);
+    const reactorNode = damageNodes.find((node) => node.id === 'tree-reactor');
+    const injectorNode = damageNodes.find((node) => node.id === 'tree-injectors');
+    const containmentNode = damageNodes.find((node) => node.id === 'tree-containment');
+
     const statusBody = createPanel(container, {
         title: 'Reaktorstatus',
         description: 'Leistungsausgabe, Kernparameter und Kontrollstabposition im Blick behalten.'
@@ -352,10 +471,53 @@ function renderEngReactor(container) {
 
     const metrics = document.createElement('div');
     metrics.className = 'operations-metric-grid';
+    const reactorStatus = reactorNode ? mapMetricStatus(reactorNode.status) : 'warning';
+    const containmentStatus = containmentNode ? mapMetricStatus(containmentNode.status) : 'success';
+    const injectorStatus = injectorNode ? mapMetricStatus(injectorNode.status) : 'warning';
+
     metrics.append(
-        createMetric({ label: 'Leistungsausgabe', value: 84, unit: '%', status: 'warning', note: 'Sollwert 85%', min: 0, max: 120 }),
-        createMetric({ label: 'Kern-Temperatur', value: 612, unit: '°C', status: 'warning', note: 'Grenze 750°C', min: 0, max: 900 }),
-        createMetric({ label: 'Neutronenfluss', value: 68, unit: '%', status: 'normal', note: 'Stabil', min: 0, max: 120 }),
+        createMetric({
+            label: 'Reaktorleistung',
+            value: reactorNode?.power ?? 84,
+            unit: '%',
+            status: reactorStatus,
+            note:
+                reactorNode && (reactorNode.note || reactorNode.integrity != null)
+                    ? [reactorNode.note, reactorNode.integrity != null ? `Integrität ${formatValue(reactorNode.integrity)}%` : null]
+                          .filter(Boolean)
+                          .join(' • ')
+                    : 'Sollwert 85%',
+            min: 0,
+            max: 120
+        }),
+        createMetric({
+            label: 'Containment-Feld',
+            value: containmentNode?.integrity ?? 96,
+            unit: '%',
+            status: containmentStatus,
+            note:
+                containmentNode && (containmentNode.note || containmentNode.power != null)
+                    ? [containmentNode.note, containmentNode.power != null ? `Leistung ${formatValue(containmentNode.power)}%` : null]
+                          .filter(Boolean)
+                          .join(' • ')
+                    : 'Feldphase synchron',
+            min: 0,
+            max: 100
+        }),
+        createMetric({
+            label: 'Plasma-Injektoren',
+            value: injectorNode?.integrity ?? 71,
+            unit: '%',
+            status: injectorStatus,
+            note:
+                injectorNode && (injectorNode.note || injectorNode.power != null)
+                    ? [injectorNode.note, injectorNode.power != null ? `Leistung ${formatValue(injectorNode.power)}%` : null]
+                          .filter(Boolean)
+                          .join(' • ')
+                    : 'Injektor 3 überwacht',
+            min: 0,
+            max: 100
+        }),
         createMetric({ label: 'Kontrollstäbe', value: 42, unit: '%', status: 'normal', note: 'Einschubtiefe', min: 0, max: 100 })
     );
     statusBody.appendChild(metrics);
@@ -488,6 +650,51 @@ function renderEngReactor(container) {
 
     coolantBody.appendChild(loopGrid);
     coolantBody.appendChild(createButtonRow([{ label: 'Kühlmittel nachspeisen' }, { label: 'Spülsequenz vorbereiten', tone: 'ghost' }]));
+
+    const systemBody = createPanel(container, {
+        title: 'Versorgung nach System',
+        description: 'Aktuelle Leistungsabnahme der Hauptsysteme gemäß Szenario.'
+    });
+
+    const consumers = Array.isArray(scenarioData?.systems)
+        ? scenarioData.systems
+              .filter((system) => toNumber(system.power) !== null)
+              .sort((a, b) => (toNumber(b.power) ?? 0) - (toNumber(a.power) ?? 0))
+              .slice(0, 6)
+        : [];
+
+    if (!consumers.length) {
+        appendEmptyState(systemBody, 'Keine Leistungsdaten im Szenario verfügbar.');
+    } else {
+        const grid = document.createElement('div');
+        grid.className = 'operations-metric-grid';
+        consumers.forEach((system) => {
+            const noteParts = [];
+            if (toNumber(system.load) !== null) {
+                noteParts.push(`Last ${formatValue(toNumber(system.load))}%`);
+            }
+            if (toNumber(system.integrity) !== null) {
+                noteParts.push(`Integrität ${formatValue(toNumber(system.integrity))}%`);
+            }
+            const statusInfo = getStatusInfo(system.status, { fallbackLabel: 'Status unbekannt' });
+            if (!noteParts.length) {
+                noteParts.push(statusInfo.label);
+            }
+
+            grid.appendChild(
+                createMetric({
+                    label: system.name || system.id || 'System',
+                    value: toNumber(system.power) ?? 0,
+                    unit: '%',
+                    status: mapMetricStatus(system.status),
+                    note: noteParts.join(' • '),
+                    min: 0,
+                    max: 120
+                })
+            );
+        });
+        systemBody.appendChild(grid);
+    }
 }
 
 function renderEngPower(container) {
@@ -934,197 +1141,255 @@ function renderEngFtl(container) {
     );
 }
 
-function renderEngDamage(container) {
-    const sectionBody = createPanel(container, {
-        title: 'Sektionenübersicht',
-        description: 'Strukturschäden und Leitungsstatus nach Bereich.'
+async function renderEngDamage(container) {
+    let scenarioData = null;
+    try {
+        scenarioData = await loadScenarioData();
+    } catch (error) {
+        console.error('Fehler beim Laden der Szenariodaten für Schadenskontrolle:', error);
+    }
+
+    const damageControl = scenarioData?.damageControl ?? {};
+    const reports = Array.isArray(damageControl.reports) ? damageControl.reports : [];
+    const systemNodes = flattenDamageNodes(damageControl.systems ?? []);
+    const bypasses = Array.isArray(damageControl.bypasses) ? damageControl.bypasses : [];
+    const repairs = Array.isArray(damageControl.repairs) ? damageControl.repairs : [];
+
+    const reportBody = createPanel(container, {
+        title: 'Schadenmeldungen',
+        description: 'Aktuelle Prioritäten aus dem Szenario mit Schweregrad und Status.'
     });
 
-    const sections = [
-        { name: 'Maschinenraum', integrity: 78, status: 'warning', note: 'Deck 3 Leitungsschaden' },
-        { name: 'Reaktorraum', integrity: 88, status: 'normal', note: 'Vibrationen im Rahmen' },
-        { name: 'Antriebstunnel', integrity: 61, status: 'critical', note: 'Strebenverstärkung erforderlich' },
-        { name: 'Versorgungstrakt', integrity: 84, status: 'normal', note: 'Notbeleuchtung aktiv' }
-    ];
+    if (!reports.length) {
+        appendEmptyState(reportBody, 'Keine aktiven Schadenmeldungen im Szenario gefunden.');
+    } else {
+        const table = document.createElement('table');
+        table.className = 'operations-table';
 
-    const sectionMetrics = document.createElement('div');
-    sectionMetrics.className = 'operations-metric-grid';
-    sections.forEach((section) => {
-        sectionMetrics.appendChild(
-            createMetric({
-                label: section.name,
-                value: section.integrity,
-                unit: '%',
-                status: section.status,
-                note: section.note,
-                min: 0,
-                max: 100
-            })
-        );
-    });
-    sectionBody.appendChild(sectionMetrics);
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        ['System', 'Schwere', 'Status', 'ETA'].forEach((header) => {
+            const th = document.createElement('th');
+            th.textContent = header;
+            headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
 
-    const circuitsBody = createPanel(container, {
-        title: 'Leitungsschemata & Isolation',
-        description: 'Ventile, Breaker und Bypässe pro Leitung setzen.'
-    });
+        const tbody = document.createElement('tbody');
+        reports.forEach((report) => {
+            const row = document.createElement('tr');
 
-    const circuitToggles = [
-        {
-            id: 'dc-plasma-main',
-            label: 'Plasma-Hauptleitung Deck 3',
-            defaultChecked: false,
-            description: 'Ventil geschlossen • Bypass aktiv',
-            tone: 'danger'
-        },
-        {
-            id: 'dc-power-alpha',
-            label: 'Energie-Bus Alpha',
-            defaultChecked: true,
-            description: 'Breaker geschlossen • Normalbetrieb',
-            tone: 'success'
-        },
-        {
-            id: 'dc-coolant-delta',
-            label: 'Kühlmittel Delta-Loop',
-            defaultChecked: true,
-            description: 'Strömung 68% • Druck stabil',
-            tone: 'accent'
-        }
-    ];
+            const systemCell = document.createElement('td');
+            const systemLabel = document.createElement('strong');
+            systemLabel.textContent = report.system || 'Unbekanntes System';
+            systemCell.appendChild(systemLabel);
+            if (report.location) {
+                const location = document.createElement('span');
+                location.className = 'operations-subline';
+                location.textContent = report.location;
+                systemCell.appendChild(location);
+            }
+            if (report.note) {
+                const note = document.createElement('small');
+                note.textContent = report.note;
+                systemCell.appendChild(note);
+            }
+            row.appendChild(systemCell);
 
-    const circuitList = document.createElement('div');
-    circuitList.className = 'operations-control-list';
-    circuitToggles.forEach((toggle) => {
-        circuitList.appendChild(
-            createToggleControl({
-                id: toggle.id,
-                label: toggle.label,
-                defaultChecked: toggle.defaultChecked,
-                description: toggle.description,
-                tone: toggle.tone
-            })
-        );
-    });
-    circuitsBody.appendChild(circuitList);
+            const severityCell = document.createElement('td');
+            const severityInfo = getSeverityInfo(report.severity);
+            severityCell.appendChild(createStatusBadge(severityInfo));
+            row.appendChild(severityCell);
 
-    const teamBody = createPanel(container, {
-        title: 'Reparaturteams',
-        description: 'Einsatzaufträge vergeben und Status melden.'
+            const statusCell = document.createElement('td');
+            const statusInfo = getStatusInfo(report.status, { fallbackLabel: 'Status unbekannt' });
+            statusCell.appendChild(createStatusBadge(statusInfo));
+            row.appendChild(statusCell);
+
+            const etaCell = document.createElement('td');
+            etaCell.textContent = report.eta || '—';
+            row.appendChild(etaCell);
+
+            tbody.appendChild(row);
+        });
+
+        table.appendChild(tbody);
+        reportBody.appendChild(table);
+    }
+
+    const systemBody = createPanel(container, {
+        title: 'Systemintegrität',
+        description: 'Integrität und Leistung der überwachten Baugruppen.'
     });
 
-    const assignments = [
-        {
-            team: 'DC-1',
-            status: 'Unterwegs',
-            tone: 'warning',
-            tasks: [
-                { label: 'Sektion 3 • Plasmaleitung abdichten', value: 'plasma' },
-                { label: 'Sektion 4 • Struktur stützen', value: 'structure' }
-            ],
-            selected: 'plasma',
-            note: 'ETA 6 Minuten'
-        },
-        {
-            team: 'DC-2',
-            status: 'Vor Ort',
-            tone: 'accent',
-            tasks: [
-                { label: 'Reaktorschott verstärken', value: 'reactor-door' },
-                { label: 'Schotte Deck 3 prüfen', value: 'bulkhead' }
-            ],
-            selected: 'reactor-door',
-            note: 'Benötigt Schweißtrupp'
-        },
-        {
-            team: 'DC-3',
-            status: 'Bereit',
-            tone: 'success',
-            tasks: [
-                { label: 'Versorgungstrakt • Kabel neu verlegen', value: 'cabling' },
-                { label: 'Logistikdepot • Ersatzteile holen', value: 'logistics' }
-            ],
-            selected: 'cabling',
-            note: 'Freie Kapazität'
-        }
-    ];
+    if (!systemNodes.length) {
+        appendEmptyState(systemBody, 'Keine Systemdaten für die Schadenskontrolle verfügbar.');
+    } else {
+        const grid = document.createElement('div');
+        grid.className = 'operations-metric-grid';
 
-    const table = document.createElement('table');
-    table.className = 'operations-table';
+        systemNodes.slice(0, 8).forEach((node) => {
+            const value = node.integrity ?? node.power ?? 0;
+            const hasPercent = node.integrity != null || node.power != null;
+            const noteParts = [];
+            if (node.parentName) {
+                noteParts.push(`Bereich ${node.parentName}`);
+            }
+            if (node.power != null && node.integrity != null) {
+                noteParts.push(`Leistung ${formatValue(node.power)}%`);
+            }
+            if (node.note) {
+                noteParts.push(node.note);
+            }
 
-    const thead = document.createElement('thead');
-    const headRow = document.createElement('tr');
-    ['Team', 'Status', 'Einsatz', 'Bemerkung'].forEach((header) => {
-        const th = document.createElement('th');
-        th.textContent = header;
-        headRow.appendChild(th);
-    });
-    thead.appendChild(headRow);
-    table.appendChild(thead);
+            grid.appendChild(
+                createMetric({
+                    label: node.name,
+                    value,
+                    unit: hasPercent ? '%' : '',
+                    status: mapMetricStatus(node.status),
+                    note: noteParts.join(' • ') || undefined,
+                    min: 0,
+                    max: node.integrity != null ? 100 : 120
+                })
+            );
+        });
 
-    const tbody = document.createElement('tbody');
-    assignments.forEach((assignment) => {
-        const row = document.createElement('tr');
+        systemBody.appendChild(grid);
+    }
 
-        const teamCell = document.createElement('td');
-        teamCell.textContent = assignment.team;
-        row.appendChild(teamCell);
-
-        const statusCell = document.createElement('td');
-        statusCell.appendChild(createStatusBadge({ label: assignment.status, tone: assignment.tone }));
-        row.appendChild(statusCell);
-
-        const taskCell = document.createElement('td');
-        taskCell.appendChild(
-            createSelect({
-                id: `assignment-${assignment.team.toLowerCase()}`,
-                options: assignment.tasks,
-                value: assignment.selected
-            })
-        );
-        row.appendChild(taskCell);
-
-        const noteCell = document.createElement('td');
-        noteCell.textContent = assignment.note;
-        row.appendChild(noteCell);
-
-        tbody.appendChild(row);
-    });
-    table.appendChild(tbody);
-    teamBody.appendChild(table);
-    teamBody.appendChild(createButtonRow([{ label: 'Einsatzplan senden' }, { label: 'Status an Brücke melden', tone: 'ghost' }]));
-
-    const inventoryBody = createPanel(container, {
-        title: 'Ersatzteile & Meldungen',
-        description: 'Bestände prüfen und Beschaffungen anstoßen.'
+    const bypassBody = createPanel(container, {
+        title: 'Bypässe & Isolation',
+        description: 'Ventile und Stromkreise gemäß Szenario-Status schalten.'
     });
 
-    const inventoryMetrics = document.createElement('div');
-    inventoryMetrics.className = 'operations-metric-grid';
-    [
-        { label: 'Leitungsmodule', value: 54, status: 'warning', note: 'Restbestand 32 Stk.' },
-        { label: 'Strukturplatten', value: 63, status: 'normal', note: 'Bestellung unterwegs' },
-        { label: 'Versorgungsleitungen', value: 41, status: 'critical', note: 'Anforderung an Logistik' },
-        { label: 'Notfall-Kits', value: 88, status: 'normal', note: 'Bereit für Einsatz' }
-    ].forEach((item) => {
-        inventoryMetrics.appendChild(
-            createMetric({ label: item.label, value: item.value, unit: '%', status: item.status, note: item.note, min: 0, max: 100 })
-        );
+    if (!bypasses.length) {
+        appendEmptyState(bypassBody, 'Derzeit sind keine Bypass-Maßnahmen aktiv.');
+    } else {
+        const list = document.createElement('div');
+        list.className = 'operations-bypass-list';
+
+        bypasses.forEach((bypass, index) => {
+            const item = document.createElement('div');
+            item.className = 'operations-bypass';
+
+            const header = document.createElement('div');
+            header.className = 'operations-bypass__header';
+
+            const title = document.createElement('span');
+            title.className = 'operations-bypass__title';
+            title.textContent = bypass.description || bypass.id || 'Bypass';
+            header.appendChild(title);
+
+            const statusInfo = getStatusInfo(bypass.status, { fallbackLabel: 'Unbekannt' });
+            header.appendChild(createStatusBadge(statusInfo));
+            item.appendChild(header);
+
+            item.appendChild(
+                createCompactToggle({
+                    id: bypass.id || `bypass-${index}`,
+                    onLabel: 'Aktiv',
+                    offLabel: 'Standby',
+                    defaultChecked: safeLower(bypass.status) === 'engaged'
+                })
+            );
+
+            const meta = document.createElement('div');
+            meta.className = 'operations-bypass__meta';
+            const ownerLabel = bypass.owner ? `Team ${bypass.owner}` : 'Ohne Teamzuweisung';
+            meta.textContent = `${ownerLabel} • ETA ${bypass.eta || '—'}`;
+            item.appendChild(meta);
+
+            if (bypass.note) {
+                const note = document.createElement('p');
+                note.className = 'operations-bypass__note';
+                note.textContent = bypass.note;
+                item.appendChild(note);
+            }
+
+            list.appendChild(item);
+        });
+
+        bypassBody.appendChild(list);
+    }
+
+    const repairBody = createPanel(container, {
+        title: 'Reparaturaufträge',
+        description: 'Teams, ETA und benötigte Teile aus dem Szenario.'
     });
-    inventoryBody.appendChild(inventoryMetrics);
 
-    inventoryBody.appendChild(createButtonRow([{ label: 'Nachschub anfordern' }, { label: 'Bestand aktualisieren', tone: 'ghost' }]));
+    if (!repairs.length) {
+        appendEmptyState(repairBody, 'Keine Reparaturaufträge im Szenario aktiv.');
+    } else {
+        const table = document.createElement('table');
+        table.className = 'operations-table';
 
-    inventoryBody.appendChild(
-        createLog([
-            '05:15 - Nachschubticket #3482 erstellt',
-            '05:05 - DC-1 meldet Ventil repariert',
-            '04:52 - Lagerinventur abgeschlossen'
-        ])
-    );
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        ['Auftrag', 'Team', 'Status', 'ETA', 'Teile'].forEach((header) => {
+            const th = document.createElement('th');
+            th.textContent = header;
+            headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        repairs.forEach((order) => {
+            const row = document.createElement('tr');
+
+            const labelCell = document.createElement('td');
+            const title = document.createElement('strong');
+            title.textContent = order.label || order.id || 'Auftrag';
+            labelCell.appendChild(title);
+            if (order.system) {
+                const system = document.createElement('span');
+                system.className = 'operations-subline';
+                system.textContent = order.system;
+                labelCell.appendChild(system);
+            }
+            row.appendChild(labelCell);
+
+            const teamCell = document.createElement('td');
+            teamCell.textContent = order.team || '—';
+            row.appendChild(teamCell);
+
+            const statusCell = document.createElement('td');
+            const statusInfo = getStatusInfo(order.status, { fallbackLabel: 'Status unbekannt' });
+            statusCell.appendChild(createStatusBadge(statusInfo));
+            row.appendChild(statusCell);
+
+            const etaCell = document.createElement('td');
+            etaCell.textContent = order.eta || '—';
+            row.appendChild(etaCell);
+
+            const partsCell = document.createElement('td');
+            if (Array.isArray(order.parts) && order.parts.length) {
+                const partsText = order.parts
+                    .map((part) => {
+                        const quantity = part.quantity != null ? `×${formatValue(part.quantity)}` : '';
+                        return `${part.name || part.id || 'Teil'} ${quantity}`.trim();
+                    })
+                    .join(' • ');
+                const partsLabel = document.createElement('small');
+                partsLabel.textContent = partsText;
+                partsCell.appendChild(partsLabel);
+            } else {
+                partsCell.textContent = '—';
+            }
+            row.appendChild(partsCell);
+
+            tbody.appendChild(row);
+        });
+
+        table.appendChild(tbody);
+        repairBody.appendChild(table);
+        repairBody.appendChild(createButtonRow([{ label: 'Aufträge aktualisieren' }, { label: 'Status an Brücke melden', tone: 'ghost' }]));
+    }
 }
 
-export function renderOperationsForStation(station, container) {
+export async function renderOperationsForStation(station, container) {
     if (!container) {
         return;
     }
@@ -1140,7 +1405,15 @@ export function renderOperationsForStation(station, container) {
         return;
     }
 
-    renderer(container, station);
+    try {
+        await renderer(container, station);
+    } catch (error) {
+        console.error('Fehler beim Rendern der Stationsbedienung:', error);
+        const errorMessage = document.createElement('p');
+        errorMessage.className = 'operations-placeholder operations-placeholder--error';
+        errorMessage.textContent = 'Interaktive Panels konnten nicht geladen werden.';
+        container.appendChild(errorMessage);
+    }
 }
 
 export function hasOperationsRenderer(stationId) {
