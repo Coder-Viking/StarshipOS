@@ -1,4 +1,5 @@
 import { STATION_DEFINITIONS } from './stations-data.js';
+import { resolveStationPaths } from './station-utils.js';
 
 function groupStationsByCategory() {
     const groups = new Map();
@@ -27,7 +28,8 @@ function groupStationsByCategory() {
 function createStationCard(station) {
     const card = document.createElement('a');
     card.className = 'portal-card';
-    card.href = `/${station.htmlPath}`;
+    const { route } = resolveStationPaths(station.htmlPath);
+    card.href = route;
 
     const header = document.createElement('div');
     header.className = 'portal-card-header';
@@ -130,6 +132,8 @@ function renderResourceTable() {
     STATION_DEFINITIONS.forEach((station) => {
         const row = document.createElement('tr');
 
+        const { route, file } = resolveStationPaths(station.htmlPath);
+
         const category = document.createElement('td');
         category.textContent = station.category;
         row.appendChild(category);
@@ -140,14 +144,18 @@ function renderResourceTable() {
 
         const name = document.createElement('td');
         const link = document.createElement('a');
-        link.href = `/${station.htmlPath}`;
+        link.href = route;
         link.textContent = station.name;
         link.className = 'station-link';
         name.appendChild(link);
         row.appendChild(name);
 
         const htmlCell = document.createElement('td');
-        htmlCell.textContent = `/${station.htmlPath}`;
+        const htmlLink = document.createElement('a');
+        htmlLink.href = file;
+        htmlLink.textContent = file;
+        htmlLink.className = 'station-link';
+        htmlCell.appendChild(htmlLink);
         row.appendChild(htmlCell);
 
         const locality = document.createElement('td');
@@ -165,7 +173,12 @@ function renderJsResources() {
     }
 
     list.innerHTML = '';
-    const uniqueModules = new Set(['assets/js/stations-data.js', 'assets/js/station-page.js', 'assets/js/portal.js']);
+    const uniqueModules = new Set([
+        'assets/js/stations-data.js',
+        'assets/js/station-page.js',
+        'assets/js/station-utils.js',
+        'assets/js/portal.js'
+    ]);
 
     STATION_DEFINITIONS.forEach((station) => {
         (station.jsModules || []).forEach((module) => uniqueModules.add(module));

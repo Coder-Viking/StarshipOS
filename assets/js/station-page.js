@@ -1,4 +1,5 @@
 import { getStationById, getStationsByCategory } from './stations-data.js';
+import { resolveStationPaths } from './station-utils.js';
 
 function createListItems(container, items) {
     container.innerHTML = '';
@@ -81,10 +82,10 @@ function renderStation(stationId) {
     }
 
     if (htmlPath) {
-        const route = `/${station.htmlPath}`;
+        const { route, file } = resolveStationPaths(station.htmlPath);
         const link = document.createElement('a');
         link.href = route;
-        link.textContent = route;
+        link.textContent = file;
         link.className = 'station-link';
         htmlPath.innerHTML = '';
         htmlPath.appendChild(link);
@@ -92,17 +93,24 @@ function renderStation(stationId) {
 
     if (jsModules) {
         jsModules.innerHTML = '';
-        const modules = station.jsModules && station.jsModules.length ? station.jsModules : ['assets/js/station-page.js'];
-        modules.forEach((mod, index) => {
-            const link = document.createElement('a');
-            link.href = `/${mod}`;
-            link.textContent = mod;
-            link.className = 'station-link';
-            jsModules.appendChild(link);
-            if (index < modules.length - 1) {
-                jsModules.appendChild(document.createElement('br'));
-            }
-        });
+        const modules = new Set(
+            station.jsModules && station.jsModules.length ? station.jsModules : ['assets/js/station-page.js']
+        );
+        modules.add('assets/js/stations-data.js');
+        modules.add('assets/js/station-utils.js');
+
+        Array.from(modules)
+            .sort((a, b) => a.localeCompare(b, 'de'))
+            .forEach((mod, index, arr) => {
+                const link = document.createElement('a');
+                link.href = `/${mod}`;
+                link.textContent = mod;
+                link.className = 'station-link';
+                jsModules.appendChild(link);
+                if (index < arr.length - 1) {
+                    jsModules.appendChild(document.createElement('br'));
+                }
+            });
     }
 
     if (relatedList) {
@@ -111,8 +119,8 @@ function renderStation(stationId) {
         relatedStations.forEach((item) => {
             const li = document.createElement('li');
             if (item.htmlPath) {
+                const { route } = resolveStationPaths(item.htmlPath);
                 const link = document.createElement('a');
-                const route = `/${item.htmlPath}`;
                 link.href = route;
                 link.textContent = item.name;
                 link.className = 'station-link';
