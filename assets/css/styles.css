@@ -2171,6 +2171,61 @@ body.station-body {
     background: var(--success);
 }
 
+.operations-metric--accent .operations-meter-fill {
+    background: var(--accent);
+}
+
+.operations-metric--danger .operations-meter-fill {
+    background: var(--danger);
+}
+
+.operations-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.9rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.operations-table th,
+.operations-table td {
+    padding: 0.55rem 0.9rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    text-align: left;
+    vertical-align: top;
+}
+
+.operations-table th {
+    background: rgba(255, 255, 255, 0.04);
+    text-transform: uppercase;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    color: var(--text-secondary);
+}
+
+.operations-table tbody tr:last-child td {
+    border-bottom: none;
+}
+
+.operations-table strong {
+    display: block;
+    font-size: 0.95rem;
+}
+
+.operations-table small,
+.operations-subline {
+    display: block;
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+    margin-top: 0.2rem;
+}
+
+.operations-subline {
+    letter-spacing: 0.02em;
+}
+
 .operations-control-list {
     display: flex;
     flex-direction: column;
@@ -2555,6 +2610,50 @@ body.station-body {
     margin: 0;
     color: var(--text-secondary);
     font-size: 0.85rem;
+}
+
+.operations-placeholder--error {
+    color: var(--danger);
+}
+
+.operations-bypass-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.operations-bypass {
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    padding: 0.8rem 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.55rem;
+}
+
+.operations-bypass__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+
+.operations-bypass__title {
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.operations-bypass__meta {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.operations-bypass__note {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
 }
 
 .station-meta {
