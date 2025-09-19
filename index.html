@@ -124,6 +124,40 @@
                         </div>
                     </div>
                 </div>
+                <div class="tactical module" id="tactical-module">
+                    <header>
+                        <h2>Taktische Übersicht</h2>
+                        <span id="tactical-selected-status" class="status-pill status-idle">Keine Ziele</span>
+                    </header>
+                    <div class="tactical-body">
+                        <section class="tactical-targets">
+                            <h3>Ziele</h3>
+                            <table class="tactical-table">
+                                <thead>
+                                    <tr>
+                                        <th>Kontakt</th>
+                                        <th>Bedrohung</th>
+                                        <th>Haltung</th>
+                                        <th>Distanz</th>
+                                        <th>Sektor</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="tactical-target-list"></tbody>
+                            </table>
+                        </section>
+                        <section class="tactical-sectors">
+                            <h3>Sektor-HUD</h3>
+                            <div id="tactical-sector-grid" class="tactical-sector-grid"></div>
+                        </section>
+                        <section class="tactical-details" id="tactical-contact-details">
+                            <p class="tactical-empty">Kontakt auswählen, um Details zu sehen.</p>
+                        </section>
+                        <section class="tactical-weapons">
+                            <h3>Waffensteuerung</h3>
+                            <div id="tactical-weapon-list" class="tactical-weapon-list"></div>
+                        </section>
+                    </div>
+                </div>
                 <div class="alerts module">
                     <header>
                         <h2>Alarm &amp; Log</h2>
@@ -138,6 +172,195 @@
                         <div class="event-log" id="event-log"></div>
                     </div>
                 </div>
+                <div class="damage-control module" id="damage-module">
+                    <header>
+                        <h2>Damage Control</h2>
+                        <span id="damage-status" class="status-pill status-online">Stabil</span>
+                    </header>
+                    <div class="damage-body">
+                        <section class="damage-reports">
+                            <h3>Schadensmeldungen</h3>
+                            <table class="compact-table">
+                                <thead>
+                                    <tr>
+                                        <th>System</th>
+                                        <th>Ort</th>
+                                        <th>Schwere</th>
+                                        <th>Status</th>
+                                        <th>ETA</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="damage-report-table"></tbody>
+                            </table>
+                        </section>
+                        <section class="damage-systems">
+                            <h3>Zustandsbäume</h3>
+                            <div id="damage-system-tree" class="damage-tree"></div>
+                        </section>
+                        <section class="damage-bypasses">
+                            <h3>Not-Bypässe</h3>
+                            <ul id="damage-bypass-list" class="task-list"></ul>
+                        </section>
+                        <section class="damage-repairs">
+                            <h3>Reparaturaufträge</h3>
+                            <table class="compact-table">
+                                <thead>
+                                    <tr>
+                                        <th>Auftrag</th>
+                                        <th>Team</th>
+                                        <th>Ersatzteile</th>
+                                        <th>Status</th>
+                                        <th>Aktionen</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="damage-repair-table"></tbody>
+                            </table>
+                        </section>
+                    </div>
+                </div>
+                <div class="science module" id="science-module">
+                    <header>
+                        <h2>Wissenschaftslabor</h2>
+                        <span id="science-status" class="status-pill status-online">Bereit</span>
+                    </header>
+                    <div class="science-body">
+                        <section class="science-samples">
+                            <div class="section-header">
+                                <h3>Probenanalysen</h3>
+                                <button id="science-advance" class="secondary-button">Analyse fortschreiben</button>
+                            </div>
+                            <table class="compact-table">
+                                <thead>
+                                    <tr>
+                                        <th>Probe</th>
+                                        <th>Typ</th>
+                                        <th>Status</th>
+                                        <th>Zuweisung</th>
+                                        <th>Fortschritt</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="science-sample-table"></tbody>
+                            </table>
+                        </section>
+                        <section class="science-anomalies">
+                            <h3>Anomalien &amp; Marker</h3>
+                            <ul id="science-anomaly-list" class="tag-list"></ul>
+                        </section>
+                        <section class="science-projects">
+                            <h3>Forschungsprojekte</h3>
+                            <div id="science-projects" class="project-grid"></div>
+                        </section>
+                    </div>
+                </div>
+                <div class="cargo module" id="cargo-module">
+                    <header>
+                        <h2>Fracht &amp; Inventar</h2>
+                        <span id="cargo-balance" class="status-pill status-online">Ausbalanciert</span>
+                    </header>
+                    <div class="cargo-body">
+                        <div class="cargo-summary" id="cargo-summary"></div>
+                        <table class="compact-table">
+                            <thead>
+                                <tr>
+                                    <th>Sektion</th>
+                                    <th>Belegung</th>
+                                    <th>Masse</th>
+                                    <th>Gefahrgut</th>
+                                    <th>Bemerkung</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cargo-hold-table"></tbody>
+                        </table>
+                        <section class="cargo-logistics">
+                            <h3>Ladungslogistik</h3>
+                            <ul id="cargo-logistics-list" class="task-list"></ul>
+                        </section>
+                    </div>
+                </div>
+                <div class="fabrication module" id="fabrication-module">
+                    <header>
+                        <h2>Fertigung &amp; Ersatzteile</h2>
+                        <span id="fabrication-status" class="status-pill status-online">Läuft</span>
+                    </header>
+                    <div class="fabrication-body">
+                        <section class="fabrication-queue">
+                            <h3>Produktionsaufträge</h3>
+                            <table class="compact-table">
+                                <thead>
+                                    <tr>
+                                        <th>Auftrag</th>
+                                        <th>Typ</th>
+                                        <th>Status</th>
+                                        <th>Fertigstellung</th>
+                                        <th>Priorität</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="fabrication-queue"></tbody>
+                            </table>
+                        </section>
+                        <section class="fabrication-inventory">
+                            <div>
+                                <h3>Reparaturkits</h3>
+                                <ul id="fabrication-kits" class="inventory-list"></ul>
+                            </div>
+                            <div>
+                                <h3>Verbrauchsgüter</h3>
+                                <ul id="fabrication-consumables" class="inventory-list"></ul>
+                            </div>
+                        </section>
+                    </div>
+                </div>
+                <div class="medical module" id="medical-module">
+                    <header>
+                        <h2>MedBay</h2>
+                        <span id="medical-status" class="status-pill status-online">Stabil</span>
+                    </header>
+                    <div class="medical-body">
+                        <section class="medical-roster">
+                            <h3>Crew-Vitaldaten</h3>
+                            <table class="compact-table">
+                                <thead>
+                                    <tr>
+                                        <th>Crewmitglied</th>
+                                        <th>Status</th>
+                                        <th>Vitalwerte</th>
+                                        <th>Behandlung</th>
+                                        <th>Priorität</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="medical-roster"></tbody>
+                            </table>
+                        </section>
+                        <section class="medical-resources">
+                            <h3>Ressourcen</h3>
+                            <ul id="medical-resources" class="inventory-list"></ul>
+                        </section>
+                        <section class="medical-quarantine">
+                            <h3>Quarantäne</h3>
+                            <div id="medical-quarantine"></div>
+                        </section>
+                    </div>
+                </div>
+                <div class="security module" id="security-module">
+                    <header>
+                        <h2>Security &amp; Zugriffe</h2>
+                        <span id="security-status" class="status-pill status-online">Überwacht</span>
+                    </header>
+                    <div class="security-body">
+                        <section class="security-roles">
+                            <h3>Rollen &amp; Rechte</h3>
+                            <div id="security-roles" class="role-grid"></div>
+                        </section>
+                        <section class="security-authorizations">
+                            <h3>Autorisierungen</h3>
+                            <ul id="security-auth-list" class="task-list"></ul>
+                        </section>
+                        <section class="security-audit">
+                            <h3>Audit Trail</h3>
+                            <ul id="security-audit-log" class="audit-list"></ul>
+                        </section>
+                    </div>
+                </div>
             </section>
             <aside class="detail-panel">
                 <div class="crew module">
@@ -149,9 +372,24 @@
                 </div>
                 <div class="mission-objectives module">
                     <header>
-                        <h2>Mission</h2>
+                        <h2>Briefing &amp; Debriefing</h2>
+                        <span id="briefing-status" class="status-pill status-online">Aktiv</span>
                     </header>
-                    <ul id="mission-objectives" class="objective-list"></ul>
+                    <div class="briefing-body">
+                        <section>
+                            <h3>Aktive Missionsziele</h3>
+                            <ul id="mission-objectives" class="objective-list"></ul>
+                        </section>
+                        <section>
+                            <h3>Live-Marker</h3>
+                            <ul id="briefing-markers" class="tag-list"></ul>
+                        </section>
+                        <section>
+                            <h3>Abschlussbericht</h3>
+                            <div id="debriefing-summary" class="debriefing-summary"></div>
+                            <button id="debriefing-export" class="secondary-button">Bericht sichern</button>
+                        </section>
+                    </div>
                 </div>
                 <div class="data-recorder module">
                     <header>
@@ -177,6 +415,98 @@
                             <button id="log-replay-stop" class="secondary-button" disabled>Replay stoppen</button>
                         </div>
                         <div id="replay-output" class="replay-output"></div>
+                    </div>
+                </div>
+                <div class="procedures module" id="procedure-module">
+                    <header>
+                        <h2>Checklisten &amp; Prozeduren</h2>
+                        <span id="procedure-status" class="status-pill status-online">Bereit</span>
+                    </header>
+                    <div class="procedure-body">
+                        <div class="procedure-selector">
+                            <label for="procedure-select">Checkliste wählen</label>
+                            <select id="procedure-select"></select>
+                        </div>
+                        <div class="procedure-progress">
+                            <div class="progress-bar"><div id="procedure-progress-bar" class="progress"></div></div>
+                            <span id="procedure-progress-label">0 / 0</span>
+                        </div>
+                        <ul id="procedure-steps" class="checklist"></ul>
+                    </div>
+                </div>
+                <div class="stations module" id="stations-module">
+                    <header>
+                        <h2>Stations-Readiness</h2>
+                        <span id="stations-status" class="status-pill status-online">Synchron</span>
+                    </header>
+                    <div id="stations-readiness" class="stations-grid"></div>
+                </div>
+                <div class="scenario-engine module" id="scenario-engine-module">
+                    <header>
+                        <h2>Szenario-Regie</h2>
+                        <span id="scenario-phase-status" class="status-pill status-idle">Phase 1</span>
+                    </header>
+                    <div class="scenario-body">
+                        <section>
+                            <h3>Phasen</h3>
+                            <ul id="scenario-phase-list" class="tag-list"></ul>
+                        </section>
+                        <section>
+                            <h3>Trigger &amp; Bedingungen</h3>
+                            <ul id="scenario-trigger-list" class="task-list"></ul>
+                        </section>
+                        <section>
+                            <h3>Encounter &amp; AI</h3>
+                            <ul id="scenario-encounter-list" class="task-list"></ul>
+                        </section>
+                    </div>
+                </div>
+                <div class="telemetry module" id="telemetry-module">
+                    <header>
+                        <h2>Telemetry &amp; Replay</h2>
+                        <span id="telemetry-status" class="status-pill status-online">Live</span>
+                    </header>
+                    <div class="telemetry-body">
+                        <div class="telemetry-metrics" id="telemetry-metrics"></div>
+                        <div class="telemetry-controls">
+                            <button id="telemetry-pause" class="secondary-button">Stream pausieren</button>
+                            <button id="telemetry-resume" class="primary-button" disabled>Stream fortsetzen</button>
+                            <button id="telemetry-replay" class="secondary-button">Letzte 60s</button>
+                        </div>
+                        <ul id="telemetry-events" class="audit-list"></ul>
+                    </div>
+                </div>
+                <div class="fault-injection module" id="fault-module">
+                    <header>
+                        <h2>Fault Injection</h2>
+                        <span id="fault-status" class="status-pill status-idle">Bereit</span>
+                    </header>
+                    <div class="fault-body">
+                        <ul id="fault-template-list" class="task-list"></ul>
+                        <div id="fault-active-list" class="active-faults"></div>
+                    </div>
+                </div>
+                <div class="larp module" id="larp-module">
+                    <header>
+                        <h2>LARP-Master Console</h2>
+                        <span id="larp-status" class="status-pill status-online">Steuerbar</span>
+                    </header>
+                    <div class="larp-body">
+                        <section class="larp-parameters">
+                            <h3>Live-Parameter</h3>
+                            <div id="larp-parameters" class="parameter-grid"></div>
+                        </section>
+                        <section class="larp-cues">
+                            <h3>Hinweise &amp; Funk</h3>
+                            <ul id="larp-cues" class="task-list"></ul>
+                        </section>
+                        <section class="larp-fog">
+                            <h3>Fog of War</h3>
+                            <div class="slider-control">
+                                <input type="range" id="larp-fog" min="0" max="100" value="25">
+                                <span id="larp-fog-label">25%</span>
+                            </div>
+                        </section>
                     </div>
                 </div>
                 <div class="system-inspector module">

@@ -253,4 +253,118 @@
             </impact>
         </event>
     </randomEvents>
+
+    <damageControl>
+        <reports>
+            <report id="report-dorsal-array" system="Sensor-Array" location="Deck 4 – Dorsaler Träger" severity="major" status="in-progress" eta="00:22">
+                <note>Plasmafackel beschädigte Verkabelung, Leistung auf 60% begrenzt.</note>
+            </report>
+            <report id="report-cargo-breach" system="Frachtraum 2" location="Sektion 12 – Außenhaut" severity="moderate" status="stabilized" eta="00:08">
+                <note>Notversiegelung aktiv, Druck stabil. EVA-Team unterwegs.</note>
+            </report>
+            <report id="report-conduit" system="EPS-Leitung" location="Maschinenraum Leitungsfeld" severity="minor" status="queued" eta="00:30">
+                <note>Überhitzung festgestellt, Last auf Aux-Kreis umgeleitet.</note>
+            </report>
+        </reports>
+        <systems>
+            <node id="tree-reactor" name="Reaktorkern" status="online" integrity="93" power="82">
+                <note>Plasmafluss stabil.</note>
+                <node id="tree-injectors" name="Plasma-Injektoren" status="warning" integrity="71" power="64">
+                    <note>Injektor 3 zeigt Schwingungen.</note>
+                </node>
+                <node id="tree-containment" name="Containment-Feld" status="online" integrity="96" power="78">
+                    <note>Feldphase synchron.</note>
+                </node>
+            </node>
+            <node id="tree-structural" name="Strukturraster" status="warning" integrity="68">
+                <note>Segment D5 unter Beobachtung.</note>
+                <node id="tree-hull-d5" name="Außenhülle D5" status="critical" integrity="42">
+                    <note>Patch angebracht, Druck fällt langsam.</note>
+                </node>
+                <node id="tree-rib-delta" name="Verstrebung Delta" status="offline" integrity="0">
+                    <note>Notstütze erforderlich.</note>
+                </node>
+            </node>
+        </systems>
+        <bypasses>
+            <bypass id="bypass-life-support" description="Lebenserhaltung auf Reservekreis umschalten" owner="Team Beta" status="engaged" eta="laufend">
+                <note>Druckwerte stabil, Monitoring aktiv.</note>
+            </bypass>
+            <bypass id="bypass-eps" description="EPS-Leitung 4B über Hilfsbus führen" owner="Team Alpha" status="planned" eta="00:12">
+                <note>Freigabe durch Engineering ausstehend.</note>
+            </bypass>
+        </bypasses>
+        <repairs>
+            <order id="repair-hull" label="Hüllenpatch D5" system="Struktur" team="EVA Team 1" status="active" eta="00:18">
+                <parts>
+                    <part id="part-nano" name="Nanopolymer-Patch" quantity="2" />
+                    <part id="part-brace" name="Verstrebung Typ C" quantity="1" />
+                </parts>
+            </order>
+            <order id="repair-array" label="Sensor-Array neu ausrichten" system="Sensorik" team="Decktrupp 3" status="queued" eta="00:25">
+                <parts>
+                    <part id="part-emitter" name="Emitter Cluster" quantity="3" />
+                </parts>
+            </order>
+        </repairs>
+    </damageControl>
+
+    <tactical>
+        <contacts>
+            <contact id="corsair-sigma" callsign="Korsar Sigma" type="Leichte Fregatte" attitude="hostile"
+                sector="delta" state="active" threat="86" distance="32000" distanceUnit="km"
+                vector="210°/+4°" velocity="0.42c" hull="72" shields="40">
+                <objective>Abfangkurs auf Frachterkonvoi</objective>
+                <lastKnown>Annäherung mit 920 m/s</lastKnown>
+                <note>Schwere Plasmawerfer aktiv, Signatur der Korsaren-Gilde.</note>
+            </contact>
+            <contact id="drone-cluster" callsign="Drohnen-Schwarm Theta" type="Autonome Drohnen" attitude="hostile"
+                sector="delta" state="active" threat="64" distance="58000" distanceUnit="km"
+                vector="238°/-2°" velocity="18 km/s" hull="54" shields="0">
+                <objective>Belästigung der Schildgeneratoren</objective>
+                <lastKnown>Formationswechsel alle 14 Sekunden</lastKnown>
+                <note>Schwarm reagiert empfindlich auf breitbandige Phaserstöße.</note>
+            </contact>
+            <contact id="escort-nova" callsign="ESV Nova" type="Eskortschiff" attitude="friendly"
+                sector="beta" state="active" threat="0" distance="74000" distanceUnit="km"
+                vector="052°/+1°" velocity="25 km/s" hull="92" shields="88">
+                <objective>Sicherungsflug flankierend</objective>
+                <lastKnown>Hält Position und wartet auf Feuerleitfreigabe</lastKnown>
+                <note>Kann bei Bedarf Torpedosalven koordinieren.</note>
+            </contact>
+            <contact id="science-buoy" callsign="Forschungssonde L-17" type="Sensorboje" attitude="neutral"
+                sector="alpha" state="drifting" threat="5" distance="41000" distanceUnit="km"
+                vector="134°/0°" velocity="Stationär" hull="28" shields="0">
+                <objective>Telemetrie sammelt Nebelspuren</objective>
+                <lastKnown>Sendet periodisch Forschungstelemetrie</lastKnown>
+                <note>Zerstörung vermeiden – enthält wertvolle Sensordaten.</note>
+            </contact>
+        </contacts>
+        <weapons>
+            <weapon id="phaser-alpha" name="Phaserbank Alpha" type="Phaser" arc="Vorbug 90°" status="ready"
+                cooldown="8" damage="26" powerCost="12">
+                <note>Ideal gegen agile Ziele im Nahbereich.</note>
+            </weapon>
+            <weapon id="phaser-beta" name="Phaserbank Beta" type="Phaser" arc="Steuerbord 120°" status="ready"
+                cooldown="10" damage="30" powerCost="14">
+                <note>Verfügt über adaptive Frequenzmodulation.</note>
+            </weapon>
+            <weapon id="torpedo-tube-1" name="Torpedorohr 1" type="Quantentorpedo" arc="Vorbug" status="ready"
+                cooldown="18" damage="65" ammo="6" salvo="1">
+                <note>Automatisches Zieltracking, EMP-Gefahr im Nahbereich.</note>
+            </weapon>
+            <weapon id="pd-array" name="Punktverteidigungs-Array" type="Verteidigungslaser" arc="360°" status="ready"
+                cooldown="5" damage="12" powerCost="8">
+                <note>Effektiv gegen Drohnenschwärme, geringe Wirkung gegen Großziele.</note>
+            </weapon>
+        </weapons>
+        <sectors>
+            <sector id="delta" name="Vorbug Sektor" bearing="210°" range="Kurz (0-40 Mm)" navSector="delta"
+                hazard="Nebelstreuung 12%" priority="Primär" friendlies="0" hostiles="2" />
+            <sector id="beta" name="Steuerbordbogen" bearing="090°" range="Mittel (40-90 Mm)" navSector="beta"
+                hazard="Trümmerfeld geringe Dichte" priority="Sekundär" friendlies="1" hostiles="0" />
+            <sector id="alpha" name="Brückenachsensektor" bearing="134°" range="Kurz" navSector="alpha"
+                hazard="Sensorboje in Reichweite" priority="Überwachung" friendlies="0" hostiles="0" />
+        </sectors>
+    </tactical>
 </scenario>

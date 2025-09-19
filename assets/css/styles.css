@@ -101,7 +101,7 @@ body {
     display: flex;
     flex-direction: column;
     gap: var(--grid-gap);
-    overflow: hidden;
+    overflow-y: auto;
 }
 
 .systems-panel {
@@ -198,6 +198,10 @@ body {
     border-radius: 999px;
     background: rgba(255, 255, 255, 0.06);
     overflow: hidden;
+}
+
+.progress-bar.small {
+    height: 4px;
 }
 
 .progress-bar .progress {
@@ -722,6 +726,798 @@ body {
     cursor: not-allowed;
 }
 
+.tactical .tactical-body {
+    display: grid;
+    grid-template-columns: 1.7fr 1.3fr;
+    grid-template-areas:
+        "targets sectors"
+        "targets details"
+        "weapons weapons";
+    gap: 1rem;
+}
+
+.tactical-targets {
+    grid-area: targets;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.tactical-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(8, 20, 38, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 0.85rem;
+}
+
+.tactical-table th,
+.tactical-table td {
+    padding: 0.6rem 0.8rem;
+    text-align: left;
+}
+
+.tactical-table thead {
+    background: rgba(0, 188, 212, 0.1);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.75rem;
+}
+
+.tactical-table tbody tr {
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    cursor: pointer;
+    transition: background 0.2s ease;
+}
+
+.tactical-table tbody tr:hover {
+    background: rgba(0, 188, 212, 0.08);
+}
+
+.tactical-table tbody tr.selected {
+    background: rgba(0, 188, 212, 0.15);
+}
+
+.contact-callsign {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.contact-callsign small {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+.tactical-sectors {
+    grid-area: sectors;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.tactical-sector-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: 0.6rem;
+}
+
+.tactical-sector-card {
+    background: rgba(8, 20, 38, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 10px;
+    padding: 0.75rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.tactical-sector-card header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.tactical-sector-card dl {
+    margin: 0;
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem;
+    font-size: 0.75rem;
+}
+
+.tactical-sector-card dt {
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    font-size: 0.68rem;
+    letter-spacing: 0.06em;
+}
+
+.tactical-sector-card dd {
+    margin: 0;
+    font-weight: 600;
+}
+
+.tactical-details {
+    grid-area: details;
+    background: rgba(8, 20, 38, 0.85);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    min-height: 220px;
+}
+
+.tactical-bars {
+    display: flex;
+    gap: 0.8rem;
+}
+
+.tactical-bar {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+}
+
+.progress-bar.shield .progress {
+    background: var(--accent);
+}
+
+.progress-bar.hull .progress {
+    background: var(--danger);
+}
+
+.contact-stats {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem 0.8rem;
+    font-size: 0.75rem;
+}
+
+.contact-stats dt {
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.68rem;
+}
+
+.contact-stats dd {
+    margin: 0;
+    font-weight: 600;
+}
+
+.tactical-notes,
+.tactical-assignments {
+    background: rgba(0, 0, 0, 0.2);
+    border-radius: 8px;
+    padding: 0.6rem 0.7rem;
+}
+
+.section-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+}
+
+.compact-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: rgba(8, 20, 38, 0.85);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 8px;
+    overflow: hidden;
+    font-size: 0.8rem;
+}
+
+.compact-table thead {
+    background: rgba(0, 188, 212, 0.12);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-size: 0.7rem;
+}
+
+.compact-table th,
+.compact-table td {
+    padding: 0.55rem 0.7rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+    text-align: left;
+}
+
+.compact-table tbody tr:nth-child(odd) {
+    background: rgba(255, 255, 255, 0.02);
+}
+
+.tag-list,
+.inventory-list,
+.audit-list,
+.task-list,
+.checklist {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.tag-list {
+    flex-direction: row;
+    flex-wrap: wrap;
+}
+
+.tag-list li {
+    padding: 0.35rem 0.6rem;
+    border-radius: 999px;
+    border: 1px solid rgba(0, 188, 212, 0.3);
+    background: rgba(0, 188, 212, 0.12);
+    font-size: 0.72rem;
+    letter-spacing: 0.04em;
+}
+
+.task-list li,
+.audit-list li,
+.inventory-list li,
+.checklist li {
+    background: rgba(8, 20, 38, 0.85);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.55rem 0.7rem;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+    font-size: 0.8rem;
+}
+
+.task-list li.completed,
+.inventory-list li.completed,
+.audit-list li.completed {
+    opacity: 0.6;
+}
+
+.task-list li.warning,
+.inventory-list li.warning,
+.audit-list li.warning {
+    border-color: rgba(255, 179, 71, 0.4);
+}
+
+.task-list li strong,
+.audit-list li strong {
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--text-secondary);
+}
+
+.task-list li span,
+.audit-list li span,
+.inventory-list li span {
+    flex: 1;
+}
+
+.checklist label {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+}
+
+.checklist input[type="checkbox"] {
+    accent-color: var(--accent);
+    width: 16px;
+    height: 16px;
+}
+
+.project-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+    gap: 0.6rem;
+}
+
+.project-card {
+    background: rgba(8, 20, 38, 0.85);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.7rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.78rem;
+}
+
+.project-card h4 {
+    margin: 0;
+    font-size: 0.85rem;
+}
+
+.fabrication-inventory {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.8rem;
+}
+
+.role-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 0.6rem;
+}
+
+.role-card {
+    background: rgba(8, 20, 38, 0.85);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.7rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    font-size: 0.78rem;
+}
+
+.role-card ul {
+    margin: 0;
+    padding-left: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.72rem;
+}
+
+.stations-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.6rem;
+}
+
+.station-card {
+    background: rgba(8, 20, 38, 0.85);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.7rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    font-size: 0.78rem;
+}
+
+.station-card footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.procedure-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.procedure-progress {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    font-size: 0.78rem;
+}
+
+.scenario-body,
+.telemetry-body,
+.larp-body,
+.medical-body,
+.science-body,
+.cargo-body,
+.fabrication-body,
+.security-body,
+.damage-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.scenario-body section,
+.science-body section,
+.medical-body section,
+.cargo-body section,
+.fabrication-body section,
+.security-body section,
+.larp-body section,
+.damage-body section {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.telemetry-metrics {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.6rem;
+}
+
+.telemetry-card {
+    background: rgba(8, 20, 38, 0.85);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+    font-size: 0.75rem;
+}
+
+.telemetry-card strong {
+    font-size: 0.85rem;
+}
+
+.telemetry-controls {
+    display: flex;
+    gap: 0.5rem;
+}
+
+.active-faults {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.active-fault {
+    background: rgba(255, 59, 79, 0.15);
+    border: 1px solid rgba(255, 59, 79, 0.35);
+    border-radius: 8px;
+    padding: 0.5rem 0.7rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    font-size: 0.75rem;
+}
+
+.parameter-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 0.6rem;
+}
+
+.parameter-card {
+    background: rgba(8, 20, 38, 0.85);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+}
+
+.parameter-card input[type="range"] {
+    width: 100%;
+}
+
+.damage-report-system {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.damage-report-system small {
+    color: var(--text-secondary);
+    font-size: 0.7rem;
+}
+
+.damage-tree {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.damage-tree-list {
+    list-style: none;
+    margin: 0;
+    padding-left: 0.2rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.damage-tree-list > li {
+    background: rgba(8, 20, 38, 0.85);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.55rem 0.7rem;
+}
+
+.damage-tree-node {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    font-size: 0.78rem;
+}
+
+.damage-tree-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.damage-tree-meta {
+    display: flex;
+    gap: 0.6rem;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+.damage-tree-node p {
+    margin: 0;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+.damage-body .task-list li {
+    align-items: center;
+}
+
+.damage-body .task-list li span.bypass-eta {
+    flex: 0;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+.damage-body .task-list li .status-pill {
+    flex: 0;
+}
+
+.damage-body .task-list li > span:first-child {
+    flex: 1;
+}
+
+.damage-actions {
+    display: flex;
+    gap: 0.4rem;
+    align-items: center;
+}
+
+.damage-actions .tactical-empty {
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+.slider-control {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.slider-control input[type="range"] {
+    flex: 1;
+}
+
+.mini-button {
+    font-size: 0.7rem;
+    padding: 0.25rem 0.55rem;
+    border-radius: 999px;
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-primary);
+    cursor: pointer;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.mini-button:hover {
+    border-color: rgba(0, 188, 212, 0.4);
+}
+
+.sample-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.4rem;
+    margin-top: 0.35rem;
+}
+
+.debriefing-summary {
+    background: rgba(8, 20, 38, 0.85);
+    border-radius: 8px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.6rem 0.7rem;
+    font-size: 0.78rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+}
+
+.briefing-body {
+    display: flex;
+    flex-direction: column;
+    gap: 0.8rem;
+}
+
+.role-card footer,
+.project-card footer {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 0.7rem;
+    color: var(--text-secondary);
+}
+
+.mission-panel::-webkit-scrollbar,
+.detail-panel::-webkit-scrollbar {
+    width: 6px;
+}
+
+.mission-panel::-webkit-scrollbar-thumb,
+.detail-panel::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.12);
+    border-radius: 999px;
+}
+
+.mission-panel::-webkit-scrollbar-track,
+.detail-panel::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.alert-theme-green {
+    --bg-app: radial-gradient(circle at top, rgba(10, 55, 80, 0.6), rgba(2, 12, 24, 0.9));
+}
+
+.alert-theme-yellow {
+    --bg-app: radial-gradient(circle at top, rgba(80, 55, 10, 0.55), rgba(18, 10, 2, 0.92));
+}
+
+.alert-theme-red {
+    --bg-app: radial-gradient(circle at top, rgba(80, 12, 20, 0.7), rgba(18, 2, 4, 0.95));
+}
+
+.alert-theme-black {
+    --bg-app: radial-gradient(circle at top, rgba(8, 8, 8, 0.9), rgba(0, 0, 0, 0.98));
+}
+
+.app-shell.alert-theme-yellow,
+.app-shell.alert-theme-red,
+.app-shell.alert-theme-black,
+.app-shell.alert-theme-green {
+    background-image: var(--bg-app);
+}
+
+.tactical-notes h4,
+.tactical-assignments h4 {
+    margin: 0 0 0.35rem;
+    font-size: 0.8rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.tactical-assignment-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    font-size: 0.8rem;
+}
+
+.tactical-weapons {
+    grid-area: weapons;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.tactical-weapon-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+.tactical-weapon-row {
+    background: rgba(8, 20, 38, 0.85);
+    border-radius: 10px;
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    padding: 0.75rem;
+    display: grid;
+    grid-template-columns: minmax(140px, 1fr) minmax(120px, auto) minmax(200px, auto);
+    align-items: center;
+    gap: 0.6rem;
+}
+
+.tactical-weapon-row.offline {
+    opacity: 0.6;
+}
+
+.weapon-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.2rem;
+}
+
+.weapon-info small {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+}
+
+.weapon-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.weapon-controls {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.weapon-controls label {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.7rem;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+}
+
+.weapon-controls select {
+    min-width: 150px;
+}
+
+.tactical-empty {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.threat-pill {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.55rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    border: 1px solid transparent;
+}
+
+.threat-critical {
+    background: rgba(255, 59, 79, 0.15);
+    color: var(--danger);
+    border-color: rgba(255, 59, 79, 0.4);
+}
+
+.threat-warning {
+    background: rgba(255, 179, 71, 0.15);
+    color: var(--warning);
+    border-color: rgba(255, 179, 71, 0.4);
+}
+
+.threat-low {
+    background: rgba(0, 188, 212, 0.12);
+    color: var(--accent);
+    border-color: rgba(38, 255, 230, 0.35);
+}
+
+.threat-idle {
+    background: rgba(255, 255, 255, 0.08);
+    color: var(--text-secondary);
+    border-color: rgba(255, 255, 255, 0.12);
+}
+
+.tactical-weapon-row button {
+    min-width: 90px;
+}
+
 .primary-button:not(:disabled):hover,
 .secondary-button:not(:disabled):hover,
 .accent-button:not(:disabled):hover,
@@ -773,5 +1569,24 @@ textarea:focus {
 
     .comms-sensors {
         grid-template-columns: 1fr;
+    }
+
+    .tactical .tactical-body {
+        grid-template-columns: 1fr;
+        grid-template-areas:
+            "targets"
+            "sectors"
+            "details"
+            "weapons";
+    }
+
+    .tactical-weapon-row {
+        grid-template-columns: 1fr;
+        gap: 0.5rem;
+    }
+
+    .weapon-controls {
+        flex-wrap: wrap;
+        justify-content: flex-start;
     }
 }
