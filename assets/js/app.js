@@ -11,6 +11,7 @@ import {
     secondsToETA
 } from './modules/utils.js';
 import { createPowerSystemModule } from './modules/powerSystem.js';
+import { createLifeSupportModule, normalizeLifeSupportData } from './modules/lifeSupport.js';
 import { Kernel } from './modules/kernel.js';
 
 /** === Szenario/Defaults === */
@@ -47,6 +48,7 @@ const initialState = {
     alert: 'green',
     navPlan: null,
     sensorReadings: [],
+    lifeSupport: null,
     simulationPaused: false,
     selectedSystemId: null
 };
@@ -272,6 +274,8 @@ function configureKernelModules() {
             }
         }
     }));
+
+    kernel.registerModule('life-support', createLifeSupportModule());
 }
 
 /** === Rendering === */
@@ -446,7 +450,235 @@ function showSystemDetails(systemId) {
         `;
     }
 
+    if (system.id === 'life-support') {
+        inspectorHtml += renderLifeSupportDetails(state.lifeSupport);
+    }
+
     elements.inspectorBody.innerHTML = inspectorHtml;
+}
+
+function renderLifeSupportDetails(lifeSupport) {
+    if (!lifeSupport) {
+        return `
+            <section class="detail-section">
+                <h4>Lebenserhaltung</h4>
+                <p>Keine Detaildaten verfügbar.</p>
+            </section>
+        `;
+    }
+
+    const sections = [];
+
+    if (Array.isArray(lifeSupport.cycles) && lifeSupport.cycles.length) {
+        sections.push(`
+            <section class="detail-section">
+                <h4>Atmosphärenzyklen</h4>
+                <table class="data-table">
+                    <thead><tr><th>Zyklus</th><th>Status</th><th>Leistungsdaten</th><th>Notizen</th></tr></thead>
+                    <tbody>
+                        ${lifeSupport.cycles.map(cycle => `
+                            <tr>
+                                <td>${cycle.label}</td>
+                                <td><span class="life-support-status ${lifeSupportStatusClass(cycle.status)}">${cycle.status ?? 'Stabil'}</span></td>
+                                <td><div class="life-support-metric-list">${formatLifeSupportMetrics(cycle.metrics)}</div></td>
+                                <td>${cycle.note ? cycle.note : '–'}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </section>
+        `);
+    }
+
+    if (Array.isArray(lifeSupport.sections) && lifeSupport.sections.length) {
+        sections.push(`
+            <section class="detail-section">
+                <h4>Sektionsklima</h4>
+                <table class="data-table">
+                    <thead><tr><th>Sektion</th><th>Druck</th><th>Temperatur</th><th>Klima</th><th>Status</th></tr></thead>
+                    <tbody>
+                        ${lifeSupport.sections.map(section => `
+                            <tr>
+                                <td>${section.name}</td>
+                                <td>${formatLifeSupportReading(section.pressure)}</td>
+                                <td>${formatLifeSupportReading(section.temperature)}</td>
+                                <td>${section.humidity ? formatLifeSupportReading(section.humidity) : '–'}</td>
+                                <td><span class="life-support-status ${lifeSupportStatusClass(section.status)}">${section.status ?? 'Stabil'}</span></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </section>
+        `);
+    }
+
+    if (Array.isArray(lifeSupport.leaks) && lifeSupport.leaks.length) {
+        sections.push(`
+            <section class="detail-section">
+                <h4>Lecks &amp; Abdichtung</h4>
+                <ul class="detail-list">
+                    ${lifeSupport.leaks.map(leak => formatLifeSupportLeak(leak)).join('')}
+                </ul>
+            </section>
+        `);
+    }
+
+    if (lifeSupport.filters) {
+        const filterTable = Array.isArray(lifeSupport.filters.banks) && lifeSupport.filters.banks.length
+            ? `
+                <table class="data-table">
+                    <thead><tr><th>Filterbank</th><th>Status</th><th>Sättigung</th><th>Puffer</th></tr></thead>
+                    <tbody>
+                        ${lifeSupport.filters.banks.map(bank => `
+                            <tr>
+                                <td>${bank.label}</td>
+                                <td><span class="life-support-status ${lifeSupportStatusClass(bank.status)}">${bank.status ?? 'Aktiv'}</span></td>
+                                <td>${formatLifeSupportReading(bank.saturation)}</td>
+                                <td>${formatLifeSupportBuffer(bank.timeBuffer)}</td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            `
+            : '';
+
+        const bufferSummary = renderLifeSupportBufferSummary(lifeSupport.filters);
+        if (filterTable || bufferSummary) {
+            sections.push(`
+                <section class="detail-section">
+                    <h4>Filter &amp; Zeitpuffer</h4>
+                    ${filterTable}
+                    ${bufferSummary}
+                </section>
+            `);
+        }
+    }
+
+    return sections.join('');
+}
+
+function formatLifeSupportMetrics(metrics) {
+    if (!Array.isArray(metrics) || metrics.length === 0) {
+        return '<span>–</span>';
+    }
+    return metrics.map(metric => `<span>${formatLifeSupportMetric(metric)}</span>`).join('');
+}
+
+function formatLifeSupportMetric(metric) {
+    if (!metric) {
+        return '–';
+    }
+    const decimals = lifeSupportDecimals(metric.unit);
+    const value = typeof metric.value === 'number'
+        ? metric.value.toLocaleString('de-DE', {
+            minimumFractionDigits: decimals,
+            maximumFractionDigits: decimals
+        })
+        : '–';
+    const unit = metric.unit ? ` ${metric.unit}` : '';
+    const label = metric.label ?? '';
+    return label ? `${label}: ${value}${unit}` : `${value}${unit}`;
+}
+
+function formatLifeSupportReading(reading) {
+    if (!reading || typeof reading.value !== 'number') {
+        return '–';
+    }
+    const decimals = lifeSupportDecimals(reading.unit);
+    const value = reading.value.toLocaleString('de-DE', {
+        minimumFractionDigits: decimals,
+        maximumFractionDigits: decimals
+    });
+    return `${value}${reading.unit ? ` ${reading.unit}` : ''}`;
+}
+
+function lifeSupportStatusClass(status) {
+    if (!status) return 'life-support-status-stable';
+    const normalized = status.toLowerCase();
+    if (normalized.includes('alarm') || normalized.includes('krit')) {
+        return 'life-support-status-critical';
+    }
+    if (normalized.includes('warn')) {
+        return 'life-support-status-warning';
+    }
+    if (normalized.includes('überwachung') || normalized.includes('anpass')) {
+        return 'life-support-status-monitoring';
+    }
+    return 'life-support-status-stable';
+}
+
+function formatLifeSupportLeak(leak) {
+    if (!leak) {
+        return '<li>Unbekannte Meldung</li>';
+    }
+    const progress = typeof leak.progress === 'number' ? `${Math.round(leak.progress)}%` : '–';
+    const severity = leak.severity ? leak.severity : 'Unbekannt';
+    const note = leak.note ? ` · ${leak.note}` : '';
+    return `
+        <li>
+            <strong>${leak.location}</strong><br>
+            <span class="life-support-status ${lifeSupportStatusClass(leak.status)}">${leak.status ?? 'Status unbekannt'}</span>
+            <br><small>Fortschritt: ${progress} · Stufe: ${severity}${note}</small>
+        </li>
+    `;
+}
+
+function formatLifeSupportBuffer(reading) {
+    if (!reading || typeof reading.value !== 'number') {
+        return '–';
+    }
+    if (reading.unit && reading.unit.toLowerCase().startsWith('min')) {
+        const minutes = Math.max(0, Math.round(reading.value));
+        return `${formatLifeSupportMinutes(minutes)} (${minutes} min)`;
+    }
+    return formatLifeSupportReading(reading);
+}
+
+function renderLifeSupportBufferSummary(filters) {
+    const entries = [];
+    if (typeof filters.reserveAirMinutes === 'number') {
+        entries.push({ label: 'Reserve-Luft', minutes: filters.reserveAirMinutes });
+    }
+    if (typeof filters.scrubberMarginMinutes === 'number') {
+        entries.push({ label: 'Scrubber-Puffer', minutes: filters.scrubberMarginMinutes });
+    }
+    if (typeof filters.emergencyBufferMinutes === 'number') {
+        entries.push({ label: 'Notfall-O₂', minutes: filters.emergencyBufferMinutes });
+    }
+    if (!entries.length) {
+        return '';
+    }
+    return `
+        <div class="life-support-buffers">
+            ${entries.map(entry => `
+                <div class="life-support-buffer">
+                    <strong>${entry.label}</strong>
+                    <span>${formatLifeSupportMinutes(Math.round(entry.minutes))} (${Math.round(entry.minutes)} min)</span>
+                </div>
+            `).join('')}
+        </div>
+    `;
+}
+
+function lifeSupportDecimals(unit) {
+    if (!unit) return 1;
+    const normalized = unit.toLowerCase();
+    if (normalized.includes('kg')) return 2;
+    if (normalized.includes('%')) return 1;
+    if (normalized.includes('kpa')) return 1;
+    if (normalized.includes('°') || normalized.includes('c')) return 1;
+    if (normalized.includes('min')) return 0;
+    return 1;
+}
+
+function formatLifeSupportMinutes(minutes) {
+    const total = Math.max(0, Number.parseInt(minutes, 10) || 0);
+    const hours = Math.floor(total / 60);
+    const mins = total % 60;
+    if (hours <= 0) {
+        return `${mins}m`;
+    }
+    return `${hours}h ${mins.toString().padStart(2, '0')}m`;
 }
 
 /** === Power-Verteilung === */
@@ -997,6 +1229,36 @@ function initializeStateFromScenario(scenario, {
     state.crew = (scenario.crew ?? []).map(member => ({ ...member }));
     state.objectives = (scenario.objectives ?? []).map(objective => ({ ...objective }));
     state.sensorBaselines = (scenario.sensorBaselines ?? []).map(baseline => ({ ...baseline }));
+    const normalizedLifeSupport = normalizeLifeSupportData(scenario.lifeSupport);
+    state.lifeSupport = normalizedLifeSupport
+        ? {
+            cycles: normalizedLifeSupport.cycles.map(cycle => ({
+                ...cycle,
+                metrics: Array.isArray(cycle.metrics)
+                    ? cycle.metrics.map(metric => ({ ...metric }))
+                    : []
+            })),
+            sections: normalizedLifeSupport.sections.map(section => ({
+                ...section,
+                pressure: section.pressure ? { ...section.pressure } : null,
+                temperature: section.temperature ? { ...section.temperature } : null,
+                humidity: section.humidity ? { ...section.humidity } : null
+            })),
+            leaks: normalizedLifeSupport.leaks.map(leak => ({ ...leak })),
+            filters: normalizedLifeSupport.filters
+                ? {
+                    banks: (normalizedLifeSupport.filters.banks ?? []).map(bank => ({
+                        ...bank,
+                        saturation: bank.saturation ? { ...bank.saturation } : null,
+                        timeBuffer: bank.timeBuffer ? { ...bank.timeBuffer } : null
+                    })),
+                    reserveAirMinutes: normalizedLifeSupport.filters.reserveAirMinutes,
+                    scrubberMarginMinutes: normalizedLifeSupport.filters.scrubberMarginMinutes,
+                    emergencyBufferMinutes: normalizedLifeSupport.filters.emergencyBufferMinutes
+                }
+                : { banks: [] }
+        }
+        : null;
     const hasCustomAlerts = scenario.alertStates && Object.keys(scenario.alertStates).length > 0;
     state.alertStates = hasCustomAlerts
         ? { ...FALLBACK_ALERT_STATES, ...scenario.alertStates }
@@ -1056,6 +1318,7 @@ async function init() {
     kernel.startModule('navigation');
     kernel.startModule('random-events');
     kernel.startModule('power-system');
+    kernel.startModule('life-support');
 
     updatePowerLabels();
     performSensorScan();
@@ -1089,6 +1352,12 @@ function registerKernelEventListeners() {
     kernel.on('power:distribution-applied', ({ payload }) => {
         if (payload?.source === 'manual') {
             addLog('log', 'Manuelle Energieverteilung übernommen. Systeme beobachten.');
+        }
+    });
+
+    kernel.on('life-support:updated', () => {
+        if (state.selectedSystemId === 'life-support') {
+            showSystemDetails('life-support');
         }
     });
 }

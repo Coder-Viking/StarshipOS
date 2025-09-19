@@ -5,6 +5,129 @@ const SHIP_INFO = {
     commander: 'Captain Mira Sol'
 };
 
+export const LIFE_SUPPORT_STATUS = {
+    cycles: [
+        {
+            id: 'o2-regeneration',
+            label: 'O₂-Regeneration',
+            status: 'Stabil',
+            metrics: [
+                { key: 'efficiency', label: 'Effizienz', unit: '%', value: 98.6 },
+                { key: 'throughput', label: 'Durchsatz', unit: 'kg/h', value: 12.4 },
+                { key: 'loop', label: 'Loop', unit: 'min', value: 42 }
+            ],
+            note: 'Reservefeld 2 kalibriert, CO₂-Last bei 41%'
+        },
+        {
+            id: 'co2-scrubber',
+            label: 'CO₂-Abscheidung',
+            status: 'Stabil',
+            metrics: [
+                { key: 'saturation', label: 'Sättigung', unit: '%', value: 27 },
+                { key: 'scrub-rate', label: 'Abscheidung', unit: 'kg/h', value: 11.8 },
+                { key: 'regen', label: 'Regeneration', unit: '%', value: 93 }
+            ],
+            note: 'Filterbank A aktiv, Regeneration in 18 Minuten'
+        }
+    ],
+    sections: [
+        {
+            id: 'bridge',
+            name: 'Brücke',
+            pressure: { value: 101.3, unit: 'kPa' },
+            temperature: { value: 21.8, unit: '°C' },
+            humidity: { value: 41, unit: '%' },
+            status: 'Stabil'
+        },
+        {
+            id: 'engineering',
+            name: 'Maschinenraum',
+            pressure: { value: 100.9, unit: 'kPa' },
+            temperature: { value: 23.4, unit: '°C' },
+            humidity: { value: 45, unit: '%' },
+            status: 'Stabil'
+        },
+        {
+            id: 'habitat',
+            name: 'Habitat-Ring',
+            pressure: { value: 101.0, unit: 'kPa' },
+            temperature: { value: 22.6, unit: '°C' },
+            humidity: { value: 42, unit: '%' },
+            status: 'Stabil'
+        },
+        {
+            id: 'medbay',
+            name: 'MedBay',
+            pressure: { value: 101.5, unit: 'kPa' },
+            temperature: { value: 21.1, unit: '°C' },
+            humidity: { value: 38, unit: '%' },
+            status: 'Stabil'
+        },
+        {
+            id: 'cargo',
+            name: 'Frachtraum',
+            pressure: { value: 100.6, unit: 'kPa' },
+            temperature: { value: 20.9, unit: '°C' },
+            humidity: { value: 36, unit: '%' },
+            status: 'Stabil'
+        },
+        {
+            id: 'shuttle-bay',
+            name: 'Shuttle-Bucht',
+            pressure: { value: 99.8, unit: 'kPa' },
+            temperature: { value: 19.8, unit: '°C' },
+            humidity: { value: 33, unit: '%' },
+            status: 'Überwachung'
+        }
+    ],
+    leaks: [
+        {
+            id: 'cargo-outer',
+            location: 'Frachtraum 2 – Außenhaut',
+            severity: 'Gering',
+            status: 'Versiegelt',
+            progress: 100,
+            note: 'Nanopolymer-Patch hält, Monitoring aktiv'
+        },
+        {
+            id: 'deck-5',
+            location: 'Deck 5 – Wartungsschacht',
+            severity: 'Spur',
+            status: 'Analyse läuft',
+            progress: 18,
+            note: 'Sensorcluster 4 meldet leichte Druckfluktuation'
+        }
+    ],
+    filters: {
+        banks: [
+            {
+                id: 'primary',
+                label: 'Filterbank A',
+                status: 'Aktiv',
+                saturation: { value: 34, unit: '%' },
+                timeBuffer: { value: 540, unit: 'min' }
+            },
+            {
+                id: 'secondary',
+                label: 'Filterbank B',
+                status: 'Bereit',
+                saturation: { value: 12, unit: '%' },
+                timeBuffer: { value: 780, unit: 'min' }
+            },
+            {
+                id: 'reserve',
+                label: 'Reservekassetten',
+                status: 'Standby',
+                saturation: { value: 3, unit: '%' },
+                timeBuffer: { value: 1020, unit: 'min' }
+            }
+        ],
+        reserveAirMinutes: 640,
+        scrubberMarginMinutes: 180,
+        emergencyBufferMinutes: 240
+    }
+};
+
 export const SHIP_SYSTEMS = [
     {
         id: 'reactor',
@@ -74,7 +197,7 @@ export const SHIP_SYSTEMS = [
             beschreibung: 'Verantwortlich für Atmosphärenkontrolle, Temperatur und Recycling.',
             redundanz: 'Doppelt redundant',
             letzteWartung: 'Stardate 4521.4',
-            sensoren: ['CO₂-Level stabil', 'O₂-Level 20.9%', 'Feuchtigkeit 40%']
+            sensoren: ['O₂ Effizienz 98.6%', 'CO₂ Sättigung 27%', 'Sektionen 5/6 stabil']
         }
     },
     {
@@ -264,5 +387,6 @@ export const DEFAULT_SCENARIO = {
     randomEvents: RANDOM_EVENTS.map(event => ({
         ...event,
         impact: event.impact ? { ...event.impact } : undefined
-    }))
+    })),
+    lifeSupport: JSON.parse(JSON.stringify(LIFE_SUPPORT_STATUS))
 };
