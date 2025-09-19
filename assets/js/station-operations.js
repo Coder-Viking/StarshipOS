@@ -537,6 +537,7 @@ async function renderEngReactor(container) {
     const reactorNode = damageNodes.find((node) => node.id === 'tree-reactor');
     const injectorNode = damageNodes.find((node) => node.id === 'tree-injectors');
     const containmentNode = damageNodes.find((node) => node.id === 'tree-containment');
+    const powerMetrics = Array.isArray(scenarioData?.power?.metrics) ? scenarioData.power.metrics : [];
 
     const statusBody = createPanel(container, {
         title: 'Reaktorstatus',
@@ -595,6 +596,43 @@ async function renderEngReactor(container) {
         createMetric({ label: 'Kontrollstäbe', value: 42, unit: '%', status: 'normal', note: 'Einschubtiefe', min: 0, max: 100 })
     );
     statusBody.appendChild(metrics);
+
+    const energyBody = createPanel(container, {
+        title: 'Netzbelastung & Reserven',
+        description: 'Reaktorleistung gegenüber Gesamtnetzlast und Pufferkapazität kontrollieren.'
+    });
+
+    const prioritizedPowerMetrics = ['metric-total-load', 'metric-reserve', 'metric-buffer']
+        .map((metricId) => powerMetrics.find((metric) => metric.id === metricId))
+        .filter((metric) => metric && typeof metric.value === 'number');
+
+    const fallbackPowerMetrics = powerMetrics.filter((metric) => typeof metric?.value === 'number');
+    const selectedPowerMetrics = prioritizedPowerMetrics.length
+        ? prioritizedPowerMetrics
+        : fallbackPowerMetrics.slice(0, 3);
+
+    if (!selectedPowerMetrics.length) {
+        appendEmptyState(energyBody, 'Keine aktuellen Leistungskennzahlen verfügbar.');
+    } else {
+        const grid = document.createElement('div');
+        grid.className = 'operations-metric-grid';
+
+        selectedPowerMetrics.forEach((metric) => {
+            grid.appendChild(
+                createMetric({
+                    label: metric.label || metric.id || 'Kennzahl',
+                    value: metric.value ?? 0,
+                    unit: metric.unit || '',
+                    status: mapMetricStatus(metric.status),
+                    note: metric.note || undefined,
+                    min: metric.min ?? 0,
+                    max: metric.max ?? Math.max(metric.value ?? 0, 120)
+                })
+            );
+        });
+
+        energyBody.appendChild(grid);
+    }
 
     const controlBody = createPanel(container, {
         title: 'Betriebsmodi & Sequenzen',
@@ -1478,6 +1516,13 @@ async function renderEngDamage(container) {
 
     const damageControl = scenarioData?.damageControl ?? {};
     const lifeSupport = scenarioData?.lifeSupport ?? {};
+    const powerMetrics = Array.isArray(scenarioData?.power?.metrics)
+        ? scenarioData.power.metrics
+        : [];
+    const radiators = Array.isArray(scenarioData?.thermal?.radiators)
+        ? scenarioData.thermal.radiators
+        : [];
+    const thermalLoops = Array.isArray(scenarioData?.thermal?.loops) ? scenarioData.thermal.loops : [];
 
     const reports = Array.isArray(damageControl.reports) ? damageControl.reports : [];
     const systemNodes = flattenDamageNodes(damageControl.systems ?? []);
@@ -1489,6 +1534,97 @@ async function renderEngDamage(container) {
     const leaks = Array.isArray(lifeSupport.leaks) ? lifeSupport.leaks : [];
     const filters = lifeSupport?.filters ?? null;
     const filterBanks = Array.isArray(filters?.banks) ? filters.banks : [];
+
+    const overviewBody = createPanel(container, {
+        title: 'Maschinenraumlage',
+        description: 'Reaktorlast, Netzreserve und Wärmeabfuhr für Lageberichte der Schadenskontrolle.'
+    });
+
+    const overviewMetrics = [];
+
+    const addScenarioMetric = (metric) => {
+        if (!metric || typeof metric.value !== 'number') {
+            return;
+        }
+        overviewMetrics.push({
+            label: metric.label || metric.id || 'Kennzahl',
+            value: metric.value,
+            unit: metric.unit || '',
+            status: mapMetricStatus(metric.status),
+            note: metric.note || undefined,
+            min: metric.min ?? 0,
+            max: metric.max ?? Math.max(metric.value, 100)
+        });
+    };
+
+    const totalLoadMetric = powerMetrics.find((metric) => metric.id === 'metric-total-load');
+    const reserveMetric = powerMetrics.find((metric) => metric.id === 'metric-reserve');
+    const bufferMetric = powerMetrics.find((metric) => metric.id === 'metric-buffer');
+
+    addScenarioMetric(totalLoadMetric);
+    addScenarioMetric(reserveMetric);
+    addScenarioMetric(bufferMetric);
+
+    if (!overviewMetrics.length) {
+        powerMetrics.slice(0, 2).forEach(addScenarioMetric);
+    }
+
+    if (radiators.length) {
+        const hottestRadiator = radiators.reduce((currentMax, radiator) => {
+            const currentValue = toNumber(currentMax?.value) ?? -Infinity;
+            const candidateValue = toNumber(radiator?.value) ?? -Infinity;
+            return candidateValue > currentValue ? radiator : currentMax;
+        }, null);
+
+        if (hottestRadiator && toNumber(hottestRadiator.value) !== null) {
+            overviewMetrics.push({
+                label: hottestRadiator.label || hottestRadiator.name || 'Radiator',
+                value: toNumber(hottestRadiator.value) ?? 0,
+                unit: hottestRadiator.unit || '%',
+                status: mapMetricStatus(hottestRadiator.status),
+                note:
+                    hottestRadiator.note ||
+                    (hottestRadiator.route ? `Segment ${hottestRadiator.route}` : 'Höchste aktuelle Strahlungsleistung'),
+                min: hottestRadiator.min ?? 0,
+                max: hottestRadiator.max ?? 120
+            });
+        }
+    }
+
+    if (thermalLoops.length) {
+        const busiestLoop = thermalLoops.reduce((currentMax, loop) => {
+            const currentValue = toNumber(currentMax?.pump) ?? -Infinity;
+            const candidateValue = toNumber(loop?.pump) ?? -Infinity;
+            return candidateValue > currentValue ? loop : currentMax;
+        }, null);
+
+        if (busiestLoop && toNumber(busiestLoop.pump) !== null) {
+            const flowNote =
+                busiestLoop.flow != null
+                    ? `Durchfluss ${formatValue(busiestLoop.flow)} ${busiestLoop.flowUnit || 'l/min'}`
+                    : busiestLoop.note || undefined;
+            overviewMetrics.push({
+                label: busiestLoop.name || busiestLoop.id || 'Kühlkreislauf',
+                value: toNumber(busiestLoop.pump) ?? 0,
+                unit: busiestLoop.unit || '%',
+                status: mapMetricStatus(busiestLoop.status),
+                note: flowNote,
+                min: busiestLoop.min ?? 0,
+                max: busiestLoop.max ?? 110
+            });
+        }
+    }
+
+    if (!overviewMetrics.length) {
+        appendEmptyState(overviewBody, 'Keine laufenden Statusdaten für den Maschinenraum verfügbar.');
+    } else {
+        const grid = document.createElement('div');
+        grid.className = 'operations-metric-grid';
+        overviewMetrics.forEach((metric) => {
+            grid.appendChild(createMetric(metric));
+        });
+        overviewBody.appendChild(grid);
+    }
 
     const reportBody = createPanel(container, {
         title: 'Schadenmeldungen',
