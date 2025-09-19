@@ -10,6 +10,7 @@ import {
     calculateEta,
     secondsToETA
 } from './modules/utils.js';
+import { createPowerSystemModule } from './modules/powerSystem.js';
 import { Kernel } from './modules/kernel.js';
 
 /** === Szenario/Defaults === */
@@ -46,7 +47,8 @@ const initialState = {
     alert: 'green',
     navPlan: null,
     sensorReadings: [],
-    simulationPaused: false
+    simulationPaused: false,
+    selectedSystemId: null
 };
 
 const kernel = new Kernel(initialState, {
@@ -164,6 +166,7 @@ function resetInspector() {
     if (elements.inspectorBody) {
         elements.inspectorBody.innerHTML = elements.inspectorDefault ?? DEFAULT_INSPECTOR_MESSAGE;
     }
+    state.selectedSystemId = null;
 }
 
 /** === Kernel-Module (Zeit, Navigation, Random-Events) === */
@@ -259,6 +262,16 @@ function configureKernelModules() {
             context.locals.unsubscribe = [];
         }
     });
+
+    kernel.registerModule('power-system', createPowerSystemModule({
+        readDistribution: () => readPowerDistribution(),
+        syncDistribution: distribution => applyDistributionToSliders(distribution, { skipNotify: true }),
+        onAutoBalance: source => {
+            if (source === 'ui') {
+                addLog('log', 'Automatische Energieoptimierung eingeleitet.');
+            }
+        }
+    }));
 }
 
 /** === Rendering === */
@@ -299,6 +312,16 @@ function renderSystems() {
         card.addEventListener('click', () => showSystemDetails(system.id));
         elements.systemGrid.appendChild(card);
     });
+
+    if (state.selectedSystemId) {
+        const current = state.systems.find(sys => sys.id === state.selectedSystemId);
+        if (current) {
+            showSystemDetails(current.id);
+        } else {
+            state.selectedSystemId = null;
+            resetInspector();
+        }
+    }
 }
 
 function statusClass(status) {
@@ -326,6 +349,8 @@ function translateStatus(status) {
 function showSystemDetails(systemId) {
     const system = state.systems.find(sys => sys.id === systemId);
     if (!system || !elements.inspectorBody || !elements.inspectorStatus) return;
+
+    state.selectedSystemId = systemId;
 
     elements.inspectorStatus.textContent = translateStatus(system.status);
     elements.inspectorStatus.className = `status-pill ${statusClass(system.status)}`;
@@ -432,38 +457,59 @@ function updatePowerLabels() {
     });
 }
 
-function suggestPowerDistribution() {
-    const total = Array.from(elements.powerSliders).reduce((sum, slider) => sum + Number(slider.value), 0);
-    if (total !== 100) {
-        addLog('log', `Aktuelle Energieverteilung bei ${total}%. Automatischer Ausgleich wird vorbereitet.`);
-    }
-    const priorities = { engines: 0, shields: 0, weapons: 0, aux: 0 };
-    state.systems.forEach(system => {
-        if (system.id === 'engines') priorities.engines += 2;
-        if (system.id === 'shields') priorities.shields += 2;
-        if (system.id === 'weapons') priorities.weapons += 1;
-        if (!['engines', 'shields', 'weapons'].includes(system.id)) priorities.aux += 0.5;
-        if (system.status === 'warning') {
-            if (system.id === 'engines') priorities.engines += 1.5;
-            if (system.id === 'shields') priorities.shields += 1.5;
-            if (system.id === 'weapons') priorities.weapons += 1;
-            priorities.aux += 1;
+function readPowerDistribution() {
+    const distribution = {};
+    elements.powerSliders.forEach(slider => {
+        const key = slider.id.replace('power-', '');
+        distribution[key] = Number(slider.value);
+    });
+    return distribution;
+}
+
+function applyDistributionToSliders(distribution, { skipNotify = false } = {}) {
+    if (!distribution) return;
+    const sliders = Array.from(elements.powerSliders);
+    let changed = false;
+    sliders.forEach(slider => {
+        const key = slider.id.replace('power-', '');
+        if (Object.prototype.hasOwnProperty.call(distribution, key)) {
+            const nextValue = clamp(Number(distribution[key]), 0, 100);
+            if (Number(slider.value) !== nextValue) {
+                slider.value = nextValue;
+                changed = true;
+            }
         }
     });
-    const totalPriority = Object.values(priorities).reduce((acc, value) => acc + value, 0) || 1;
-    Object.entries(priorities).forEach(([key, value]) => {
-        const slider = document.getElementById(`power-${key}`);
-        if (slider) slider.value = Math.round((value / totalPriority) * 100);
-    });
-    normalizePowerSliders();
+    if (changed) {
+        normalizePowerSliders();
+    }
     updatePowerLabels();
-    addLog('log', 'Optimierte Energieverteilung angewendet. Bitte Systeme überwachen.');
+    if (!skipNotify) {
+        notifyPowerChange('sync');
+    }
+}
+
+function notifyPowerChange(source = 'manual') {
+    const distribution = readPowerDistribution();
+    kernel.emit('ui:power-adjusted', { distribution, source });
+}
+
+function suggestPowerDistribution() {
+    kernel.emit('power:request-balance', { source: 'ui' });
 }
 
 function normalizePowerSliders() {
     const sliders = Array.from(elements.powerSliders);
+    if (sliders.length === 0) {
+        return {};
+    }
     let total = sliders.reduce((sum, slider) => sum + Number(slider.value), 0);
-    if (total === 100) return;
+    if (total === 100) {
+        return sliders.reduce((acc, slider) => {
+            acc[slider.id.replace('power-', '')] = Number(slider.value);
+            return acc;
+        }, {});
+    }
 
     const difference = 100 - total;
     const adjustment = difference / sliders.length;
@@ -479,6 +525,12 @@ function normalizePowerSliders() {
         total = sliders.reduce((s, sl) => s + Number(sl.value), 0);
         index += 1;
     }
+
+    const distribution = {};
+    sliders.forEach(slider => {
+        distribution[slider.id.replace('power-', '')] = Number(slider.value);
+    });
+    return distribution;
 }
 
 /** === Navigation/Comms (szenario) === */
@@ -842,9 +894,9 @@ function toggleSimulation(paused) {
 function bindEvents() {
     elements.powerSliders.forEach(slider => {
         slider.addEventListener('input', () => {
-            updatePowerLabels();
             normalizePowerSliders();
             updatePowerLabels();
+            notifyPowerChange('manual');
         });
     });
     elements.balancePower?.addEventListener('click', suggestPowerDistribution);
@@ -977,6 +1029,8 @@ function initializeStateFromScenario(scenario, {
     updateAlertDisplay(state.alert);
     updateCrewStatus(state.alert);
 
+    kernel.emit('systems:reinitialized', { scenario });
+
     if (resetLogs && includeBootLog) addLog('log', 'StarshipOS betriebsbereit.');
     if (logMessage) addLog('log', logMessage);
 }
@@ -986,6 +1040,7 @@ async function init() {
     cacheDom();
     bindEvents();
     configureKernelModules();
+    registerKernelEventListeners();
 
     // Grundzustand anzeigen
     updateAlertDisplay(state.alert);
@@ -1000,6 +1055,7 @@ async function init() {
     kernel.startModule('timekeeping');
     kernel.startModule('navigation');
     kernel.startModule('random-events');
+    kernel.startModule('power-system');
 
     updatePowerLabels();
     performSensorScan();
@@ -1022,6 +1078,19 @@ async function init() {
     }
 
     kernel.boot();
+}
+
+function registerKernelEventListeners() {
+    kernel.on('systems:power-updated', () => {
+        renderSystems();
+        updatePowerLabels();
+    });
+
+    kernel.on('power:distribution-applied', ({ payload }) => {
+        if (payload?.source === 'manual') {
+            addLog('log', 'Manuelle Energieverteilung übernommen. Systeme beobachten.');
+        }
+    });
 }
 
 document.addEventListener('DOMContentLoaded', () => {
