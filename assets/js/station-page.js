@@ -1,5 +1,6 @@
 import { getStationById, getStationsByCategory } from './stations-data.js';
 import { resolveStationPaths } from './station-utils.js';
+import { renderOperationsForStation, hasOperationsRenderer } from './station-operations.js';
 
 function createListItems(container, items) {
     container.innerHTML = '';
@@ -39,6 +40,43 @@ function renderStation(stationId) {
     const htmlPath = document.getElementById('station-html');
     const jsModules = document.getElementById('station-js');
     const relatedList = document.getElementById('station-related');
+    let operationsIntro = document.getElementById('station-operations-description');
+    let operationsContainer = document.getElementById('station-operations');
+    const canRenderOperations = hasOperationsRenderer(station?.id);
+
+    if (canRenderOperations) {
+        if (!operationsContainer) {
+            const mainColumn = document.querySelector('.station-main .station-column');
+            if (mainColumn) {
+                const operationsCard = document.createElement('article');
+                operationsCard.className = 'station-card station-operations-card';
+                operationsCard.id = 'station-operations-card';
+
+                const operationsHeading = document.createElement('h2');
+                operationsHeading.textContent = 'Stationsbedienung';
+                operationsCard.appendChild(operationsHeading);
+
+                operationsIntro = document.createElement('p');
+                operationsIntro.id = 'station-operations-description';
+                operationsIntro.className = 'station-operations-intro';
+                operationsCard.appendChild(operationsIntro);
+
+                operationsContainer = document.createElement('div');
+                operationsContainer.id = 'station-operations';
+                operationsContainer.className = 'station-operations';
+                operationsCard.appendChild(operationsContainer);
+
+                mainColumn.appendChild(operationsCard);
+            }
+        }
+    } else if (operationsContainer) {
+        const operationsCard = operationsContainer.closest('.station-card');
+        if (operationsCard) {
+            operationsCard.remove();
+        }
+        operationsContainer = null;
+        operationsIntro = null;
+    }
 
     if (!station) {
         document.title = 'Station nicht gefunden | StarshipOS';
@@ -130,6 +168,13 @@ function renderStation(stationId) {
             }
             relatedList.appendChild(li);
         });
+    }
+
+    if (operationsIntro) {
+        operationsIntro.textContent = `Interaktive Bedienelemente und Anzeigen für ${station.name}.`;
+    }
+    if (operationsContainer) {
+        renderOperationsForStation(station, operationsContainer);
     }
 }
 
