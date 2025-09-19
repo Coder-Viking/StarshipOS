@@ -608,6 +608,293 @@ const FALLBACK_SCENARIO_DATA = {
             '04:46 - Warnung: Jitter 0,8% (innerhalb Limits)',
             '04:38 - Navigation meldet Kursfenster t+11 Minuten'
         ]
+    },
+    defense: {
+        shields: {
+            sectors: [
+                {
+                    id: 'shield-fore',
+                    label: 'Bug',
+                    arc: '000° – 060°',
+                    strength: 82,
+                    capacity: 115,
+                    status: 'warning',
+                    regen: 5.2,
+                    focus: 'Korsar Sigma',
+                    note: 'Trägt Hauptlast der Frontsalven.'
+                },
+                {
+                    id: 'shield-port',
+                    label: 'Backbord',
+                    arc: '060° – 180°',
+                    strength: 76,
+                    capacity: 110,
+                    status: 'normal',
+                    regen: 4.6,
+                    focus: 'Drohnen-Schwarm',
+                    note: 'Streuung durch Nebel reduziert Treffer.'
+                },
+                {
+                    id: 'shield-starboard',
+                    label: 'Steuerbord',
+                    arc: '180° – 300°',
+                    strength: 69,
+                    capacity: 108,
+                    status: 'warning',
+                    regen: 4.1,
+                    focus: 'Deckung Frachterkonvoi',
+                    note: 'Synchronisiert mit Eskortschiff Nova.'
+                },
+                {
+                    id: 'shield-aft',
+                    label: 'Heck',
+                    arc: '300° – 360°',
+                    strength: 88,
+                    capacity: 120,
+                    status: 'success',
+                    regen: 5.8,
+                    focus: 'Rückraum',
+                    note: 'Reserveleistung verfügbar.'
+                }
+            ],
+            reinforcement: {
+                modes: [
+                    {
+                        value: 'auto',
+                        label: 'Automatik',
+                        description: 'Sektoren werden anhand der Bedrohungsmatrix priorisiert.'
+                    },
+                    {
+                        value: 'manual',
+                        label: 'Manuell',
+                        description: 'Direkte Verteilung durch Bediencrew.'
+                    },
+                    {
+                        value: 'burst',
+                        label: 'Burst',
+                        description: 'Kurzfristige Verstärkung auf Kosten der Regeneration.'
+                    }
+                ],
+                currentMode: 'auto',
+                regenTarget: {
+                    id: 'shield-regen-target',
+                    label: 'Regenerationsziel',
+                    min: 40,
+                    max: 140,
+                    step: 5,
+                    value: 95,
+                    unit: '%',
+                    description: 'Vorsicht bei Werten über 120% – erhöhte Hitzeentwicklung.'
+                },
+                boosts: [
+                    {
+                        id: 'boost-fore',
+                        label: 'Frontverstärkung',
+                        min: 0,
+                        max: 35,
+                        step: 5,
+                        value: 20,
+                        unit: '%',
+                        status: 'warning',
+                        note: 'Korsar Sigma priorisiert.'
+                    },
+                    {
+                        id: 'boost-port',
+                        label: 'Backbordverstärkung',
+                        min: 0,
+                        max: 30,
+                        step: 5,
+                        value: 12,
+                        unit: '%',
+                        status: 'normal',
+                        note: 'Drohnen-Schwarm unter Kontrolle.'
+                    },
+                    {
+                        id: 'boost-starboard',
+                        label: 'Steuerbordverstärkung',
+                        min: 0,
+                        max: 30,
+                        step: 5,
+                        value: 8,
+                        unit: '%',
+                        status: 'normal',
+                        note: 'Reserve für Konvoiabschirmung.'
+                    }
+                ],
+                reserves: [
+                    {
+                        id: 'reserve-alpha',
+                        label: 'Reservebank Alpha',
+                        defaultChecked: true,
+                        tone: 'accent',
+                        description: 'Kernbank – hält Automatik aktiv.'
+                    },
+                    {
+                        id: 'reserve-beta',
+                        label: 'Reservebank Beta',
+                        defaultChecked: false,
+                        tone: 'warning',
+                        description: 'Verstärkt Burst-Modus für 90 Sekunden.'
+                    }
+                ]
+            },
+            walls: [
+                {
+                    id: 'wall-forward',
+                    label: 'Notwall Vorfeld',
+                    status: 'bereit',
+                    cooldown: '02:30',
+                    interlocks: [
+                        { id: 'wall-forward-tac', label: 'Taktik-Freigabe', status: 'aktiv' },
+                        { id: 'wall-forward-sec', label: 'Sicherheit', status: 'bereit' }
+                    ],
+                    note: 'Empfohlen bei Torpedosalven von Korsar Sigma.'
+                },
+                {
+                    id: 'wall-aft',
+                    label: 'Notwall Heck',
+                    status: 'standby',
+                    cooldown: '01:10',
+                    interlocks: [
+                        { id: 'wall-aft-tac', label: 'Taktik-Freigabe', status: 'bereit' },
+                        { id: 'wall-aft-sec', label: 'Sicherheit', status: 'bereit' }
+                    ],
+                    note: 'Reserviert für Rückzugsszenarien.'
+                }
+            ],
+            priorities: [
+                {
+                    id: 'priority-corsair',
+                    target: 'Korsar Sigma',
+                    priority: 'Hoch',
+                    alignment: 'Bug',
+                    note: 'Halte Frontverstärkung ≥ 20%'
+                },
+                {
+                    id: 'priority-drones',
+                    target: 'Drohnen-Schwarm Theta',
+                    priority: 'Mittel',
+                    alignment: 'Backbord',
+                    note: 'Koordiniere mit Punktverteidigung.'
+                },
+                {
+                    id: 'priority-convoy',
+                    target: 'Frachterkonvoi',
+                    priority: 'Schutz',
+                    alignment: 'Steuerbord',
+                    note: 'Abdeckung gegen Splittertreffer.'
+                }
+            ],
+            log: [
+                '05:20 - Verstärkung Bug auf 20% erhöht (Feuerleitkommando).',
+                '05:15 - Reservebank Alpha synchronisiert.',
+                '05:07 - Drohnen-Schwarm Beta abgewehrt; Sektor Backbord stabil.'
+            ]
+        },
+        hull: {
+            integrityMetrics: [
+                { label: 'Gesamtintegrität', value: 86, unit: '%', status: 'warning', note: 'Schwellwert 85%', min: 0, max: 100 },
+                { label: 'Sektion D5', value: 54, unit: '%', status: 'critical', note: 'EVA-Team aktiv', min: 0, max: 100 },
+                { label: 'Vibration RMS', value: 1.8, unit: ' g', status: 'normal', note: 'Grenze 2.5 g', min: 0, max: 5 }
+            ],
+            stressPoints: [
+                {
+                    id: 'stress-dorsal',
+                    label: 'Dorsaler Träger',
+                    status: 'warning',
+                    load: 68,
+                    resonance: 37,
+                    note: 'Sensor-Array Reparatur beeinflusst Steifigkeit.'
+                },
+                {
+                    id: 'stress-ventral',
+                    label: 'Ventraler Kiel',
+                    status: 'normal',
+                    load: 42,
+                    resonance: 18,
+                    note: 'Innerhalb Spezifikation.'
+                },
+                {
+                    id: 'stress-bow',
+                    label: 'Vorbug',
+                    status: 'warning',
+                    load: 61,
+                    resonance: 29,
+                    note: 'Manöverlasten aus Kurskorrektur.'
+                }
+            ],
+            bulkheads: [
+                {
+                    id: 'bulkhead-d5',
+                    location: 'Sektion D5',
+                    status: 'geschlossen',
+                    pressure: 98.6,
+                    pressureUnit: 'kPa',
+                    seal: 'versiegelt',
+                    note: 'Spurleck überwacht.'
+                },
+                {
+                    id: 'bulkhead-cargo',
+                    location: 'Frachtraum 2',
+                    status: 'verriegelt',
+                    pressure: 0,
+                    pressureUnit: 'kPa',
+                    seal: 'evakuiert',
+                    note: 'EVA-Einsatz aktiv.'
+                },
+                {
+                    id: 'bulkhead-hab',
+                    location: 'Habitat-Ring',
+                    status: 'offen',
+                    pressure: 101.0,
+                    pressureUnit: 'kPa',
+                    seal: 'normal',
+                    note: 'Regulärer Verkehr.'
+                }
+            ],
+            bracing: [
+                {
+                    id: 'brace-delta',
+                    label: 'Verstrebung Delta',
+                    engaged: true,
+                    tone: 'warning',
+                    description: 'Hält Patch in Sektion D5 stabil.'
+                },
+                {
+                    id: 'brace-epsilon',
+                    label: 'Verstrebung Epsilon',
+                    engaged: false,
+                    tone: 'accent',
+                    description: 'Bereit für Vorbug.'
+                },
+                {
+                    id: 'brace-beta',
+                    label: 'Verstrebung Beta',
+                    engaged: true,
+                    tone: 'success',
+                    description: 'Sichert Cargo-Rahmen.'
+                }
+            ],
+            resonanceAlerts: [
+                {
+                    id: 'alert-dorsal',
+                    frequency: '12.4 Hz',
+                    severity: 'major',
+                    recommendation: 'Trägheitsdämpfer feinjustieren, Kursänderungen < 5° halten.'
+                },
+                {
+                    id: 'alert-keel',
+                    frequency: '7.9 Hz',
+                    severity: 'moderate',
+                    recommendation: 'Zusatzdämpfer Gamma aktivieren falls Last > 70%.'
+                }
+            ],
+            log: [
+                '05:18 - Notstütze Delta installiert, Belastung stabilisiert.',
+                '05:10 - Schott D5 geschlossen, Druckverlust gestoppt.',
+                '04:52 - Vibrationen Kiel im Rahmen, Monitoring fortsetzen.'
+            ]
+        }
     }
 };
 
@@ -655,7 +942,8 @@ function parseScenarioXml(xmlText) {
         power: parseEngineeringPower(doc),
         thermal: parseEngineeringThermal(doc),
         propulsion: parseEngineeringPropulsion(doc),
-        ftl: parseEngineeringFtl(doc)
+        ftl: parseEngineeringFtl(doc),
+        defense: parseDefense(doc)
     };
 }
 
@@ -1065,6 +1353,159 @@ function parseEngineeringFtl(doc) {
     const abortLog = parseLogEntries(ftlRoot.querySelectorAll('abortLog > entry'));
 
     return { charge, target, stabilityMetrics, stabilityLog, interlocks, abortPlaceholder, abortLog };
+}
+
+function parseDefense(doc) {
+    const defenseRoot = doc.querySelector('scenario > defense');
+    if (!defenseRoot) {
+        return { shields: null, hull: null };
+    }
+
+    return {
+        shields: parseDefenseShields(findChild(defenseRoot, 'shields')),
+        hull: parseDefenseHull(findChild(defenseRoot, 'hull'))
+    };
+}
+
+function parseDefenseShields(shieldsRoot) {
+    if (!shieldsRoot) {
+        return null;
+    }
+
+    const sectors = Array.from(shieldsRoot.querySelectorAll('sectors > sector')).map((sectorEl) => ({
+        id: sectorEl.getAttribute('id') || null,
+        label: sectorEl.getAttribute('label') || sectorEl.getAttribute('name') || '',
+        arc: sectorEl.getAttribute('arc') || '',
+        strength: toNumber(sectorEl.getAttribute('strength')),
+        capacity: toNumber(sectorEl.getAttribute('capacity')),
+        status: safeLower(sectorEl.getAttribute('status')),
+        regen: toNumber(sectorEl.getAttribute('regen')),
+        focus: sectorEl.getAttribute('focus') || '',
+        note: getChildText(sectorEl, 'note') || ''
+    }));
+
+    const reinforcementRoot = findChild(shieldsRoot, 'reinforcement');
+    const reinforcement = reinforcementRoot
+        ? {
+              modes: Array.from(reinforcementRoot.querySelectorAll('mode')).map((modeEl) => ({
+                  value: modeEl.getAttribute('value') || modeEl.getAttribute('id') || '',
+                  label: modeEl.getAttribute('label') || modeEl.getAttribute('name') || '',
+                  description: modeEl.getAttribute('description') || getChildText(modeEl, 'description') || ''
+              })),
+              currentMode: reinforcementRoot.getAttribute('current') || reinforcementRoot.getAttribute('mode') || '',
+              regenTarget: (() => {
+                  const targetEl = reinforcementRoot.querySelector('regenTarget');
+                  if (!targetEl) {
+                      return null;
+                  }
+                  return {
+                      id: targetEl.getAttribute('id') || null,
+                      label: targetEl.getAttribute('label') || '',
+                      min: toNumber(targetEl.getAttribute('min')),
+                      max: toNumber(targetEl.getAttribute('max')),
+                      step: toNumber(targetEl.getAttribute('step')),
+                      value: toNumber(targetEl.getAttribute('value')),
+                      unit: targetEl.getAttribute('unit') || '%',
+                      description: targetEl.getAttribute('description') || getChildText(targetEl, 'description') || ''
+                  };
+              })(),
+              boosts: Array.from(reinforcementRoot.querySelectorAll('boost')).map((boostEl) => ({
+                  id: boostEl.getAttribute('id') || null,
+                  label: boostEl.getAttribute('label') || '',
+                  min: toNumber(boostEl.getAttribute('min')),
+                  max: toNumber(boostEl.getAttribute('max')),
+                  step: toNumber(boostEl.getAttribute('step')),
+                  value: toNumber(boostEl.getAttribute('value')),
+                  unit: boostEl.getAttribute('unit') || '%',
+                  status: safeLower(boostEl.getAttribute('status')),
+                  note: getChildText(boostEl, 'note') || ''
+              })),
+              reserves: Array.from(reinforcementRoot.querySelectorAll('reserve')).map((reserveEl) => ({
+                  id: reserveEl.getAttribute('id') || null,
+                  label: reserveEl.getAttribute('label') || '',
+                  defaultChecked: parseBoolean(
+                      reserveEl.getAttribute('defaultChecked') ||
+                          reserveEl.getAttribute('enabled') ||
+                          reserveEl.getAttribute('active')
+                  ),
+                  tone: safeLower(reserveEl.getAttribute('tone')) || 'default',
+                  description: reserveEl.getAttribute('description') || getChildText(reserveEl, 'description') || ''
+              }))
+          }
+        : null;
+
+    const walls = Array.from(shieldsRoot.querySelectorAll('walls > wall')).map((wallEl) => ({
+        id: wallEl.getAttribute('id') || null,
+        label: wallEl.getAttribute('label') || '',
+        status: safeLower(wallEl.getAttribute('status')),
+        cooldown: wallEl.getAttribute('cooldown') || '',
+        interlocks: Array.from(wallEl.querySelectorAll('interlock')).map((interlockEl) => ({
+            id: interlockEl.getAttribute('id') || null,
+            label: interlockEl.getAttribute('label') || '',
+            status: safeLower(interlockEl.getAttribute('status'))
+        })),
+        note: getChildText(wallEl, 'note') || ''
+    }));
+
+    const priorities = Array.from(shieldsRoot.querySelectorAll('priorities > priority')).map((priorityEl) => ({
+        id: priorityEl.getAttribute('id') || null,
+        target: priorityEl.getAttribute('target') || '',
+        priority: priorityEl.getAttribute('priority') || priorityEl.getAttribute('level') || '',
+        alignment: priorityEl.getAttribute('alignment') || priorityEl.getAttribute('sector') || '',
+        note: getChildText(priorityEl, 'note') || ''
+    }));
+
+    const log = parseLogEntries(shieldsRoot.querySelectorAll('log > entry'));
+
+    return { sectors, reinforcement, walls, priorities, log };
+}
+
+function parseDefenseHull(hullRoot) {
+    if (!hullRoot) {
+        return null;
+    }
+
+    const integrityMetrics = Array.from(hullRoot.querySelectorAll('integrity > metric'))
+        .map((metricEl) => parseMetricElement(metricEl))
+        .filter(Boolean);
+
+    const stressPoints = Array.from(hullRoot.querySelectorAll('stressPoints > point')).map((pointEl) => ({
+        id: pointEl.getAttribute('id') || null,
+        label: pointEl.getAttribute('label') || pointEl.getAttribute('name') || '',
+        status: safeLower(pointEl.getAttribute('status')),
+        load: toNumber(pointEl.getAttribute('load')),
+        resonance: toNumber(pointEl.getAttribute('resonance')),
+        note: getChildText(pointEl, 'note') || ''
+    }));
+
+    const bulkheads = Array.from(hullRoot.querySelectorAll('bulkheads > bulkhead')).map((bulkheadEl) => ({
+        id: bulkheadEl.getAttribute('id') || null,
+        location: bulkheadEl.getAttribute('location') || bulkheadEl.getAttribute('name') || '',
+        status: safeLower(bulkheadEl.getAttribute('status')),
+        pressure: toNumber(bulkheadEl.getAttribute('pressure')),
+        pressureUnit: bulkheadEl.getAttribute('pressureUnit') || bulkheadEl.getAttribute('pressureunit') || 'kPa',
+        seal: bulkheadEl.getAttribute('seal') || '',
+        note: getChildText(bulkheadEl, 'note') || ''
+    }));
+
+    const bracing = Array.from(hullRoot.querySelectorAll('bracing > brace')).map((braceEl) => ({
+        id: braceEl.getAttribute('id') || null,
+        label: braceEl.getAttribute('label') || braceEl.getAttribute('name') || '',
+        engaged: parseBoolean(braceEl.getAttribute('engaged') || braceEl.getAttribute('active')),
+        tone: safeLower(braceEl.getAttribute('tone')) || 'default',
+        description: braceEl.getAttribute('description') || getChildText(braceEl, 'description') || ''
+    }));
+
+    const resonanceAlerts = Array.from(hullRoot.querySelectorAll('resonanceAlerts > alert')).map((alertEl) => ({
+        id: alertEl.getAttribute('id') || null,
+        frequency: alertEl.getAttribute('frequency') || '',
+        severity: safeLower(alertEl.getAttribute('severity')),
+        recommendation: getChildText(alertEl, 'recommendation') || alertEl.getAttribute('recommendation') || ''
+    }));
+
+    const log = parseLogEntries(hullRoot.querySelectorAll('log > entry'));
+
+    return { integrityMetrics, stressPoints, bulkheads, bracing, resonanceAlerts, log };
 }
 
 function parseDamageNode(nodeEl) {

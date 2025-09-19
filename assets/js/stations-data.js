@@ -347,7 +347,7 @@ export const STATION_DEFINITIONS = [
         ],
         locality: 'Bedienung in Verteidigungszentrale oder CIC, Remote nur begrenzt',
         htmlPath: 'def/shields/',
-        jsModules: ['assets/js/stations-data.js', 'assets/js/station-page.js']
+        jsModules: ['assets/js/stations-data.js', 'assets/js/station-page.js', 'assets/js/station-operations.js']
     },
     {
         id: 'def-hull',
@@ -374,7 +374,7 @@ export const STATION_DEFINITIONS = [
         ],
         locality: 'Verteidigungszentrum oder Maschinenraumüberwachung',
         htmlPath: 'def/hull/',
-        jsModules: ['assets/js/stations-data.js', 'assets/js/station-page.js']
+        jsModules: ['assets/js/stations-data.js', 'assets/js/station-page.js', 'assets/js/station-operations.js']
     },
     {
         id: 'cic-tracks',
