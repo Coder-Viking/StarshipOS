@@ -156,6 +156,153 @@
                 <bank id="reserve" label="Reservekassetten" status="Standby" saturation="3" saturationUnit="%" timeBuffer="1020" timeBufferUnit="min" />
             </filters>
         </lifeSupport>
+        <engineering>
+            <power>
+                <distribution>
+                    <bus id="power-shields" name="Schilde" value="32" max="45" status="Gefechtsbereit" tone="accent">
+                        <note>Quadrant Beta priorisiert</note>
+                    </bus>
+                    <bus id="power-weapons" name="Waffen" value="26" max="40" status="Ladezyklen stabil" tone="warning">
+                        <note>Reservebus gekoppelt</note>
+                    </bus>
+                    <bus id="power-life" name="Lebenserhaltung" value="12" max="20" status="Nominal" tone="success">
+                        <note>Versorgung Habitat-Ring</note>
+                    </bus>
+                    <bus id="power-eng" name="Engineering Hilfssysteme" value="18" max="25" status="Überwacht" tone="warning">
+                        <note>Aux-Kühlpumpen aktiv</note>
+                    </bus>
+                </distribution>
+                <profiles>
+                    <profile id="profile-cruise" label="Reise (Cruise)">
+                        <description>Stabile Schilde, Fokus auf Lebenserhaltung.</description>
+                    </profile>
+                    <profile id="profile-battle" label="Gefecht" active="true">
+                        <description>Waffen- und Schildleistung priorisieren.</description>
+                    </profile>
+                    <profile id="profile-emergency" label="Notfall">
+                        <description>Lebenserhaltung + Reaktorsicherheit, Rest minimal.</description>
+                    </profile>
+                </profiles>
+                <circuits>
+                    <circuit id="shed-weapons" label="Sekundäre Waffenbanken" enabled="true" tone="warning">
+                        <note>Wird bei Brownout automatisch getrennt.</note>
+                    </circuit>
+                    <circuit id="shed-labs" label="Wissenschaftslabore" enabled="false">
+                        <note>Kann bei längerem Gefecht entkoppelt werden.</note>
+                    </circuit>
+                    <circuit id="shed-hydroponics" label="Hydroponik-Cluster" enabled="false" tone="danger">
+                        <note>Nur im äußersten Notfall deaktivieren.</note>
+                    </circuit>
+                </circuits>
+                <metrics>
+                    <metric id="metric-total-load" label="Gesamtverbrauch" value="87" unit="%" status="warning" note="Schwellwert 90" min="0" max="120" />
+                    <metric id="metric-reserve" label="Reserveleistung" value="14" unit="%" status="critical" note="Unter Soll 18" min="0" max="40" />
+                    <metric id="metric-buffer" label="Pufferkapazität" value="62" unit="%" status="normal" note="Batteriedecks" min="0" max="100" />
+                </metrics>
+                <log>
+                    <entry>05:18 - Brownout-Warnung Deck 4 behoben</entry>
+                    <entry>05:02 - Reservebank 2 geladen (82%)</entry>
+                    <entry>04:47 - Verteiler 7A neu kalibriert</entry>
+                </log>
+            </power>
+            <thermal>
+                <radiators>
+                    <radiator id="rad-alpha" label="Radiator Alpha" value="68" status="warning">
+                        <note>Sonnenexposition hoch</note>
+                    </radiator>
+                    <radiator id="rad-beta" label="Radiator Beta" value="54" status="normal">
+                        <note>Nominal</note>
+                    </radiator>
+                    <radiator id="rad-gamma" label="Radiator Gamma" value="73" status="warning">
+                        <note>Kühlmittelkreislauf prüfen</note>
+                    </radiator>
+                    <radiator id="rad-delta" label="Radiator Delta" value="49" status="normal">
+                        <note>Reserve aktiv</note>
+                    </radiator>
+                </radiators>
+                <loops>
+                    <loop id="loop-primary" label="Primärer Kernkreislauf" pump="76" flow="540" flowUnit="l/min">
+                        <note>Ventil 4 offen</note>
+                    </loop>
+                    <loop id="loop-secondary" label="Sekundärkreislauf" pump="64" flow="410" flowUnit="l/min">
+                        <note>Reserve-Radiator gekoppelt</note>
+                    </loop>
+                    <loop id="loop-aux" label="Auxiliar / Lebenserhaltung" pump="58" flow="320" flowUnit="l/min">
+                        <note>Temperatur stabil</note>
+                    </loop>
+                </loops>
+                <emergencyChecklist>
+                    <item id="venting-ready" label="Radiatoren entfalten / venten vorbereitet" checked="true" />
+                    <item id="heatsinks-arm" label="Heat-Sink-Module geladen">
+                        <note>Letzte Ladung: 28 min</note>
+                    </item>
+                    <item id="purge-lines" label="Kühlmittelleitungen gespült" />
+                    <item id="emergency-fans" label="Notlüfter in Bereitschaft" />
+                </emergencyChecklist>
+                <log>
+                    <entry>05:12 - Radiator Beta wieder im grünen Bereich</entry>
+                    <entry>04:58 - Warnung: Radiator Gamma 72% Last</entry>
+                    <entry>04:41 - Kühlkreislauf Auxiliar entlüftet</entry>
+                </log>
+            </thermal>
+            <propulsion>
+                <throttle id="propulsion-throttle" label="Hauptschub" min="0" max="110" step="5" value="72" unit="%">
+                    <description>Maximale Dauerlast 95%, Nachbrenner bis 110%.</description>
+                </throttle>
+                <deltaV label="Verfügbares Delta-V" value="4.6" unit=" km/s" status="normal" note="Berechnet mit aktueller Masse" min="0" max="12" />
+                <vector>
+                    <axis id="vector-pitch" label="Pitch" min="-30" max="30" step="1" value="2" unit="°" />
+                    <axis id="vector-yaw" label="Yaw" min="-30" max="30" step="1" value="-1" unit="°" />
+                    <axis id="vector-roll" label="Roll" min="-15" max="15" step="1" value="0" unit="°" />
+                </vector>
+                <thrusters>
+                    <thruster id="fore-port" name="Bug • Backbord" active="true" status="Bereit" tone="success" />
+                    <thruster id="fore-starboard" name="Bug • Steuerbord" active="true" status="Bereit" tone="success" />
+                    <thruster id="aft-port" name="Heck • Backbord" active="true" status="Bereit" tone="success" />
+                    <thruster id="aft-starboard" name="Heck • Steuerbord" active="false" status="Service nötig" tone="warning" />
+                    <thruster id="ventral" name="Ventral Cluster" active="true" status="Überwacht" tone="warning" />
+                    <thruster id="dorsal" name="Dorsal Cluster" active="true" status="Bereit" tone="success" />
+                </thrusters>
+                <checklist>
+                    <item id="prop-prime" label="Triebwerke auf Bereitschaft gebracht" checked="true" />
+                    <item id="prop-balance" label="Massenausgleich geprüft">
+                        <note>Cargo bestätigt</note>
+                    </item>
+                    <item id="prop-flightplan" label="Flight-Command bestätigt Manöverfenster" />
+                </checklist>
+            </propulsion>
+            <ftl>
+                <charge label="Aktuelle Ladung" value="62" unit="%" status="warning" note="Sprungbereit ab 95%" min="0" max="100" />
+                <target id="ftl-charge-target" label="Ladeziel" min="80" max="100" step="1" value="95" unit="%" />
+                <stabilityMetrics>
+                    <metric id="stability-field" label="Feldstabilität" value="91" unit="%" status="normal" note="Nominal" min="0" max="100" />
+                    <metric id="stability-jitter" label="Jitter" value="0.6" unit="%" status="warning" note="Grenze 0,8%" min="0" max="3" />
+                    <metric id="stability-struct" label="Strukturbelastung" value="38" unit="%" status="normal" note="Innerhalb Limits" min="0" max="100" />
+                </stabilityMetrics>
+                <stabilityLog>
+                    <entry>05:09 - Navigationsdaten bestätigt</entry>
+                    <entry>05:03 - Feldkalibrierung abgeschlossen</entry>
+                    <entry>04:55 - Sicherheitsinterlock erfolgreich getestet</entry>
+                </stabilityLog>
+                <interlocks>
+                    <interlock id="ftl-lock-captain" label="Captain-Freigabe" defaultChecked="true" tone="accent">
+                        <description>Bestätigung via Brücke</description>
+                    </interlock>
+                    <interlock id="ftl-lock-engineer" label="Chefingenieur" defaultChecked="true" tone="success">
+                        <description>Reaktorleistung gesichert</description>
+                    </interlock>
+                    <interlock id="ftl-lock-navigation" label="Navigation" defaultChecked="false" tone="warning">
+                        <description>Sprungfenster noch in Berechnung</description>
+                    </interlock>
+                </interlocks>
+                <abortPlaceholder>z. B. Signaturanstieg, Kursabweichung, Crew-Feedback</abortPlaceholder>
+                <abortLog>
+                    <entry>04:50 - Sicherheitscheckliste abgeschlossen</entry>
+                    <entry>04:46 - Warnung: Jitter 0,8% (innerhalb Limits)</entry>
+                    <entry>04:38 - Navigation meldet Kursfenster t+11 Minuten</entry>
+                </abortLog>
+            </ftl>
+        </engineering>
     </ship>
     <sectors>
         <sector id="alpha" name="Alpha Quadrant" defaultCoords="A-12-17" baseEta="38" />
