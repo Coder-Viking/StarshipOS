@@ -1,6 +1,7 @@
 import { loadScenarioData } from './station-scenario.js';
 
 const OPERATIONS_RENDERERS = {
+    'bridge-command': renderBridgeCommand,
     'eng-reactor': renderEngReactor,
     'eng-power': renderEngPower,
     'eng-thermal': renderEngThermal,
@@ -468,6 +469,7 @@ const METRIC_STATUS_MAP = {
     offline: 'danger',
     idle: 'accent',
     standby: 'accent',
+    active: 'accent',
     stabil: 'success',
     'überwachung': 'warning',
     aktiv: 'accent',
@@ -523,6 +525,568 @@ function flattenDamageNodes(nodes, parentName = null) {
         const children = Array.isArray(node.children) ? node.children : [];
         return [entry, ...flattenDamageNodes(children, node.name || parentName)];
     });
+}
+
+async function renderBridgeCommand(container) {
+    let scenarioData = null;
+    try {
+        scenarioData = await loadScenarioData();
+    } catch (error) {
+        console.error('Fehler beim Laden der Szenariodaten für Kommandopult:', error);
+    }
+
+    const commandData = scenarioData?.command ?? {};
+    const alert = commandData.alert ?? {};
+    const mission = commandData.mission ?? {};
+    const authorizations = Array.isArray(commandData.authorizations) ? commandData.authorizations : [];
+    const macros = Array.isArray(commandData.macros) ? commandData.macros : [];
+    const directives = Array.isArray(commandData.directives) ? commandData.directives : [];
+    const commandLog = Array.isArray(commandData.log) ? commandData.log : [];
+
+    const alertBody = createPanel(container, {
+        title: 'Alarmstatus & Bereitschaft',
+        description: 'Alarmstufen verwalten, Bereitschaft bestätigen und Lageeinschätzungen kommunizieren.'
+    });
+
+    const states = Array.isArray(alert.states) ? alert.states : [];
+    const currentStateKey = safeLower(alert.currentState);
+    const currentState = states.find((state) => safeLower(state.id) === currentStateKey) || null;
+    let alertHasContent = false;
+
+    if (currentState || alert.lastChange || alert.elapsed || alert.recommendation) {
+        const summary = document.createElement('div');
+        summary.className = 'command-alert-summary';
+
+        if (currentState) {
+            const badgeRow = document.createElement('div');
+            badgeRow.className = 'command-alert-summary__badge-row';
+
+            const label = document.createElement('span');
+            label.className = 'command-alert-summary__label';
+            label.textContent = 'Aktive Alarmstufe';
+            badgeRow.appendChild(label);
+
+            badgeRow.appendChild(
+                createStatusBadge({
+                    label: currentState.label || alert.currentState || 'Alarmstufe',
+                    tone: currentState.tone || 'accent'
+                })
+            );
+            summary.appendChild(badgeRow);
+
+            if (currentState.summary) {
+                const summaryText = document.createElement('p');
+                summaryText.className = 'command-alert-summary__text';
+                summaryText.textContent = currentState.summary;
+                summary.appendChild(summaryText);
+            }
+        }
+
+        const metaParts = [];
+        if (alert.lastChange) {
+            metaParts.push(`Letzte Änderung ${alert.lastChange}`);
+        }
+        if (alert.elapsed) {
+            metaParts.push(`Aktiv seit ${alert.elapsed}`);
+        }
+        if (alert.countdown) {
+            metaParts.push(`Nächste Bewertung in ${alert.countdown}`);
+        }
+
+        if (metaParts.length) {
+            const meta = document.createElement('p');
+            meta.className = 'command-alert-summary__meta';
+            meta.textContent = metaParts.join(' • ');
+            summary.appendChild(meta);
+        }
+
+        if (alert.recommendation) {
+            const recommendation = document.createElement('p');
+            recommendation.className = 'command-alert-summary__recommendation';
+            recommendation.textContent = alert.recommendation;
+            summary.appendChild(recommendation);
+        }
+
+        alertBody.appendChild(summary);
+        alertHasContent = true;
+    }
+
+    if (states.length) {
+        const selector = createRadioGroup({
+            name: 'command-alert-state',
+            label: 'Alarmstufe wählen',
+            options: states.map((state) => ({
+                value: state.id || state.label || '',
+                label: state.label || state.id || 'Alarmstufe',
+                description: state.summary || ''
+            })),
+            defaultValue: currentState?.id || alert.currentState
+        });
+        selector.classList.add('command-alert-selector');
+        alertBody.appendChild(selector);
+
+        const grid = document.createElement('div');
+        grid.className = 'command-alert-states';
+
+        states.forEach((state) => {
+            const card = document.createElement('div');
+            card.className = 'command-alert-state';
+
+            const header = document.createElement('div');
+            header.className = 'command-alert-state__header';
+
+            const title = document.createElement('span');
+            title.className = 'command-alert-state__title';
+            title.textContent = state.label || state.id || 'Alarmstufe';
+            header.appendChild(title);
+
+            const isActive = safeLower(state.id) === currentStateKey;
+            header.appendChild(
+                createStatusBadge({
+                    label: isActive ? 'Aktiv' : 'Bereit',
+                    tone: isActive ? state.tone || 'accent' : 'default'
+                })
+            );
+            card.appendChild(header);
+
+            if (state.summary) {
+                const summary = document.createElement('p');
+                summary.className = 'command-alert-state__summary';
+                summary.textContent = state.summary;
+                card.appendChild(summary);
+            }
+
+            const metaParts = [];
+            if (state.security) {
+                metaParts.push(state.security);
+            }
+            if (state.power) {
+                metaParts.push(state.power);
+            }
+            if (state.communications) {
+                metaParts.push(state.communications);
+            }
+            if (metaParts.length) {
+                const meta = document.createElement('p');
+                meta.className = 'command-alert-state__meta';
+                meta.textContent = metaParts.join(' • ');
+                card.appendChild(meta);
+            }
+
+            if (Array.isArray(state.actions) && state.actions.length) {
+                const actionsList = document.createElement('ul');
+                actionsList.className = 'command-alert-state__actions';
+                state.actions.forEach((action) => {
+                    const item = document.createElement('li');
+                    item.textContent = action;
+                    actionsList.appendChild(item);
+                });
+                card.appendChild(actionsList);
+            }
+
+            if (state.note) {
+                const note = document.createElement('p');
+                note.className = 'command-alert-state__note';
+                note.textContent = state.note;
+                card.appendChild(note);
+            }
+
+            grid.appendChild(card);
+        });
+
+        alertBody.appendChild(grid);
+        alertHasContent = true;
+    }
+
+    const acknowledgements = Array.isArray(alert.acknowledgements) ? alert.acknowledgements : [];
+    if (acknowledgements.length) {
+        const ackList = document.createElement('div');
+        ackList.className = 'operations-control-list';
+
+        acknowledgements.forEach((ack, index) => {
+            const control = createToggleControl({
+                id: ack.id || `command-ack-${index}`,
+                label: ack.label || ack.id || 'Bestätigung',
+                defaultChecked: Boolean(ack.acknowledged),
+                description: ack.note || '',
+                tone: ack.tone || 'accent'
+            });
+
+            if (ack.timestamp) {
+                const meta = document.createElement('p');
+                meta.className = 'command-acknowledgement-meta';
+                meta.textContent = `Zeitstempel ${ack.timestamp}`;
+                control.appendChild(meta);
+            }
+
+            ackList.appendChild(control);
+        });
+
+        alertBody.appendChild(ackList);
+        alertHasContent = true;
+    }
+
+    if (alertHasContent) {
+        alertBody.appendChild(
+            createButtonRow([
+                { label: 'Alarmstufe bestätigen' },
+                { label: 'Crew informieren', tone: 'ghost' }
+            ])
+        );
+    } else {
+        appendEmptyState(alertBody, 'Keine Alarmdaten verfügbar.');
+    }
+
+    const missionBody = createPanel(container, {
+        title: 'Missionslage & Prioritäten',
+        description: 'Ziele priorisieren, Entscheidungen vorbereiten und Fortschritt verfolgen.'
+    });
+
+    let missionHasContent = false;
+    if (mission.name || mission.phase || mission.summary) {
+        const header = document.createElement('div');
+        header.className = 'command-mission-header';
+
+        if (mission.name) {
+            const title = document.createElement('strong');
+            title.textContent = mission.name;
+            header.appendChild(title);
+        }
+        if (mission.phase) {
+            const phase = document.createElement('span');
+            phase.textContent = mission.phase;
+            header.appendChild(phase);
+        }
+        if (mission.summary) {
+            const summary = document.createElement('p');
+            summary.className = 'command-mission-summary';
+            summary.textContent = mission.summary;
+            header.appendChild(summary);
+        }
+
+        missionBody.appendChild(header);
+        missionHasContent = true;
+    }
+
+    const objectives = Array.isArray(mission?.objectives) ? mission.objectives : [];
+    if (objectives.length) {
+        const grid = document.createElement('div');
+        grid.className = 'operations-metric-grid';
+
+        objectives.forEach((objective) => {
+            const noteParts = [];
+            if (objective.priority) {
+                noteParts.push(`Priorität ${objective.priority}`);
+            }
+            if (objective.owner) {
+                noteParts.push(objective.owner);
+            }
+            if (objective.deadline) {
+                noteParts.push(objective.deadline);
+            }
+            if (objective.note) {
+                noteParts.push(objective.note);
+            }
+
+            grid.appendChild(
+                createMetric({
+                    label: objective.label || objective.id || 'Ziel',
+                    value: toNumber(objective.progress) ?? 0,
+                    unit: '%',
+                    status: mapMetricStatus(objective.status),
+                    note: noteParts.join(' • ') || undefined,
+                    min: 0,
+                    max: 100
+                })
+            );
+        });
+
+        missionBody.appendChild(grid);
+        missionHasContent = true;
+    }
+
+    const decisions = Array.isArray(mission?.decisions) ? mission.decisions : [];
+    if (decisions.length) {
+        const table = document.createElement('table');
+        table.className = 'operations-table command-decisions-table';
+
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        ['Entscheidung', 'Verantwortlich', 'Fällig', 'Status'].forEach((headerLabel) => {
+            const th = document.createElement('th');
+            th.textContent = headerLabel;
+            headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        decisions.forEach((decision) => {
+            const row = document.createElement('tr');
+
+            const labelCell = document.createElement('td');
+            const title = document.createElement('strong');
+            title.textContent = decision.label || decision.id || 'Entscheidung';
+            labelCell.appendChild(title);
+            if (decision.note) {
+                const note = document.createElement('small');
+                note.textContent = decision.note;
+                labelCell.appendChild(note);
+            }
+            row.appendChild(labelCell);
+
+            const ownerCell = document.createElement('td');
+            ownerCell.textContent = decision.owner || '—';
+            row.appendChild(ownerCell);
+
+            const dueCell = document.createElement('td');
+            dueCell.textContent = decision.due || '—';
+            row.appendChild(dueCell);
+
+            const statusCell = document.createElement('td');
+            statusCell.appendChild(
+                createStatusBadge(getStatusInfo(decision.status, { fallbackLabel: decision.status || 'Status' }))
+            );
+            row.appendChild(statusCell);
+
+            tbody.appendChild(row);
+        });
+
+        table.appendChild(tbody);
+        missionBody.appendChild(table);
+        missionHasContent = true;
+    }
+
+    if (missionHasContent) {
+        missionBody.appendChild(
+            createButtonRow([
+                { label: 'Prioritäten aktualisieren' },
+                { label: 'Lage an Crew senden', tone: 'ghost' }
+            ])
+        );
+    } else {
+        appendEmptyState(missionBody, 'Keine Missionsdaten vorhanden.');
+    }
+
+    const authBody = createPanel(container, {
+        title: 'Globale Freigaben & Sperren',
+        description: 'Systemfreigaben verwalten und Verantwortlichkeiten dokumentieren.'
+    });
+
+    if (!authorizations.length) {
+        appendEmptyState(authBody, 'Keine Freigaben konfiguriert.');
+    } else {
+        const list = document.createElement('div');
+        list.className = 'operations-control-list';
+
+        authorizations.forEach((auth, index) => {
+            const description =
+                auth.note ||
+                (Array.isArray(auth.requires) && auth.requires.length
+                    ? `Erfordert: ${auth.requires.join(', ')}`
+                    : '');
+            const control = createToggleControl({
+                id: auth.id || `command-authorization-${index}`,
+                label: auth.label || auth.id || 'Freigabe',
+                defaultChecked: Boolean(auth.granted),
+                description,
+                tone: auth.tone || 'accent'
+            });
+
+            if (auth.status) {
+                const statusBadge = createStatusBadge(
+                    getStatusInfo(auth.status, { fallbackLabel: auth.status || 'Status' })
+                );
+                statusBadge.classList.add('command-authorization-status');
+                control.appendChild(statusBadge);
+            }
+
+            const metaParts = [];
+            if (Array.isArray(auth.requires) && auth.requires.length) {
+                auth.requires.forEach((role) => metaParts.push(role));
+            }
+            if (auth.lastChange) {
+                metaParts.push(`Letzte Änderung ${auth.lastChange}`);
+            }
+            if (auth.expires) {
+                metaParts.push(`Gültig bis ${auth.expires}`);
+            }
+
+            if (metaParts.length) {
+                const meta = document.createElement('div');
+                meta.className = 'command-authorization-meta';
+                metaParts.forEach((part) => {
+                    const chip = document.createElement('span');
+                    chip.textContent = part;
+                    meta.appendChild(chip);
+                });
+                control.appendChild(meta);
+            }
+
+            list.appendChild(control);
+        });
+
+        authBody.appendChild(list);
+        authBody.appendChild(
+            createButtonRow([
+                { label: 'Freigaben protokollieren' },
+                { label: 'Sperre anfordern', tone: 'ghost' }
+            ])
+        );
+    }
+
+    const macroBody = createPanel(container, {
+        title: 'Notfall-Makros',
+        description: 'Vordefinierte Kommandosequenzen für kritische Situationen auslösen.'
+    });
+
+    if (!macros.length) {
+        appendEmptyState(macroBody, 'Keine Makros hinterlegt.');
+    } else {
+        const grid = document.createElement('div');
+        grid.className = 'command-macro-grid';
+
+        macros.forEach((macro) => {
+            const card = document.createElement('div');
+            card.className = 'command-macro';
+
+            const header = document.createElement('div');
+            header.className = 'command-macro__header';
+
+            const title = document.createElement('span');
+            title.className = 'command-macro__title';
+            title.textContent = macro.label || macro.id || 'Makro';
+            header.appendChild(title);
+
+            if (macro.status) {
+                header.appendChild(
+                    createStatusBadge(getStatusInfo(macro.status, { fallbackLabel: macro.status || 'Status' }))
+                );
+            }
+
+            card.appendChild(header);
+
+            if (macro.description) {
+                const desc = document.createElement('p');
+                desc.className = 'command-macro__description';
+                desc.textContent = macro.description;
+                card.appendChild(desc);
+            }
+
+            if (Array.isArray(macro.actions) && macro.actions.length) {
+                const actionsList = document.createElement('ul');
+                actionsList.className = 'command-macro__actions';
+                macro.actions.forEach((action) => {
+                    const item = document.createElement('li');
+                    item.textContent = action;
+                    actionsList.appendChild(item);
+                });
+                card.appendChild(actionsList);
+            }
+
+            const footer = document.createElement('div');
+            footer.className = 'command-macro__footer';
+            if (macro.cooldown) {
+                const cooldown = document.createElement('span');
+                cooldown.textContent = `Cooldown ${macro.cooldown}`;
+                footer.appendChild(cooldown);
+            }
+            if (macro.note) {
+                const note = document.createElement('span');
+                note.textContent = macro.note;
+                footer.appendChild(note);
+            }
+            if (footer.childElementCount) {
+                card.appendChild(footer);
+            }
+
+            card.appendChild(
+                createButtonRow([
+                    { label: 'Makro auslösen', tone: macro.tone || 'accent' },
+                    { label: 'Details anzeigen', tone: 'ghost' }
+                ])
+            );
+
+            grid.appendChild(card);
+        });
+
+        macroBody.appendChild(grid);
+    }
+
+    const directivesBody = createPanel(container, {
+        title: 'Direktiven & Einsatzteams',
+        description: 'Aktive Befehle koordinieren und Status der Teams überwachen.'
+    });
+
+    if (!directives.length) {
+        appendEmptyState(directivesBody, 'Keine Direktiven aktiv.');
+    } else {
+        const table = document.createElement('table');
+        table.className = 'operations-table command-directives-table';
+
+        const thead = document.createElement('thead');
+        const headRow = document.createElement('tr');
+        ['Direktive', 'Verantwortlich', 'Status', 'ETA'].forEach((headerLabel) => {
+            const th = document.createElement('th');
+            th.textContent = headerLabel;
+            headRow.appendChild(th);
+        });
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        directives.forEach((directive) => {
+            const row = document.createElement('tr');
+
+            const labelCell = document.createElement('td');
+            const title = document.createElement('strong');
+            title.textContent = directive.label || directive.id || 'Direktive';
+            labelCell.appendChild(title);
+            if (directive.note) {
+                const note = document.createElement('small');
+                note.textContent = directive.note;
+                labelCell.appendChild(note);
+            }
+            row.appendChild(labelCell);
+
+            const ownerCell = document.createElement('td');
+            ownerCell.textContent = directive.owner || '—';
+            row.appendChild(ownerCell);
+
+            const statusCell = document.createElement('td');
+            statusCell.appendChild(
+                createStatusBadge(getStatusInfo(directive.status, { fallbackLabel: directive.status || 'Status' }))
+            );
+            row.appendChild(statusCell);
+
+            const etaCell = document.createElement('td');
+            etaCell.textContent = directive.eta || '—';
+            row.appendChild(etaCell);
+
+            tbody.appendChild(row);
+        });
+
+        table.appendChild(tbody);
+        directivesBody.appendChild(table);
+        directivesBody.appendChild(
+            createButtonRow([
+                { label: 'Direktiven aktualisieren' },
+                { label: 'Statusbericht senden', tone: 'ghost' }
+            ])
+        );
+    }
+
+    const logBody = createPanel(container, {
+        title: 'Führungslogbuch',
+        description: 'Relevante Entscheidungen und Meldungen dokumentieren.'
+    });
+
+    if (!commandLog.length) {
+        appendEmptyState(logBody, 'Keine Logbucheinträge vorhanden.');
+    } else {
+        logBody.appendChild(createLog(commandLog));
+        logBody.appendChild(createButtonRow([{ label: 'Log exportieren', tone: 'ghost' }]));
+    }
 }
 
 async function renderEngReactor(container) {

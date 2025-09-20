@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<scenario id="default" name="Delta-Nebel Expedition" version="1.1">
+<scenario id="default" name="Delta-Nebel Expedition" version="1.2">
     <ship name="NV-01 Phoenix" registry="NV-01" class="Langstrecken-Explorer" commander="Captain Mira Sol">
         <systems>
             <system id="life-support">
@@ -119,6 +119,137 @@
                 </sensoren>
             </system>
         </systems>
+        <bridge>
+            <command>
+                <alert currentState="Gelb" lastChange="05:12" elapsed="00:08" countdown="05:00" recommendation="Bereitschaft hoch halten, Konvoi absichern und auf neue Befehle warten.">
+                    <states>
+                        <state id="green" label="Zustand Grün" tone="success" summary="Routinebetrieb ohne unmittelbare Bedrohung." security="Standard-Wachplan aktiv" powerProfile="Energieprofil Cruise" communications="Statusupdates alle 30 Minuten">
+                            <actions>
+                                <action>Crewrotationen bestätigen</action>
+                                <action>Sensoren auf Hintergrundrauschen kalibrieren</action>
+                            </actions>
+                            <note>Zurücksetzen auf Grün nur nach Lagebriefing.</note>
+                        </state>
+                        <state id="yellow" label="Zustand Gelb" tone="warning" summary="Erhöhte Wachsamkeit – Bedrohung wahrscheinlich." security="Sicherheitsteams in Bereitschaft" powerProfile="Verteidigungsprofil aktiv" communications="Lagebriefing alle 10 Minuten">
+                            <actions>
+                                <action>Schilde auf Sektorpriorität einstellen</action>
+                                <action>Einsatzteams auf Alarmruf vorbereiten</action>
+                                <action>Kommunikation: Warnkanäle aktiv halten</action>
+                            </actions>
+                            <note>Aktuelle Stufe</note>
+                        </state>
+                        <state id="red" label="Zustand Rot" tone="danger" summary="Akuter Angriff oder Notfall. Volle Gefechtsbereitschaft." security="Alle Sicherheitsteams entsendet" powerProfile="Waffen- &amp; Schildpriorisierung" communications="Gefechtsnetz offen halten">
+                            <actions>
+                                <action>Battlestations an alle Sektionen ausgeben</action>
+                                <action>Reaktorleistung mit Engineering abstimmen</action>
+                                <action>CIC: Zielprioritäten bestätigen</action>
+                            </actions>
+                            <note>Aktivieren nur mit Bestätigung Captain + XO.</note>
+                        </state>
+                    </states>
+                    <acknowledgements>
+                        <ack id="ack-bridge" label="Brücke" acknowledged="true" tone="accent" timestamp="05:12">
+                            <note>Helm &amp; Taktik informiert.</note>
+                        </ack>
+                        <ack id="ack-engineering" label="Engineering" acknowledged="true" tone="accent" timestamp="05:13">
+                            <note>Leistung auf Verteidigungsprofil gestellt.</note>
+                        </ack>
+                        <ack id="ack-security" label="Sicherheit" acknowledged="false" tone="warning">
+                            <note>Team Gamma bestätigt Status noch nicht.</note>
+                        </ack>
+                    </acknowledgements>
+                </alert>
+                <mission name="Eskorte Konvoi Sigma" phase="Phase 2 – Gefechtsbegleitung">
+                    <summary>Konvoi Sigma sicher durch den Delta-Nebel führen und Angriffe des Korsarenverbandes abwehren.</summary>
+                    <objectives>
+                        <objective id="obj-escort" label="Konvoi schützen" status="Warning" progress="68" owner="Taktik" deadline="ETA 05:45">
+                            <note>Führende Fregatte unter Beschuss – Schildbelastung hoch.</note>
+                        </objective>
+                        <objective id="obj-deliver" label="Wissenschaftspaket abliefern" status="Active" progress="40" owner="Wissenschaft" deadline="ETA 06:15">
+                            <note>Sprungfenster öffnet in 32 Minuten.</note>
+                        </objective>
+                        <objective id="obj-survey" label="Nebelproben sichern" status="Success" progress="82" owner="Wissenschaft">
+                            <note>Proben bereit zum Transfer nach Abschluss des Gefechts.</note>
+                        </objective>
+                    </objectives>
+                    <decisions>
+                        <decision id="decision-retreat" label="Rückzugskorridor freigeben" owner="Captain" due="05:40" status="Queued">
+                            <note>Abhängig von Schildbelastung Bug &amp; taktischem Lagebild.</note>
+                        </decision>
+                        <decision id="decision-salvage" label="Bergung Drohnenteile genehmigen" owner="Logistik" due="06:00" status="Planned">
+                            <note>Sicherheit muss EVA-Team freigeben.</note>
+                        </decision>
+                    </decisions>
+                </mission>
+                <authorizations>
+                    <authorization id="auth-weapons" label="Waffenfreigabe" granted="true" tone="danger" status="Aktiv" lastChange="05:08">
+                        <requires>
+                            <role>Captain</role>
+                            <role>Taktik</role>
+                        </requires>
+                        <note>Freigabe bis Abschluss des Gefechts.</note>
+                    </authorization>
+                    <authorization id="auth-ftl" label="FTL-Bereitschaft" granted="false" tone="warning" status="Standby" lastChange="04:55">
+                        <requires>
+                            <role>Captain</role>
+                            <role>Engineering</role>
+                        </requires>
+                        <note>Nur im äußersten Notfall aktivieren.</note>
+                    </authorization>
+                    <authorization id="auth-shuttle" label="Shuttle-Startfreigabe" granted="true" tone="accent" status="Aktiv" lastChange="05:10">
+                        <requires>
+                            <role>Captain</role>
+                            <role>Hangar</role>
+                        </requires>
+                        <note>SAR-Shuttle bereit für Startfenster.</note>
+                    </authorization>
+                </authorizations>
+                <macros>
+                    <macro id="macro-battlestations" label="Battlestations" tone="danger" status="Bereit" cooldown="90s">
+                        <description>Setzt Alarm Rot und priorisiert Verteidigungsmaßnahmen.</description>
+                        <actions>
+                            <action>Alarm Rot an alle Sektionen senden</action>
+                            <action>Schilde Bug +20% verstärken</action>
+                            <action>Sicherheitsteams auf Station bringen</action>
+                        </actions>
+                    </macro>
+                    <macro id="macro-evasive" label="Ausweichmanöver Theta" tone="warning" status="Bereit" cooldown="45s">
+                        <description>Koordiniert synchrones Ausweichen mit dem Konvoi.</description>
+                        <actions>
+                            <action>Helm lädt Muster Theta</action>
+                            <action>Taktik koordiniert Täuschkörper</action>
+                            <action>Navigation aktualisiert Korridor</action>
+                        </actions>
+                    </macro>
+                    <macro id="macro-broadcaster" label="Funk-Sammelruf" tone="accent" status="Laufend">
+                        <description>Sendet Lageupdate an alle Einheiten.</description>
+                        <actions>
+                            <action>Kanal 3 öffnen</action>
+                            <action>Sicherheitscode Bravo senden</action>
+                            <action>Letzte Befehle wiederholen</action>
+                        </actions>
+                        <note>Dauerschleife bis weitere Anweisung.</note>
+                    </macro>
+                </macros>
+                <directives>
+                    <directive id="directive-evac" label="Evakuierungsbereitschaft Deck 5" status="Standby" owner="Sicherheit" eta="Bereit">
+                        <note>Team Gamma wartet an Luftschleuse.</note>
+                    </directive>
+                    <directive id="directive-med" label="Trauma-Team MedBay" status="Active" owner="Medizin" eta="Laufend">
+                        <note>Autodoc 2 vorbereitet.</note>
+                    </directive>
+                    <directive id="directive-repair" label="EVA-Reparatur koordinieren" status="In-Progress" owner="Engineering" eta="00:18">
+                        <note>Freigabe Luftschleuse steht aus.</note>
+                    </directive>
+                </directives>
+                <log>
+                    <entry>05:22 - Captain bestätigt Alarm Gelb bleibt aktiv.</entry>
+                    <entry>05:18 - Missionsziel "Konvoi schützen" auf Priorität Hoch gesetzt.</entry>
+                    <entry>05:10 - Shuttle SAR-1 erhält Startfreigabe.</entry>
+                    <entry>05:04 - CIC meldet Korsar Sigma in Angriffsposition.</entry>
+                </log>
+            </command>
+        </bridge>
         <lifeSupport>
             <cycles>
                 <cycle id="o2-regeneration" label="O₂-Regeneration" status="Stabil">

@@ -2,6 +2,242 @@ const SCENARIO_URL = new URL('../data/scenario-default.xml', import.meta.url).hr
 let scenarioPromise = null;
 
 const FALLBACK_SCENARIO_DATA = {
+    command: {
+        alert: {
+            currentState: 'yellow',
+            lastChange: '05:12',
+            elapsed: '00:08',
+            recommendation: 'Bereitschaft hoch halten, Konvoi absichern und auf neue Befehle warten.',
+            states: [
+                {
+                    id: 'green',
+                    label: 'Zustand Grün',
+                    tone: 'success',
+                    summary: 'Routinebetrieb ohne unmittelbare Bedrohung.',
+                    security: 'Standard-Wachplan aktiv',
+                    power: 'Energieprofil Cruise',
+                    communications: 'Statusupdates alle 30 Minuten',
+                    actions: [
+                        'Crewrotationen bestätigen',
+                        'Sensoren auf Hintergrundrauschen kalibrieren'
+                    ],
+                    note: 'Zurücksetzen auf Grün nur nach Lagebriefing.'
+                },
+                {
+                    id: 'yellow',
+                    label: 'Zustand Gelb',
+                    tone: 'warning',
+                    summary: 'Erhöhte Wachsamkeit – Bedrohung wahrscheinlich.',
+                    security: 'Sicherheitsteams in Bereitschaft',
+                    power: 'Verteidigungsprofil aktiv',
+                    communications: 'Lagebriefing alle 10 Minuten',
+                    actions: [
+                        'Schilde auf Sektorpriorität einstellen',
+                        'Einsatzteams auf Alarmruf vorbereiten',
+                        'Kommunikation: Warnkanäle aktiv halten'
+                    ],
+                    note: 'Aktuelle Stufe'
+                },
+                {
+                    id: 'red',
+                    label: 'Zustand Rot',
+                    tone: 'danger',
+                    summary: 'Akuter Angriff oder Notfall. Volle Gefechtsbereitschaft.',
+                    security: 'Alle Sicherheitsteams entsendet',
+                    power: 'Waffen- & Schildpriorisierung',
+                    communications: 'Gefechtsnetz offen halten',
+                    actions: [
+                        'Battlestations an alle Sektionen ausgeben',
+                        'Reaktorleistung mit Engineering abstimmen',
+                        'CIC: Zielprioritäten bestätigen'
+                    ],
+                    note: 'Aktivieren nur mit Bestätigung Captain + XO.'
+                }
+            ],
+            acknowledgements: [
+                {
+                    id: 'ack-bridge',
+                    label: 'Brücke',
+                    acknowledged: true,
+                    tone: 'accent',
+                    note: 'Helm & Taktik informiert.',
+                    timestamp: '05:12'
+                },
+                {
+                    id: 'ack-engineering',
+                    label: 'Engineering',
+                    acknowledged: true,
+                    tone: 'accent',
+                    note: 'Leistung auf Verteidigungsprofil gestellt.',
+                    timestamp: '05:13'
+                },
+                {
+                    id: 'ack-security',
+                    label: 'Sicherheit',
+                    acknowledged: false,
+                    tone: 'warning',
+                    note: 'Team Gamma bestätigt Status noch nicht.'
+                }
+            ]
+        },
+        mission: {
+            name: 'Eskorte Konvoi Sigma',
+            phase: 'Phase 2 – Gefechtsbegleitung',
+            summary:
+                'Konvoi Sigma sicher durch den Delta-Nebel führen und Angriffe des Korsarenverbandes abwehren.',
+            objectives: [
+                {
+                    id: 'obj-escort',
+                    label: 'Konvoi schützen',
+                    progress: 68,
+                    status: 'warning',
+                    owner: 'Taktik',
+                    deadline: 'ETA 05:45',
+                    note: 'Führende Fregatte unter Beschuss – Schildbelastung hoch.'
+                },
+                {
+                    id: 'obj-deliver',
+                    label: 'Wissenschaftspaket abliefern',
+                    progress: 40,
+                    status: 'active',
+                    owner: 'Wissenschaft',
+                    deadline: 'ETA 06:15',
+                    note: 'Sprungfenster öffnet in 32 Minuten.'
+                },
+                {
+                    id: 'obj-survey',
+                    label: 'Nebelproben sichern',
+                    progress: 82,
+                    status: 'success',
+                    owner: 'Wissenschaft',
+                    note: 'Proben bereit zum Transfer nach Abschluss des Gefechts.'
+                }
+            ],
+            decisions: [
+                {
+                    id: 'decision-retreat',
+                    label: 'Rückzugskorridor freigeben',
+                    owner: 'Captain',
+                    due: '05:40',
+                    status: 'queued',
+                    note: 'Abhängig von Schildbelastung Bug & taktischem Lagebild.'
+                },
+                {
+                    id: 'decision-salvage',
+                    label: 'Bergung Drohnenteile genehmigen',
+                    owner: 'Logistik',
+                    due: '06:00',
+                    status: 'planned',
+                    note: 'Sicherheit muss EVA-Team freigeben.'
+                }
+            ]
+        },
+        authorizations: [
+            {
+                id: 'auth-weapons',
+                label: 'Waffenfreigabe',
+                granted: true,
+                tone: 'danger',
+                status: 'aktiv',
+                requires: ['Captain', 'Taktik'],
+                lastChange: '05:08',
+                note: 'Freigabe bis Abschluss des Gefechts.'
+            },
+            {
+                id: 'auth-ftl',
+                label: 'FTL-Bereitschaft',
+                granted: false,
+                tone: 'warning',
+                status: 'standby',
+                requires: ['Captain', 'Engineering'],
+                lastChange: '04:55',
+                note: 'Nur im äußersten Notfall aktivieren.'
+            },
+            {
+                id: 'auth-shuttle',
+                label: 'Shuttle-Startfreigabe',
+                granted: true,
+                tone: 'accent',
+                status: 'aktiv',
+                requires: ['Captain', 'Hangar'],
+                lastChange: '05:10',
+                note: 'SAR-Shuttle bereit für Startfenster.'
+            }
+        ],
+        macros: [
+            {
+                id: 'macro-battlestations',
+                label: 'Battlestations',
+                tone: 'danger',
+                status: 'bereit',
+                cooldown: '90s',
+                description: 'Setzt Alarm Rot und priorisiert Verteidigungsmaßnahmen.',
+                actions: [
+                    'Alarm Rot an alle Sektionen senden',
+                    'Schilde Bug +20% verstärken',
+                    'Sicherheitsteams auf Station bringen'
+                ]
+            },
+            {
+                id: 'macro-evasive',
+                label: 'Ausweichmanöver Theta',
+                tone: 'warning',
+                status: 'bereit',
+                cooldown: '45s',
+                description: 'Koordiniert synchrones Ausweichen mit dem Konvoi.',
+                actions: [
+                    'Helm lädt Muster Theta',
+                    'Taktik koordiniert Täuschkörper',
+                    'Navigation aktualisiert Korridor'
+                ]
+            },
+            {
+                id: 'macro-broadcaster',
+                label: 'Funk-Sammelruf',
+                tone: 'accent',
+                status: 'laufend',
+                description: 'Sendet Lageupdate an alle Einheiten.',
+                actions: [
+                    'Kommunikation öffnet Kanal 3',
+                    'Sicherheitscode Bravo übertragen',
+                    'Letzte Befehle wiederholen'
+                ],
+                note: 'Läuft bis weitere Anweisung erfolgt.'
+            }
+        ],
+        directives: [
+            {
+                id: 'directive-evac',
+                label: 'Evakuierungsbereitschaft Deck 5',
+                status: 'standby',
+                owner: 'Sicherheit',
+                eta: 'bereit',
+                note: 'Team Gamma wartet an Luftschleuse.'
+            },
+            {
+                id: 'directive-med',
+                label: 'Trauma-Team MedBay',
+                status: 'active',
+                owner: 'Medizin',
+                eta: 'laufend',
+                note: 'Autodoc 2 vorbereitet.'
+            },
+            {
+                id: 'directive-repair',
+                label: 'EVA-Reparatur koordinieren',
+                status: 'in-progress',
+                owner: 'Engineering',
+                eta: '00:18',
+                note: 'Freigabe Luftschleuse ausstehend.'
+            }
+        ],
+        log: [
+            '05:22 - Captain bestätigt Alarm Gelb bleibt aktiv.',
+            '05:18 - Missionsziel "Konvoi schützen" auf Priorität Hoch gesetzt.',
+            '05:10 - Shuttle SAR-1 erhält Startfreigabe.',
+            '05:04 - CIC meldet Korsar Sigma in Angriffsposition.'
+        ]
+    },
     systems: [
         {
             id: 'life-support',
@@ -936,6 +1172,7 @@ function parseScenarioXml(xmlText) {
     }
 
     return {
+        command: parseCommand(doc),
         systems: parseSystems(doc),
         damageControl: parseDamageControl(doc),
         lifeSupport: parseLifeSupport(doc),
@@ -945,6 +1182,156 @@ function parseScenarioXml(xmlText) {
         ftl: parseEngineeringFtl(doc),
         defense: parseDefense(doc)
     };
+}
+
+function parseCommand(doc) {
+    const commandRoot = doc.querySelector('scenario > ship > bridge > command');
+    if (!commandRoot) {
+        return null;
+    }
+
+    const alertRoot = findChild(commandRoot, 'alert');
+    const alert = alertRoot
+        ? {
+              currentState: safeLower(
+                  alertRoot.getAttribute('currentState') || alertRoot.getAttribute('state') || ''
+              ),
+              lastChange: alertRoot.getAttribute('lastChange') || alertRoot.getAttribute('lastchange') || '',
+              elapsed: alertRoot.getAttribute('elapsed') || alertRoot.getAttribute('timeInState') || '',
+              countdown: alertRoot.getAttribute('countdown') || '',
+              recommendation:
+                  alertRoot.getAttribute('recommendation') || getChildText(alertRoot, 'recommendation') || '',
+              states: Array.from(alertRoot.querySelectorAll('states > state')).map((stateEl) => {
+                  const actionTexts = Array.from(
+                      new Set(
+                          Array.from(
+                              stateEl.querySelectorAll(':scope > action, actions > action')
+                          ).map((actionEl) => (actionEl.textContent || '').trim())
+                      )
+                  ).filter((text) => text.length > 0);
+
+                  return {
+                      id: stateEl.getAttribute('id') || null,
+                      label: stateEl.getAttribute('label') || stateEl.getAttribute('name') || '',
+                      tone: safeLower(stateEl.getAttribute('tone')) || undefined,
+                      summary:
+                          stateEl.getAttribute('summary') ||
+                          getChildText(stateEl, ['summary', 'beschreibung']) ||
+                          '',
+                      security: stateEl.getAttribute('security') || stateEl.getAttribute('posture') || '',
+                      power:
+                          stateEl.getAttribute('powerProfile') ||
+                          stateEl.getAttribute('energyProfile') ||
+                          '',
+                      communications:
+                          stateEl.getAttribute('communications') ||
+                          stateEl.getAttribute('comms') ||
+                          '',
+                      actions: actionTexts,
+                      note: getChildText(stateEl, 'note') || ''
+                  };
+              }),
+              acknowledgements: Array.from(alertRoot.querySelectorAll('acknowledgements > ack')).map((ackEl) => ({
+                  id: ackEl.getAttribute('id') || null,
+                  label: ackEl.getAttribute('label') || ackEl.getAttribute('name') || '',
+                  acknowledged: parseBoolean(
+                      ackEl.getAttribute('acknowledged') ||
+                          ackEl.getAttribute('confirmed') ||
+                          ackEl.getAttribute('value')
+                  ),
+                  tone: safeLower(ackEl.getAttribute('tone')) || 'accent',
+                  note: ackEl.getAttribute('note') || getChildText(ackEl, 'note') || '',
+                  timestamp: ackEl.getAttribute('timestamp') || ackEl.getAttribute('time') || ''
+              }))
+          }
+        : null;
+
+    const missionRoot = findChild(commandRoot, 'mission');
+    const mission = missionRoot
+        ? {
+              name: missionRoot.getAttribute('name') || '',
+              phase: missionRoot.getAttribute('phase') || '',
+              summary: getChildText(missionRoot, 'summary') || '',
+              objectives: Array.from(missionRoot.querySelectorAll('objectives > objective')).map((objectiveEl) => ({
+                  id: objectiveEl.getAttribute('id') || null,
+                  label: objectiveEl.getAttribute('label') || objectiveEl.getAttribute('name') || '',
+                  status: safeLower(objectiveEl.getAttribute('status')) || '',
+                  progress: toNumber(objectiveEl.getAttribute('progress')),
+                  owner: objectiveEl.getAttribute('owner') || objectiveEl.getAttribute('department') || '',
+                  priority: objectiveEl.getAttribute('priority') || '',
+                  deadline: objectiveEl.getAttribute('deadline') || objectiveEl.getAttribute('eta') || '',
+                  note: getChildText(objectiveEl, 'note') || ''
+              })),
+              decisions: Array.from(missionRoot.querySelectorAll('decisions > decision')).map((decisionEl) => ({
+                  id: decisionEl.getAttribute('id') || null,
+                  label: decisionEl.getAttribute('label') || decisionEl.getAttribute('name') || '',
+                  owner: decisionEl.getAttribute('owner') || decisionEl.getAttribute('responsible') || '',
+                  due: decisionEl.getAttribute('due') || decisionEl.getAttribute('eta') || '',
+                  status: safeLower(decisionEl.getAttribute('status')) || '',
+                  note: getChildText(decisionEl, 'note') || ''
+              }))
+          }
+        : null;
+
+    const authorizations = Array.from(commandRoot.querySelectorAll('authorizations > authorization')).map(
+        (authEl) => {
+            const requiresAttr = authEl.getAttribute('requires');
+            const requires = requiresAttr
+                ? requiresAttr
+                      .split(',')
+                      .map((value) => value.trim())
+                      .filter((value) => value.length > 0)
+                : Array.from(authEl.querySelectorAll('requires > role'))
+                      .map((roleEl) => (roleEl.textContent || '').trim())
+                      .filter((value) => value.length > 0);
+
+            return {
+                id: authEl.getAttribute('id') || null,
+                label: authEl.getAttribute('label') || authEl.getAttribute('name') || '',
+                granted: parseBoolean(
+                    authEl.getAttribute('granted') ||
+                        authEl.getAttribute('enabled') ||
+                        authEl.getAttribute('active')
+                ),
+                tone: safeLower(authEl.getAttribute('tone')) || 'accent',
+                status: safeLower(authEl.getAttribute('status')) || '',
+                requires,
+                lastChange: authEl.getAttribute('lastChange') || authEl.getAttribute('timestamp') || '',
+                expires: authEl.getAttribute('expires') || '',
+                note: getChildText(authEl, 'note') || ''
+            };
+        }
+    );
+
+    const macros = Array.from(commandRoot.querySelectorAll('macros > macro')).map((macroEl) => ({
+        id: macroEl.getAttribute('id') || null,
+        label: macroEl.getAttribute('label') || macroEl.getAttribute('name') || '',
+        tone: safeLower(macroEl.getAttribute('tone')) || 'accent',
+        status: safeLower(macroEl.getAttribute('status')) || '',
+        cooldown: macroEl.getAttribute('cooldown') || '',
+        description: getChildText(macroEl, 'description') || '',
+        actions: Array.from(
+            new Set(
+                Array.from(macroEl.querySelectorAll(':scope > action, actions > action')).map((actionEl) =>
+                    (actionEl.textContent || '').trim()
+                )
+            )
+        ).filter((text) => text.length > 0),
+        note: getChildText(macroEl, 'note') || ''
+    }));
+
+    const directives = Array.from(commandRoot.querySelectorAll('directives > directive')).map((directiveEl) => ({
+        id: directiveEl.getAttribute('id') || null,
+        label: directiveEl.getAttribute('label') || directiveEl.getAttribute('name') || '',
+        status: safeLower(directiveEl.getAttribute('status')) || '',
+        owner: directiveEl.getAttribute('owner') || directiveEl.getAttribute('department') || '',
+        eta: directiveEl.getAttribute('eta') || directiveEl.getAttribute('due') || '',
+        note: getChildText(directiveEl, 'note') || ''
+    }));
+
+    const log = parseLogEntries(commandRoot.querySelectorAll('log > entry'));
+
+    return { alert, mission, authorizations, macros, directives, log };
 }
 
 function parseSystems(doc) {

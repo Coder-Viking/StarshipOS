@@ -1,6 +1,7 @@
 # Fortschrittsnotizen
 
 ## Aktuelle Sitzung
+- Brücken-Panel BR-01 (Kommandopult) mit Alarmstatus-Steuerung, Missionsübersicht, globalen Freigaben und Makroverwaltung inklusive neuer Szenariodaten umgesetzt.
 - Maschinenraum-Panels für EN-01 (Reaktorkontrolle) und EN-06 (Schadenskontrolle & Leitungen) um Lageübersichten erweitert: Netzbelastung, Reserven sowie Thermalkreise werden jetzt direkt aus den Szenariodaten angezeigt.
 - Verteidigungs-Szenariodaten (Schilde & Hülle) in Fallback und XML ergänzt, inklusive Sektorstatus, Verstärkungseinstellungen, Notfallbarrieren und struktureller Hotspots.
 - Parser (`station-scenario.js`) um `parseDefense` erweitert, damit Schild- und Hüllenstationen ihre Panels aus dem Szenario speisen.

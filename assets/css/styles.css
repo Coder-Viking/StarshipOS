@@ -2419,6 +2419,222 @@ body.station-body {
     border-color: rgba(255, 59, 79, 0.35);
 }
 
+.command-alert-summary {
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+    margin-bottom: 0.85rem;
+}
+
+.command-alert-summary__badge-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.command-alert-summary__label {
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: var(--text-secondary);
+}
+
+.command-alert-summary__text {
+    margin: 0;
+    font-size: 0.88rem;
+    line-height: 1.45;
+}
+
+.command-alert-summary__meta {
+    margin: 0;
+    font-size: 0.74rem;
+    letter-spacing: 0.02em;
+    color: var(--text-secondary);
+}
+
+.command-alert-summary__recommendation {
+    margin: 0;
+    font-size: 0.8rem;
+    letter-spacing: 0.04em;
+    color: var(--accent);
+}
+
+.command-alert-selector {
+    margin-bottom: 0.85rem;
+}
+
+.command-alert-states {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    margin-bottom: 0.85rem;
+}
+
+.command-alert-state {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 10px;
+    padding: 0.8rem 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.command-alert-state__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+}
+
+.command-alert-state__title {
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.command-alert-state__summary {
+    margin: 0;
+    font-size: 0.85rem;
+    line-height: 1.4;
+}
+
+.command-alert-state__meta {
+    margin: 0;
+    font-size: 0.74rem;
+    color: var(--text-secondary);
+}
+
+.command-alert-state__actions {
+    margin: 0;
+    padding-left: 1.15rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    font-size: 0.78rem;
+}
+
+.command-alert-state__note {
+    margin: 0;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+.command-acknowledgement-meta {
+    margin: 0;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+.command-mission-header {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    margin-bottom: 0.75rem;
+}
+
+.command-mission-header strong {
+    font-size: 1rem;
+    letter-spacing: 0.04em;
+}
+
+.command-mission-header span {
+    font-size: 0.78rem;
+    color: var(--text-secondary);
+}
+
+.command-mission-summary {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.4;
+}
+
+.command-decisions-table small {
+    display: block;
+    margin-top: 0.2rem;
+    color: var(--text-secondary);
+}
+
+.command-authorization-status {
+    margin-top: 0.35rem;
+}
+
+.command-authorization-meta {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.4rem;
+    margin-top: 0.35rem;
+    font-size: 0.72rem;
+}
+
+.command-authorization-meta span {
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 999px;
+    padding: 0.15rem 0.6rem;
+    letter-spacing: 0.04em;
+}
+
+.command-macro-grid {
+    display: grid;
+    gap: 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+}
+
+.command-macro {
+    background: rgba(255, 255, 255, 0.04);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 12px;
+    padding: 0.85rem 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.command-macro__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.6rem;
+}
+
+.command-macro__title {
+    font-size: 0.95rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+}
+
+.command-macro__description {
+    margin: 0;
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.command-macro__actions {
+    margin: 0;
+    padding-left: 1.1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    font-size: 0.78rem;
+}
+
+.command-macro__footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    font-size: 0.72rem;
+    color: var(--text-secondary);
+}
+
+.command-directives-table small {
+    display: block;
+    color: var(--text-secondary);
+    margin-top: 0.2rem;
+    font-size: 0.72rem;
+}
+
 .operations-checklist {
     display: flex;
     flex-direction: column;

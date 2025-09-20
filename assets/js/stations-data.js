@@ -23,7 +23,11 @@ export const STATION_DEFINITIONS = [
         ],
         locality: 'Remote-fähig (kein tiefer Systemeinstellungszugriff erforderlich)',
         htmlPath: 'bridge/command/',
-        jsModules: ['assets/js/stations-data.js', 'assets/js/station-page.js']
+        jsModules: [
+            'assets/js/stations-data.js',
+            'assets/js/station-page.js',
+            'assets/js/station-operations.js'
+        ]
     },
     {
         id: 'bridge-helm',
