@@ -1,6 +1,12 @@
 import { loadScenarioData } from './station-scenario.js';
 
 const OPERATIONS_RENDERERS = {
+    'bridge-command': renderBridgeCommand,
+    'bridge-helm': renderBridgeHelm,
+    'bridge-nav': renderBridgeNavigation,
+    'bridge-tactical': renderBridgeTactical,
+    'bridge-comms': renderBridgeComms,
+    'bridge-sensors': renderBridgeSensors,
     'eng-reactor': renderEngReactor,
     'eng-power': renderEngPower,
     'eng-thermal': renderEngThermal,
@@ -290,6 +296,1129 @@ function createLog(entries) {
     });
 
     return list;
+}
+
+function createBadgeFromStatus(label, tone = 'default') {
+    const resolvedTone = tone === 'normal' ? 'default' : tone;
+    return createStatusBadge({ label, tone: resolvedTone });
+}
+
+function resolveAlertTone(alertLevel) {
+    const key = safeLower(alertLevel);
+    if (key === 'red' || key === 'rot') {
+        return 'danger';
+    }
+    if (key === 'yellow' || key === 'gelb') {
+        return 'warning';
+    }
+    if (key === 'green' || key === 'grün' || key === 'gruen') {
+        return 'success';
+    }
+    if (key === 'blue' || key === 'blau') {
+        return 'accent';
+    }
+    return 'default';
+}
+
+async function renderBridgeCommand(container) {
+    const scenarioData = await loadScenarioData();
+    const commandData = scenarioData?.bridge?.command || null;
+
+    const alertBody = createPanel(container, {
+        title: 'Alarmstatus & Autorisierungen',
+        description: 'Globale Bereitschaft und Freigaben der Brücke koordinieren.'
+    });
+
+    if (!commandData?.alertState) {
+        appendEmptyState(alertBody, 'Keine Alarmdaten im Szenario verfügbar.');
+    } else {
+        const { alertState } = commandData;
+        const meta = document.createElement('div');
+        meta.className = 'operations-control-list';
+
+        const tone = resolveAlertTone(alertState.current);
+        const badge = createBadgeFromStatus(
+            alertState.currentLabel || `Stufe ${alertState.current || 'unbekannt'}`,
+            tone
+        );
+        meta.appendChild(badge);
+
+        if (alertState.lastChange || alertState.officer || alertState.readiness) {
+            const lines = [];
+            if (alertState.lastChange) {
+                lines.push(`Letzte Änderung ${alertState.lastChange}`);
+            }
+            if (alertState.officer) {
+                lines.push(`Autorisiert von ${alertState.officer}`);
+            }
+            if (alertState.readiness) {
+                lines.push(alertState.readiness);
+            }
+            const subline = document.createElement('div');
+            subline.className = 'operations-subline';
+            subline.textContent = lines.join(' • ');
+            meta.appendChild(subline);
+        }
+
+        alertBody.appendChild(meta);
+
+        if (Array.isArray(alertState.states) && alertState.states.length) {
+            alertBody.appendChild(
+                createRadioGroup({
+                    name: 'bridge-alert-state',
+                    label: 'Alarmstufe wählen',
+                    options: alertState.states.map((state) => ({
+                        value: state.id || state.value || state.label || state.name,
+                        label: state.label || state.name || state.id || 'Unbenannt',
+                        description: state.description || ''
+                    })),
+                    defaultValue: alertState.current
+                })
+            );
+        }
+
+        alertBody.appendChild(
+            createButtonRow([
+                { label: 'Status an alle Decks senden' },
+                { label: 'Logbucheintrag erstellen', tone: 'ghost' }
+            ])
+        );
+    }
+
+    const missionBody = createPanel(container, {
+        title: 'Missionsziele & Prioritäten',
+        description: 'Fortschritt kritischer Aufträge überwachen.'
+    });
+
+    const directives = commandData?.missionDirectives || [];
+    if (!directives.length) {
+        appendEmptyState(missionBody, 'Keine Missionsziele im Szenario hinterlegt.');
+    } else {
+        const grid = document.createElement('div');
+        grid.className = 'operations-metric-grid';
+        directives.forEach((directive) => {
+            const noteParts = [];
+            if (directive.owner) {
+                noteParts.push(`Verantwortlich: ${directive.owner}`);
+            }
+            if (directive.status) {
+                noteParts.push(directive.status);
+            }
+            if (directive.note) {
+                noteParts.push(directive.note);
+            }
+            grid.appendChild(
+                createMetric({
+                    label: directive.label || directive.id || 'Missionsziel',
+                    value: toNumber(directive.progress) ?? 0,
+                    unit: '%',
+                    status: mapMetricStatus(directive.status),
+                    note: noteParts.join(' • '),
+                    min: 0,
+                    max: 100
+                })
+            );
+        });
+        missionBody.appendChild(grid);
+    }
+
+    const locksBody = createPanel(container, {
+        title: 'Systemfreigaben',
+        description: 'Kritische Systeme für andere Stationen freigeben oder sperren.'
+    });
+
+    const locks = commandData?.systemLocks || [];
+    if (!locks.length) {
+        appendEmptyState(locksBody, 'Keine Freigabepunkte definiert.');
+    } else {
+        locks.forEach((lock, index) => {
+            const toggle = createToggleControl({
+                id: `bridge-command-lock-${index}`,
+                label: lock.label || lock.id || 'Freigabe',
+                defaultChecked: Boolean(lock.engaged),
+                description: [lock.note, lock.authority ? `Berechtigung: ${lock.authority}` : null]
+                    .filter(Boolean)
+                    .join(' • '),
+                tone: lock.tone || (lock.engaged ? 'success' : 'warning')
+            });
+            locksBody.appendChild(toggle);
+        });
+    }
+
+    const commsBody = createPanel(container, {
+        title: 'Kommunikation & Lage',
+        description: 'Makros, Anfragen und jüngste Befehle im Überblick.'
+    });
+
+    if (Array.isArray(commandData?.priorityBroadcasts) && commandData.priorityBroadcasts.length) {
+        commsBody.appendChild(
+            createButtonRow(
+                commandData.priorityBroadcasts.map((macro) => ({
+                    label: macro.label || macro.id || 'Broadcast',
+                    tone: macro.tone && ['danger', 'ghost'].includes(macro.tone) ? macro.tone : undefined
+                }))
+            )
+        );
+    }
+
+    const pending = commandData?.pendingRequests || [];
+    if (pending.length) {
+        commsBody.appendChild(
+            createChecklist(
+                pending.map((request, index) => ({
+                    id: request.id || `bridge-command-request-${index}`,
+                    label: request.label || request.id || `Anfrage ${index + 1}`,
+                    checked: Boolean(request.completed),
+                    note: request.status ? `Status: ${request.status}` : undefined
+                }))
+            )
+        );
+    }
+
+    const recent = commandData?.recentOrders || [];
+    if (recent.length) {
+        commsBody.appendChild(createLog(recent));
+    } else if (!commandData?.priorityBroadcasts?.length && !pending.length) {
+        appendEmptyState(commsBody, 'Keine aktuellen Befehle oder Nachrichten.');
+    }
+}
+
+async function renderBridgeHelm(container) {
+    const scenarioData = await loadScenarioData();
+    const helmData = scenarioData?.bridge?.helm || null;
+
+    const statusBody = createPanel(container, {
+        title: 'Fluglage & Schiffswerte',
+        description: 'Geschwindigkeit, Haltung und Stabilisatoren überwachen.'
+    });
+
+    if (!helmData?.vector) {
+        appendEmptyState(statusBody, 'Keine Flugdaten im Szenario vorhanden.');
+    } else {
+        const metrics = [];
+        if (toNumber(helmData.vector.impulse) !== null) {
+            const impulseStatus = mapMetricStatus(helmData.vector.impulseStatus);
+            metrics.push({
+                label: 'Impulsleistung',
+                value: toNumber(helmData.vector.impulse),
+                unit: '%',
+                status: impulseStatus === 'normal' ? 'accent' : impulseStatus || 'accent'
+            });
+        }
+        if (toNumber(helmData.vector.inertialDampers) !== null) {
+            const damperStatus = mapMetricStatus(helmData.vector.damperStatus);
+            metrics.push({
+                label: 'Trägheitsdämpfer',
+                value: toNumber(helmData.vector.inertialDampers),
+                unit: '%',
+                status: damperStatus === 'normal' ? 'accent' : damperStatus || 'accent'
+            });
+        }
+        if (toNumber(helmData.vector.rcs) !== null) {
+            const rcsStatus = mapMetricStatus(helmData.vector.rcsStatus);
+            metrics.push({
+                label: 'RCS-Verfügbarkeit',
+                value: toNumber(helmData.vector.rcs),
+                unit: '%',
+                status: rcsStatus === 'normal' ? 'accent' : rcsStatus || 'accent'
+            });
+        }
+
+        if (metrics.length) {
+            const grid = document.createElement('div');
+            grid.className = 'operations-metric-grid';
+            metrics.forEach((metric) => {
+                metric.min = 0;
+                metric.max = 100;
+                grid.appendChild(createMetric(metric));
+            });
+            statusBody.appendChild(grid);
+        }
+
+        const attitudeLines = [];
+        if (helmData.vector.velocity) {
+            attitudeLines.push(`Geschwindigkeit ${helmData.vector.velocity}`);
+        }
+        if (helmData.vector.heading) {
+            attitudeLines.push(`Heading ${helmData.vector.heading}`);
+        }
+        if (helmData.vector.drift) {
+            attitudeLines.push(`Drift ${helmData.vector.drift}`);
+        }
+        if (helmData.vector.orientation) {
+            const { pitch, yaw, roll } = helmData.vector.orientation;
+            const parts = [];
+            if (pitch !== null && pitch !== undefined) {
+                parts.push(`Pitch ${pitch}°`);
+            }
+            if (yaw !== null && yaw !== undefined) {
+                parts.push(`Yaw ${yaw}°`);
+            }
+            if (roll !== null && roll !== undefined) {
+                parts.push(`Roll ${roll}°`);
+            }
+            if (parts.length) {
+                attitudeLines.push(parts.join(' • '));
+            }
+        }
+        if (attitudeLines.length) {
+            const orientation = document.createElement('div');
+            orientation.className = 'operations-subline';
+            orientation.textContent = attitudeLines.join(' | ');
+            statusBody.appendChild(orientation);
+        }
+    }
+
+    const controlBody = createPanel(container, {
+        title: 'Autopilot & Trimmung',
+        description: 'Flugmodi wählen und Antriebe feinjustieren.'
+    });
+
+    if (Array.isArray(helmData?.autopilotModes) && helmData.autopilotModes.length) {
+        controlBody.appendChild(
+            createRadioGroup({
+                name: 'bridge-helm-autopilot',
+                label: 'Autopilotmodus',
+                options: helmData.autopilotModes.map((mode) => ({
+                    value: mode.value || mode.id || mode.label,
+                    label: mode.label || mode.id || 'Modus',
+                    description: mode.description || ''
+                })),
+                defaultValue:
+                    helmData.autopilotModes.find((mode) => mode.active)?.value ||
+                    helmData.autopilotModes.find((mode) => mode.active)?.id ||
+                    undefined
+            })
+        );
+    }
+
+    const thrusters = helmData?.thrusters || [];
+    if (thrusters.length) {
+        thrusters.forEach((thruster) => {
+            controlBody.appendChild(
+                createRangeControl({
+                    id: `bridge-helm-thruster-${thruster.id || thruster.label}`,
+                    label: thruster.label || thruster.id || 'Antrieb',
+                    min: 0,
+                    max: 110,
+                    step: 5,
+                    value: toNumber(thruster.output) ?? 0,
+                    unit: '%',
+                    description: thruster.note || ''
+                })
+            );
+        });
+    }
+
+    const maneuverBody = createPanel(container, {
+        title: 'Manöver & Flugplan',
+        description: 'Anstehende Kursänderungen und Freigaben verfolgen.'
+    });
+
+    const maneuvers = helmData?.maneuvers || [];
+    if (maneuvers.length) {
+        const table = document.createElement('table');
+        table.className = 'operations-table';
+
+        const headRow = document.createElement('tr');
+        ['Manöver', 'Status', 'ETA'].forEach((header) => {
+            const th = document.createElement('th');
+            th.textContent = header;
+            headRow.appendChild(th);
+        });
+        const thead = document.createElement('thead');
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        maneuvers.forEach((maneuver) => {
+            const row = document.createElement('tr');
+
+            const nameCell = document.createElement('td');
+            const label = document.createElement('strong');
+            label.textContent = maneuver.label || maneuver.id || 'Manöver';
+            nameCell.appendChild(label);
+            if (maneuver.note) {
+                const note = document.createElement('small');
+                note.textContent = maneuver.note;
+                nameCell.appendChild(note);
+            }
+            row.appendChild(nameCell);
+
+            const statusCell = document.createElement('td');
+            statusCell.appendChild(
+                createBadgeFromStatus(maneuver.status || 'Unbekannt', mapMetricStatus(maneuver.status))
+            );
+            row.appendChild(statusCell);
+
+            const etaCell = document.createElement('td');
+            etaCell.textContent = maneuver.eta || '—';
+            row.appendChild(etaCell);
+
+            tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+        maneuverBody.appendChild(table);
+    }
+
+    const plan = helmData?.flightPlan;
+    if (plan) {
+        const details = [];
+        if (plan.currentWaypoint) {
+            details.push(`Aktueller Wegpunkt: ${plan.currentWaypoint}`);
+        }
+        if (plan.nextWaypoint) {
+            details.push(`Nächster Wegpunkt: ${plan.nextWaypoint}`);
+        }
+        if (plan.arrivalIn) {
+            details.push(`Ankunft in ${plan.arrivalIn}`);
+        }
+        if (plan.clearance) {
+            details.push(plan.clearance);
+        }
+        if (details.length) {
+            const subline = document.createElement('div');
+            subline.className = 'operations-subline';
+            subline.textContent = details.join(' • ');
+            maneuverBody.appendChild(subline);
+        }
+        if (Array.isArray(plan.checkpoints) && plan.checkpoints.length) {
+            maneuverBody.appendChild(createLog(plan.checkpoints));
+        }
+    }
+
+    if (Array.isArray(helmData?.warnings) && helmData.warnings.length) {
+        const warningsCard = createPanel(container, {
+            title: 'Warnungen & Hinweise',
+            description: 'Sensorische und systemische Warnmeldungen.'
+        });
+        warningsCard.appendChild(createLog(helmData.warnings));
+    }
+}
+
+async function renderBridgeNavigation(container) {
+    const scenarioData = await loadScenarioData();
+    const navData = scenarioData?.bridge?.navigation || null;
+
+    const solutionBody = createPanel(container, {
+        title: 'Kurslösung',
+        description: 'Primäre Navigationsergebnisse und Freigaben.'
+    });
+
+    if (!navData?.solution) {
+        appendEmptyState(solutionBody, 'Keine Kurslösung im Szenario vorhanden.');
+    } else {
+        const { solution } = navData;
+        const info = document.createElement('div');
+        info.className = 'operations-control-list';
+
+        const label = document.createElement('strong');
+        label.textContent = solution.designation || solution.label || 'Lösung';
+        info.appendChild(label);
+
+        const details = [];
+        if (solution.target) {
+            details.push(`Ziel: ${solution.target}`);
+        }
+        if (solution.eta) {
+            details.push(`ETA ${solution.eta}`);
+        }
+        if (solution.windowOpens) {
+            details.push(`Fenster öffnet in ${solution.windowOpens}`);
+        }
+        if (solution.status) {
+            details.push(`Status ${solution.status}`);
+        }
+        if (details.length) {
+            const subline = document.createElement('div');
+            subline.className = 'operations-subline';
+            subline.textContent = details.join(' • ');
+            info.appendChild(subline);
+        }
+
+        solutionBody.appendChild(info);
+
+        const metrics = [];
+        if (toNumber(solution.confidence) !== null) {
+            metrics.push({
+                label: 'Konfidenz',
+                value: toNumber(solution.confidence),
+                unit: '%',
+                status: mapMetricStatus(solution.status),
+                min: 0,
+                max: 100
+            });
+        }
+        if (toNumber(solution.jumpEnergy) !== null) {
+            metrics.push({
+                label: 'Erforderliche Energie',
+                value: toNumber(solution.jumpEnergy),
+                unit: '%',
+                status: mapMetricStatus(solution.energyStatus || 'warning'),
+                min: 0,
+                max: 120
+            });
+        }
+        if (metrics.length) {
+            const grid = document.createElement('div');
+            grid.className = 'operations-metric-grid';
+            metrics.forEach((metric) => {
+                grid.appendChild(createMetric(metric));
+            });
+            solutionBody.appendChild(grid);
+        }
+
+        if (Array.isArray(solution.constraints) && solution.constraints.length) {
+            solutionBody.appendChild(createLog(solution.constraints));
+        }
+
+        solutionBody.appendChild(
+            createButtonRow([
+                { label: 'Lösung an Helm freigeben' },
+                { label: 'Sprungfenster reservieren' }
+            ])
+        );
+    }
+
+    const windowBody = createPanel(container, {
+        title: 'Sprungfenster & Alternativen',
+        description: 'Zeitfenster und Alternativrouten beobachten.'
+    });
+
+    const windows = navData?.jumpWindows || [];
+    if (windows.length) {
+        const table = document.createElement('table');
+        table.className = 'operations-table';
+
+        const headRow = document.createElement('tr');
+        ['Ziel', 'Öffnet in', 'Dauer', 'Status'].forEach((header) => {
+            const th = document.createElement('th');
+            th.textContent = header;
+            headRow.appendChild(th);
+        });
+        const thead = document.createElement('thead');
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        windows.forEach((window) => {
+            const row = document.createElement('tr');
+
+            const destCell = document.createElement('td');
+            destCell.textContent = window.destination || window.id || 'Fenster';
+            row.appendChild(destCell);
+
+            const openCell = document.createElement('td');
+            openCell.textContent = window.opens || '—';
+            row.appendChild(openCell);
+
+            const durationCell = document.createElement('td');
+            durationCell.textContent = window.duration || '—';
+            row.appendChild(durationCell);
+
+            const statusCell = document.createElement('td');
+            statusCell.appendChild(
+                createBadgeFromStatus(window.status || 'Unbekannt', mapMetricStatus(window.status))
+            );
+            row.appendChild(statusCell);
+
+            tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+        windowBody.appendChild(table);
+    }
+
+    const alternatives = navData?.alternatives || [];
+    if (alternatives.length) {
+        windowBody.appendChild(createLog(alternatives.map((alt) => {
+            const parts = [alt.label || alt.id || 'Alternative'];
+            if (alt.eta) {
+                parts.push(`ETA ${alt.eta}`);
+            }
+            if (alt.risk) {
+                parts.push(`Risiko ${alt.risk}`);
+            }
+            return parts.join(' • ');
+        })));
+    }
+
+    if (Array.isArray(navData?.tasks) && navData.tasks.length) {
+        const checklistBody = createPanel(container, {
+            title: 'Navigationsprozeduren',
+            description: 'Checklisten für Sprung- und Kursfreigaben.'
+        });
+        checklistBody.appendChild(
+            createChecklist(
+                navData.tasks.map((task) => ({
+                    id: task.id,
+                    label: task.label,
+                    checked: Boolean(task.checked),
+                    note: task.note || ''
+                }))
+            )
+        );
+    }
+
+    if (Array.isArray(navData?.markers) && navData.markers.length) {
+        const markersBody = createPanel(container, {
+            title: 'Markierungen & Sensorbaken',
+            description: 'Relevante Referenzen für Kurs- und Anomalieplanung.'
+        });
+        markersBody.appendChild(
+            createLog(
+                navData.markers.map((marker) => {
+                    const parts = [marker.label || marker.id || 'Marker'];
+                    if (marker.type) {
+                        parts.push(marker.type);
+                    }
+                    if (marker.bearing) {
+                        parts.push(`Peilung ${marker.bearing}`);
+                    }
+                    if (marker.distance) {
+                        parts.push(`Distanz ${marker.distance}`);
+                    }
+                    return parts.join(' • ');
+                })
+            )
+        );
+    }
+
+    if (Array.isArray(navData?.logs) && navData.logs.length) {
+        const logBody = createPanel(container, {
+            title: 'Navigationslog',
+            description: 'Zeitliche Abläufe und Aktualisierungen.'
+        });
+        logBody.appendChild(createLog(navData.logs));
+    }
+}
+
+async function renderBridgeTactical(container) {
+    const scenarioData = await loadScenarioData();
+    const tacticalData = scenarioData?.bridge?.tactical || null;
+
+    const readinessBody = createPanel(container, {
+        title: 'Gefechtsbereitschaft',
+        description: 'Schilde, Waffen und Gegenmaßnahmen im Überblick.'
+    });
+
+    if (!tacticalData?.readiness) {
+        appendEmptyState(readinessBody, 'Keine taktischen Statusdaten vorhanden.');
+    } else {
+        const metrics = [];
+        if (toNumber(tacticalData.readiness.shieldReadiness) !== null) {
+            metrics.push({
+                label: 'Schilde bereit',
+                value: toNumber(tacticalData.readiness.shieldReadiness),
+                unit: '%',
+                status: 'accent',
+                min: 0,
+                max: 100
+            });
+        }
+        if (toNumber(tacticalData.readiness.weaponReadiness) !== null) {
+            metrics.push({
+                label: 'Waffenladung',
+                value: toNumber(tacticalData.readiness.weaponReadiness),
+                unit: '%',
+                status: 'accent',
+                min: 0,
+                max: 100
+            });
+        }
+        if (tacticalData.readiness.countermeasures) {
+            metrics.push({
+                label: 'Gegenmaßnahmen',
+                value: tacticalData.readiness.countermeasures,
+                unit: '',
+                status: 'accent'
+            });
+        }
+        if (tacticalData.readiness.targeting) {
+            metrics.push({
+                label: 'Zielsysteme',
+                value: tacticalData.readiness.targeting,
+                unit: '',
+                status: 'accent'
+            });
+        }
+
+        if (metrics.length) {
+            const grid = document.createElement('div');
+            grid.className = 'operations-metric-grid';
+            metrics.forEach((metric) => {
+                grid.appendChild(createMetric(metric));
+            });
+            readinessBody.appendChild(grid);
+        }
+
+        if (tacticalData.readiness.alert) {
+            const badge = createBadgeFromStatus(
+                `Alarmstufe ${tacticalData.readiness.alert}`,
+                resolveAlertTone(tacticalData.readiness.alert)
+            );
+            readinessBody.appendChild(badge);
+        }
+    }
+
+    const contactBody = createPanel(container, {
+        title: 'Zielübersicht',
+        description: 'Aktive Kontakte mit Bedrohungsstufen und Feuerleitstatus.'
+    });
+
+    const contacts = tacticalData?.contacts || [];
+    if (!contacts.length) {
+        appendEmptyState(contactBody, 'Keine taktischen Kontakte gemeldet.');
+    } else {
+        const table = document.createElement('table');
+        table.className = 'operations-table';
+
+        const headRow = document.createElement('tr');
+        ['Kontakt', 'Typ / Haltung', 'Entfernung', 'Bedrohung'].forEach((header) => {
+            const th = document.createElement('th');
+            th.textContent = header;
+            headRow.appendChild(th);
+        });
+        const thead = document.createElement('thead');
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        contacts.forEach((contact) => {
+            const row = document.createElement('tr');
+
+            const nameCell = document.createElement('td');
+            const label = document.createElement('strong');
+            label.textContent = contact.designation || contact.label || contact.id || 'Kontakt';
+            nameCell.appendChild(label);
+            if (contact.status || contact.vector) {
+                const subline = document.createElement('span');
+                subline.className = 'operations-subline';
+                subline.textContent = [contact.status, contact.vector].filter(Boolean).join(' • ');
+                nameCell.appendChild(subline);
+            }
+            if (contact.note) {
+                const note = document.createElement('small');
+                note.textContent = contact.note;
+                nameCell.appendChild(note);
+            }
+            row.appendChild(nameCell);
+
+            const typeCell = document.createElement('td');
+            typeCell.textContent = [contact.type, contact.allegiance].filter(Boolean).join(' • ') || '—';
+            row.appendChild(typeCell);
+
+            const rangeCell = document.createElement('td');
+            const parts = [];
+            if (contact.range) {
+                parts.push(contact.range);
+            }
+            if (toNumber(contact.lock) !== null) {
+                parts.push(`Lock ${formatValue(toNumber(contact.lock))}%`);
+            }
+            rangeCell.textContent = parts.join(' • ') || '—';
+            row.appendChild(rangeCell);
+
+            const threatCell = document.createElement('td');
+            const threatInfo = getSeverityInfo(contact.threat || 'moderat');
+            threatCell.appendChild(createStatusBadge(threatInfo));
+            row.appendChild(threatCell);
+
+            tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+        contactBody.appendChild(table);
+    }
+
+    const controlsBody = createPanel(container, {
+        title: 'Feuerleitsteuerung',
+        description: 'Sicherungen, Salvenprofile und Schildfokus verwalten.'
+    });
+
+    const safeties = tacticalData?.weaponControls?.safeties || [];
+    if (safeties.length) {
+        safeties.forEach((safety, index) => {
+            controlsBody.appendChild(
+                createToggleControl({
+                    id: `bridge-tactical-safety-${index}`,
+                    label: safety.label || safety.id || 'Sicherung',
+                    defaultChecked: Boolean(safety.engaged),
+                    description: safety.note || '',
+                    tone: safety.engaged ? 'danger' : 'warning'
+                })
+            );
+        });
+    }
+
+    const salvo = tacticalData?.weaponControls;
+    if (salvo?.salvoModes) {
+        controlsBody.appendChild(
+            createRadioGroup({
+                name: 'bridge-tactical-salvo',
+                label: 'Feuerprofil',
+                options: salvo.salvoModes.map((mode) => ({
+                    value: mode.value || mode.id || mode.label,
+                    label: mode.label || mode.id || 'Profil',
+                    description: mode.description || ''
+                })),
+                defaultValue: salvo.selected
+            })
+        );
+    }
+
+    const shieldDirectives = tacticalData?.shieldDirectives;
+    if (shieldDirectives?.sectors) {
+        const grid = document.createElement('div');
+        grid.className = 'operations-metric-grid';
+        shieldDirectives.sectors.forEach((sector) => {
+            grid.appendChild(
+                createMetric({
+                    label: sector.label || sector.id || 'Sektor',
+                    value: toNumber(sector.load) ?? 0,
+                    unit: '%',
+                    status: mapMetricStatus('accent'),
+                    min: 0,
+                    max: 100
+                })
+            );
+        });
+        controlsBody.appendChild(grid);
+        if (shieldDirectives.note) {
+            const note = document.createElement('div');
+            note.className = 'operations-subline';
+            note.textContent = shieldDirectives.note;
+            controlsBody.appendChild(note);
+        }
+    }
+
+    if (Array.isArray(tacticalData?.logs) && tacticalData.logs.length) {
+        const logBody = createPanel(container, {
+            title: 'Taktisches Log',
+            description: 'Verlauf der letzten Feuerleitbefehle.'
+        });
+        logBody.appendChild(createLog(tacticalData.logs));
+    }
+}
+
+async function renderBridgeComms(container) {
+    const scenarioData = await loadScenarioData();
+    const commsData = scenarioData?.bridge?.comms || null;
+
+    const networkBody = createPanel(container, {
+        title: 'Kommunikationsnetz',
+        description: 'Kanäle, Bandbreiten und Verschlüsselungen überwachen.'
+    });
+
+    const channels = commsData?.channels || [];
+    if (!channels.length) {
+        appendEmptyState(networkBody, 'Keine Kommunikationskanäle definiert.');
+    } else {
+        const table = document.createElement('table');
+        table.className = 'operations-table';
+
+        const headRow = document.createElement('tr');
+        ['Kanal', 'Frequenz', 'SNR / Traffic', 'Status'].forEach((header) => {
+            const th = document.createElement('th');
+            th.textContent = header;
+            headRow.appendChild(th);
+        });
+        const thead = document.createElement('thead');
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        channels.forEach((channel) => {
+            const row = document.createElement('tr');
+
+            const nameCell = document.createElement('td');
+            const label = document.createElement('strong');
+            label.textContent = channel.label || channel.id || 'Kanal';
+            nameCell.appendChild(label);
+            if (channel.encryption) {
+                const subline = document.createElement('span');
+                subline.className = 'operations-subline';
+                subline.textContent = `Verschlüsselung ${channel.encryption}`;
+                nameCell.appendChild(subline);
+            }
+            row.appendChild(nameCell);
+
+            const freqCell = document.createElement('td');
+            freqCell.textContent = channel.frequency || '—';
+            row.appendChild(freqCell);
+
+            const snrCell = document.createElement('td');
+            const parts = [];
+            if (toNumber(channel.snr) !== null) {
+                parts.push(`SNR ${formatValue(toNumber(channel.snr))}%`);
+            }
+            if (channel.traffic) {
+                parts.push(channel.traffic);
+            }
+            snrCell.textContent = parts.join(' • ') || '—';
+            row.appendChild(snrCell);
+
+            const statusCell = document.createElement('td');
+            statusCell.appendChild(
+                createStatusBadge(
+                    getStatusInfo(channel.status, { fallbackLabel: channel.status || 'Unbekannt' })
+                )
+            );
+            row.appendChild(statusCell);
+
+            tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+        networkBody.appendChild(table);
+    }
+
+    const hailingBody = createPanel(container, {
+        title: 'Hailing & Prioritäten',
+        description: 'Ausstehende Kontakte und Handshakes koordinieren.'
+    });
+
+    const queue = commsData?.hailingQueue || [];
+    if (queue.length) {
+        hailingBody.appendChild(
+            createLog(
+                queue.map((entry) => {
+                    const parts = [entry.name || entry.id || 'Kontakt'];
+                    if (entry.priority) {
+                        parts.push(`Priorität ${entry.priority}`);
+                    }
+                    if (entry.state) {
+                        parts.push(entry.state);
+                    }
+                    if (entry.time) {
+                        parts.push(`T+${entry.time}`);
+                    }
+                    return parts.join(' • ');
+                })
+            )
+        );
+    } else {
+        appendEmptyState(hailingBody, 'Keine ausstehenden Hailing-Protokolle.');
+    }
+
+    if (Array.isArray(commsData?.encryptionModes) && commsData.encryptionModes.length) {
+        const encryptionBody = createPanel(container, {
+            title: 'Verschlüsselungsprofile',
+            description: 'Aktive Protokolle und Alternativen wählen.'
+        });
+        encryptionBody.appendChild(
+            createRadioGroup({
+                name: 'bridge-comms-encryption',
+                label: 'Verschlüsselung auswählen',
+                options: commsData.encryptionModes.map((mode) => ({
+                    value: mode.id || mode.value || mode.label,
+                    label: mode.label || mode.id || 'Profil'
+                })),
+                defaultValue:
+                    commsData.encryptionModes.find((mode) => mode.active)?.id ||
+                    commsData.encryptionModes.find((mode) => mode.active)?.value
+            })
+        );
+    }
+
+    if (Array.isArray(commsData?.macros) && commsData.macros.length) {
+        const macroBody = createPanel(container, {
+            title: 'Nachrichtenmakros',
+            description: 'Vordefinierte Funksprüche schnell auslösen.'
+        });
+        macroBody.appendChild(
+            createButtonRow(
+                commsData.macros.map((macro) => ({
+                    label: macro.label || macro.id || 'Makro',
+                    tone: macro.tone && ['danger', 'ghost'].includes(macro.tone) ? macro.tone : undefined
+                }))
+            )
+        );
+        if (Array.isArray(commsData?.log) && commsData.log.length) {
+            macroBody.appendChild(createLog(commsData.log));
+        }
+    }
+}
+
+async function renderBridgeSensors(container) {
+    const scenarioData = await loadScenarioData();
+    const sensorData = scenarioData?.bridge?.sensors || null;
+
+    const sweepBody = createPanel(container, {
+        title: 'Scansteuerung',
+        description: 'Aktive und geplante Sensorläufe überwachen.'
+    });
+
+    const sweeps = sensorData?.sweeps || [];
+    if (!sweeps.length) {
+        appendEmptyState(sweepBody, 'Keine Scanaufträge aktiv.');
+    } else {
+        const grid = document.createElement('div');
+        grid.className = 'operations-metric-grid';
+        sweeps.forEach((sweep) => {
+            grid.appendChild(
+                createMetric({
+                    label: sweep.label || sweep.id || 'Scan',
+                    value: toNumber(sweep.progress) ?? 0,
+                    unit: '%',
+                    status: mapMetricStatus(sweep.status),
+                    note: [sweep.band ? `Band ${sweep.band}` : null, sweep.eta ? `ETA ${sweep.eta}` : null]
+                        .filter(Boolean)
+                        .join(' • '),
+                    min: 0,
+                    max: 100
+                })
+            );
+        });
+        sweepBody.appendChild(grid);
+    }
+
+    if (toNumber(sensorData?.noiseLevel) !== null || toNumber(sensorData?.radiationLevel) !== null) {
+        const environmentBody = createPanel(container, {
+            title: 'Umgebungswerte',
+            description: 'Grundrauschen und Strahlung im Blick behalten.'
+        });
+        const metrics = [];
+        if (toNumber(sensorData.noiseLevel) !== null) {
+            metrics.push({
+                label: 'Signalrauschen',
+                value: toNumber(sensorData.noiseLevel),
+                unit: '%',
+                status: mapMetricStatus('warning'),
+                min: 0,
+                max: 100
+            });
+        }
+        if (toNumber(sensorData.radiationLevel) !== null) {
+            metrics.push({
+                label: 'Strahlungsindex',
+                value: toNumber(sensorData.radiationLevel),
+                unit: 'mSv/h',
+                status: mapMetricStatus('accent'),
+                min: 0,
+                max: 5
+            });
+        }
+        if (metrics.length) {
+            const grid = document.createElement('div');
+            grid.className = 'operations-metric-grid';
+            metrics.forEach((metric) => {
+                grid.appendChild(createMetric(metric));
+            });
+            environmentBody.appendChild(grid);
+        }
+        if (sensorData.calibrationDue) {
+            const note = document.createElement('div');
+            note.className = 'operations-subline';
+            note.textContent = `Nächste Kalibrierung fällig ${sensorData.calibrationDue}`;
+            environmentBody.appendChild(note);
+        }
+    }
+
+    const contactBody = createPanel(container, {
+        title: 'Kontaktliste',
+        description: 'Klassifizierung, Signaturen und Vertrauenswerte.'
+    });
+
+    const contacts = sensorData?.contacts || [];
+    if (!contacts.length) {
+        appendEmptyState(contactBody, 'Keine Kontakte erfasst.');
+    } else {
+        const table = document.createElement('table');
+        table.className = 'operations-table';
+
+        const headRow = document.createElement('tr');
+        ['Kontakt', 'Signatur', 'Reichweite', 'Vertrauen'].forEach((header) => {
+            const th = document.createElement('th');
+            th.textContent = header;
+            headRow.appendChild(th);
+        });
+        const thead = document.createElement('thead');
+        thead.appendChild(headRow);
+        table.appendChild(thead);
+
+        const tbody = document.createElement('tbody');
+        contacts.forEach((contact) => {
+            const row = document.createElement('tr');
+
+            const nameCell = document.createElement('td');
+            const label = document.createElement('strong');
+            label.textContent = contact.label || contact.id || 'Kontakt';
+            nameCell.appendChild(label);
+            if (contact.classification) {
+                const subline = document.createElement('span');
+                subline.className = 'operations-subline';
+                subline.textContent = contact.classification;
+                nameCell.appendChild(subline);
+            }
+            if (contact.note) {
+                const note = document.createElement('small');
+                note.textContent = contact.note;
+                nameCell.appendChild(note);
+            }
+            row.appendChild(nameCell);
+
+            const signatureCell = document.createElement('td');
+            signatureCell.textContent = contact.signature || '—';
+            row.appendChild(signatureCell);
+
+            const rangeCell = document.createElement('td');
+            rangeCell.textContent = [contact.range, contact.vector].filter(Boolean).join(' • ') || '—';
+            row.appendChild(rangeCell);
+
+            const confidenceCell = document.createElement('td');
+            if (toNumber(contact.confidence) !== null) {
+                confidenceCell.textContent = `${formatValue(toNumber(contact.confidence))}%`;
+            } else {
+                confidenceCell.textContent = '—';
+            }
+            row.appendChild(confidenceCell);
+
+            tbody.appendChild(row);
+        });
+        table.appendChild(tbody);
+        contactBody.appendChild(table);
+    }
+
+    if (Array.isArray(sensorData?.analysis) && sensorData.analysis.length) {
+        const analysisBody = createPanel(container, {
+            title: 'Analytische Aufträge',
+            description: 'Auswertungen und zugeordnete Teams.'
+        });
+        analysisBody.appendChild(
+            createChecklist(
+                sensorData.analysis.map((item) => ({
+                    id: item.id,
+                    label: item.label,
+                    checked: safeLower(item.status) === 'abgeschlossen' || safeLower(item.status) === 'fertig',
+                    note: item.assignedTo ? `Team: ${item.assignedTo} – Status: ${item.status || 'laufend'}` : item.status
+                }))
+            )
+        );
+    }
+
+    if (Array.isArray(sensorData?.queues) && sensorData.queues.length) {
+        const queueBody = createPanel(container, {
+            title: 'Scanjobs in Warteschlange',
+            description: 'Bereits geplante oder pausierte Scans.'
+        });
+        queueBody.appendChild(
+            createLog(
+                sensorData.queues.map((job) => {
+                    const parts = [job.label || job.id || 'Job'];
+                    if (job.status) {
+                        parts.push(job.status);
+                    }
+                    return parts.join(' • ');
+                })
+            )
+        );
+    }
+
+    if (Array.isArray(sensorData?.logs) && sensorData.logs.length) {
+        const logBody = createPanel(container, {
+            title: 'Sensorlog',
+            description: 'Chronologie wichtiger Sensormeldungen.'
+        });
+        logBody.appendChild(createLog(sensorData.logs));
+    }
 }
 
 function createSelect({ id, options, value }) {
