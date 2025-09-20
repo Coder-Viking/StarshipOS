@@ -1,6 +1,227 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <scenario id="default" name="Delta-Nebel Expedition" version="1.1">
     <ship name="NV-01 Phoenix" registry="NV-01" class="Langstrecken-Explorer" commander="Captain Mira Sol">
+        <bridge>
+            <command>
+                <alertState current="yellow" label="Gelb" lastChange="05:12" officer="Captain Mira Sol" readiness="Crew an Stationen">
+                    <state id="green" label="Grün">Routinebetrieb, minimale Bewaffnung aktiv.</state>
+                    <state id="yellow" label="Gelb">Erhöhte Bereitschaft, Schilde auf Gefechtsprofil.</state>
+                    <state id="red" label="Rot">Gefechtsstationen, Waffenfreigaben aktiv.</state>
+                </alertState>
+                <missions>
+                    <mission id="mission-escort" status="laufend" progress="68" owner="Brücke">
+                        <label>Koloniekonvoi eskortieren</label>
+                        <note>Konvoi Gamma in Formation halten.</note>
+                    </mission>
+                    <mission id="mission-anomaly" status="geplant" progress="20" owner="Wissenschaft">
+                        <label>Anomalie 77C beobachten</label>
+                        <note>Sensorfenster um 05:40 koordinieren.</note>
+                    </mission>
+                    <mission id="mission-contingency" status="bereit" progress="45" owner="Sicherheit">
+                        <label>Evakuierung vorbereiten</label>
+                        <note>Shuttles und Notfallteams auf Bereitschaft halten.</note>
+                    </mission>
+                </missions>
+                <locks>
+                    <lock id="lock-weapons" engaged="true" authority="Captain">
+                        <label>Waffenfreigabe</label>
+                        <note>Salven nur über Taktik koordinieren.</note>
+                    </lock>
+                    <lock id="lock-ftl" engaged="false" authority="Captain &amp; Navigation">
+                        <label>FTL-Autorisierung</label>
+                        <note>Sprunglösung 4B wartet auf Freigabe.</note>
+                    </lock>
+                    <lock id="lock-aux" engaged="true" authority="XO">
+                        <label>Hilfssysteme Override</label>
+                        <note>Engineering darf Notleistung abrufen.</note>
+                    </lock>
+                </locks>
+                <broadcasts>
+                    <macro id="macro-allhands">Stationsdurchsage</macro>
+                    <macro id="macro-battle" tone="danger">Gefechtsstationen</macro>
+                    <macro id="macro-secure" tone="ghost">Sichere Verbindung CIC</macro>
+                </broadcasts>
+                <pendingRequests>
+                    <request id="request-medbay" status="ausstehend">MedBay: Evakuierungsfreigabe anfordern</request>
+                    <request id="request-dock" status="bewertet">Dockkontrolle: Priorität Versorgungsschleuse</request>
+                </pendingRequests>
+                <recentOrders>
+                    <entry>05:18 - Alarmstufe Gelb bestätigt, Gefechtsprofil Energie aktiv.</entry>
+                    <entry>05:10 - Konvoi Gamma angewiesen Geschwindigkeit halten.</entry>
+                    <entry>04:55 - Sensor-Scan Sequenz Delta autorisiert.</entry>
+                </recentOrders>
+            </command>
+            <helm>
+                <vector velocity="126 m/s" impulse="62" impulseStatus="stabil" inertialDampers="88" damperStatus="warning" rcs="74" rcsStatus="bereit" heading="218° Mark 4" drift="0.3°" pitch="1.5" yaw="0.2" roll="-2.1" />
+                <thrusters>
+                    <thruster id="main-thrust" label="Hauptschub" output="62">
+                        <note>Impuls auf Halteposition begrenzen.</note>
+                    </thruster>
+                    <thruster id="man-thrust" label="Manöverdüsen" output="54">
+                        <note>Autotrim aktiv.</note>
+                    </thruster>
+                    <thruster id="vtol-ring" label="Heberinge" output="12">
+                        <note>Bereit für Dockmanöver.</note>
+                    </thruster>
+                </thrusters>
+                <autopilotModes>
+                    <mode id="manual" label="Manuell">
+                        <description>Direkter Steuerbefehl durch Helm.</description>
+                    </mode>
+                    <mode id="hold" label="Position halten" active="true">
+                        <description>Orbitale Drift ausgleichen.</description>
+                    </mode>
+                    <mode id="approach" label="Andock-Anflug">
+                        <description>Schleusenvektor Dock 3.</description>
+                    </mode>
+                </autopilotModes>
+                <maneuvers>
+                    <maneuver id="maneuver-final" status="laufend" eta="00:04">
+                        <label>Andock-Final</label>
+                        <note>Halteschlepper synchronisiert Kurs.</note>
+                    </maneuver>
+                    <maneuver id="maneuver-trim" status="geplant" eta="00:12">
+                        <label>Drift-Korrektur</label>
+                        <note>Auslösen nach Freigabe Navigation.</note>
+                    </maneuver>
+                </maneuvers>
+                <flightPlan currentWaypoint="NV-Station Theta" nextWaypoint="Sammelpunkt Epsilon" arrivalIn="00:32" clearance="Flugkontrolle Theta bestätigt Kurs">
+                    <checkpoint>Relais Sigma – passiert</checkpoint>
+                    <checkpoint>NV-Station Theta – anlaufend</checkpoint>
+                    <checkpoint>Sammelpunkt Epsilon – in 00:32</checkpoint>
+                </flightPlan>
+                <warnings>
+                    <warning>Trägheitsdämpfer bei 88% – innerhalb Grenzwert.</warning>
+                    <warning>Annäherungssensor meldet Frachter bei 12 km.</warning>
+                </warnings>
+            </helm>
+            <navigation>
+                <solution designation="Sprunglösung 4B" target="Sammelpunkt Epsilon" eta="00:32" windowOpens="00:18" status="bereit" confidence="92" jumpEnergy="84">
+                    <constraint>Gravitationsschlag oberhalb Schwelle 4.6 – Flugbahn begrenzen.</constraint>
+                    <constraint>Maximale Reaktorleistung 85% nicht überschreiten.</constraint>
+                </solution>
+                <alternatives>
+                    <alternative id="alt-nebelrand" eta="+00:24" risk="Niedrig">Route über Nebelrand</alternative>
+                    <alternative id="alt-relay" eta="-00:08" risk="Sensorschatten">Sprung via Relais Sigma</alternative>
+                </alternatives>
+                <jumpWindows>
+                    <window id="window-primary" destination="Sammelpunkt Epsilon" opens="00:18" duration="05:00" status="berechnet" />
+                    <window id="window-alt" destination="NV-Station Theta" opens="00:42" duration="04:20" status="vorläufig" />
+                </jumpWindows>
+                <tasks>
+                    <task id="task-grav-profile">
+                        <label>Gravitationsprofil Delta synchronisieren</label>
+                        <note>Sensorarray Beta liefert Daten.</note>
+                    </task>
+                    <task id="task-helm-verify" checked="true">
+                        <label>Helmvektor bestätigen</label>
+                        <note>Freigabe 05:10 erhalten.</note>
+                    </task>
+                    <task id="task-ftl-reserve">
+                        <label>Sprungfenster bei FTL reservieren</label>
+                    </task>
+                </tasks>
+                <markers>
+                    <marker id="marker-77c" type="Gravimetrisch" bearing="214°" distance="3.2 AE">Anomalie 77C</marker>
+                    <marker id="marker-buoy" type="Navigationsbake" bearing="186°" distance="1.1 AE">Leuchtboje Theta-4</marker>
+                </markers>
+                <log>
+                    <entry>05:16 - Lösung 4B aktualisiert, ETA bestätigt.</entry>
+                    <entry>05:08 - Anomalie 77C in Karte vermerkt.</entry>
+                    <entry>04:59 - Sensorrelais Sigma neu kalibriert.</entry>
+                </log>
+            </navigation>
+            <tactical>
+                <readiness alert="Gelb" weapons="88" shields="73" countermeasures="Bereit" targeting="Stabil" />
+                <contacts>
+                    <contact id="contact-aurora" designation="Kontakt AUR-3" type="Fregatte" allegiance="Unbekannt" range="18.2 ls" vector="Annähernd" threat="hoch" lock="62" status="Verfolgt">
+                        <note>Signatur pulsiert, ECM möglich.</note>
+                    </contact>
+                    <contact id="contact-gamma2" designation="Gamma-2" type="Transporter" allegiance="Verbündet" range="4.6 ls" vector="Parallel" threat="gering" lock="95" status="Eskortiert" />
+                    <contact id="contact-drone" designation="Signal 77C" type="Drohne" allegiance="Unklar" range="2.1 ls" vector="Stationär" threat="moderat" lock="48" status="Scan läuft" />
+                </contacts>
+                <weaponControls selected="precision">
+                    <safeties>
+                        <safety id="safety-phaser" engaged="true">Phaser Hauptbänke scharf</safety>
+                        <safety id="safety-torpedo" engaged="false">Torpedorohre bewaffnen</safety>
+                        <safety id="safety-point" engaged="true">Punktverteidigung aktiv</safety>
+                    </safeties>
+                    <salvoModes>
+                        <mode id="precision">Präzisionssalve</mode>
+                        <mode id="suppress" description="Erhöhte Frequenz, hoher Verbrauch.">Unterdrückungsfeuer</mode>
+                        <mode id="spread" description="Mehrere Ziele, geringere Genauigkeit.">Breitband-Salve</mode>
+                    </salvoModes>
+                </weaponControls>
+                <shieldDirectives note="Stöße aus Richtung AUR-3 erwartet.">
+                    <sector id="front" label="Front" load="62" />
+                    <sector id="port" label="Backbord" load="58" />
+                    <sector id="starboard" label="Steuerbord" load="51" />
+                    <sector id="aft" label="Heck" load="49" />
+                </shieldDirectives>
+                <log>
+                    <entry>05:19 - Schildverstärkung Front auf 62% gesetzt.</entry>
+                    <entry>05:14 - Feuerleitlösung für AUR-3 aktualisiert.</entry>
+                    <entry>05:02 - ECM-Paket Beta bereit, auf Abruf.</entry>
+                </log>
+            </tactical>
+            <comms>
+                <channels>
+                    <channel id="channel-long" label="Langstrecke" frequency="7.12 GHz" snr="92" status="stabil" encryption="Sigma-7" traffic="Konvoi-Status" />
+                    <channel id="channel-short" label="Kurzstrecke" frequency="2.44 GHz" snr="78" status="überwachung" encryption="Beta-4" traffic="Dockkontrolle" />
+                    <channel id="channel-secure" label="Sicherer Kanal" frequency="19.8 GHz" snr="88" status="aktiv" encryption="Omega-Prime" traffic="CIC-Link" />
+                </channels>
+                <hailingQueue>
+                    <contact id="hail-aur3" name="Fregatte AUR-3" priority="hoch" state="Antwort erwartet" time="00:02" />
+                    <contact id="hail-theta" name="Station Theta" priority="normal" state="Kanal offen" time="00:05" />
+                </hailingQueue>
+                <encryptionModes>
+                    <mode id="enc-sigma" active="true">Sigma-7 Standard</mode>
+                    <mode id="enc-omega">Omega-Prime gesichert</mode>
+                    <mode id="enc-open">Offener Kanal</mode>
+                </encryptionModes>
+                <macros>
+                    <macro id="macro-hello">Standardbegrüßung</macro>
+                    <macro id="macro-warning" tone="danger">Warnung – Abstand halten</macro>
+                    <macro id="macro-distress" tone="ghost">Notruf weiterleiten</macro>
+                </macros>
+                <log>
+                    <entry>05:18 - Verbindung CIC gesichert (Omega-Prime).</entry>
+                    <entry>05:12 - Konvoi Gamma meldet Status grün.</entry>
+                    <entry>05:07 - Dockkontrolle erfragt Kurskorrektur 0.5° Steuerbord.</entry>
+                </log>
+            </comms>
+            <sensors noiseLevel="12" radiationLevel="0.6" calibrationDue="06:40">
+                <sweeps>
+                    <sweep id="sweep-broad" label="Weitbereich EM" status="laufend" progress="68" band="EM" eta="00:06" />
+                    <sweep id="sweep-thermal" label="Thermalscan Fokus" status="geplant" progress="0" band="IR" eta="00:14" />
+                    <sweep id="sweep-spectral" label="Spektralanalyse 77C" status="aktiv" progress="42" band="Spektrum" eta="00:09" />
+                </sweeps>
+                <contacts>
+                    <contact id="contact-aur3" label="Kontakt AUR-3" classification="Unbekannt" range="18.2 ls" vector="Annähernd" signature="Warp 4.6" confidence="71">
+                        <note>Signatur weist Impulsspitzen auf.</note>
+                    </contact>
+                    <contact id="contact-gamma2" label="Gamma-2 Transport" classification="Verbündet" range="4.6 ls" vector="Parallel" signature="Warp 5.0" confidence="95">
+                        <note>IFF bestätigt.</note>
+                    </contact>
+                    <contact id="contact-anom77c" label="Anomalie 77C" classification="Anomalie" range="2.1 ls" vector="Stationär" signature="Grav 3.4" confidence="62">
+                        <note>Fluktuationen steigen.</note>
+                    </contact>
+                </contacts>
+                <analysis>
+                    <job id="analysis-aur3" label="Spektralfilter AUR-3" assignedTo="Taktik" status="laufend" />
+                    <job id="analysis-77c" label="Gravmetrie 77C" assignedTo="Wissenschaft" status="laufend" />
+                </analysis>
+                <queues>
+                    <job id="queue-long" label="Langstrecken-Sweep" status="geplant" />
+                    <job id="queue-drift" label="Driftdetektion" status="bereit" />
+                </queues>
+                <log>
+                    <entry>05:17 - Signatur von AUR-3 mit 71% bestätigt.</entry>
+                    <entry>05:11 - Spektralanalyse 77C gestartet.</entry>
+                    <entry>05:05 - Sensorarray Beta kalibriert.</entry>
+                </log>
+            </sensors>
+        </bridge>
         <systems>
             <system id="life-support">
                 <name>Lebenserhaltung</name>

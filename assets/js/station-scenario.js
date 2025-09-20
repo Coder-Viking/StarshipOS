@@ -2,6 +2,503 @@ const SCENARIO_URL = new URL('../data/scenario-default.xml', import.meta.url).hr
 let scenarioPromise = null;
 
 const FALLBACK_SCENARIO_DATA = {
+    bridge: {
+        command: {
+            alertState: {
+                current: 'yellow',
+                currentLabel: 'Gelb',
+                lastChange: '05:12',
+                officer: 'Captain Mira Sol',
+                readiness: 'Crew an Stationen',
+                states: [
+                    {
+                        id: 'green',
+                        label: 'Grün',
+                        description: 'Routinebetrieb, minimale Bewaffnung aktiv.'
+                    },
+                    {
+                        id: 'yellow',
+                        label: 'Gelb',
+                        description: 'Erhöhte Bereitschaft, Schilde auf Gefechtsprofil.'
+                    },
+                    {
+                        id: 'red',
+                        label: 'Rot',
+                        description: 'Gefechtsstationen, Waffenfreigaben aktiv.'
+                    }
+                ]
+            },
+            missionDirectives: [
+                {
+                    id: 'mission-escort',
+                    label: 'Koloniekonvoi eskortieren',
+                    status: 'laufend',
+                    progress: 68,
+                    owner: 'Brücke',
+                    note: 'Konvoi Gamma in Formation halten.'
+                },
+                {
+                    id: 'mission-anomaly',
+                    label: 'Anomalie 77C beobachten',
+                    status: 'geplant',
+                    progress: 20,
+                    owner: 'Wissenschaft',
+                    note: 'Sensorfenster um 05:40 koordinieren.'
+                },
+                {
+                    id: 'mission-contingency',
+                    label: 'Evakuierung vorbereiten',
+                    status: 'bereit',
+                    progress: 45,
+                    owner: 'Sicherheit',
+                    note: 'Shuttles und Notfallteams auf Bereitschaft halten.'
+                }
+            ],
+            systemLocks: [
+                {
+                    id: 'lock-weapons',
+                    label: 'Waffenfreigabe',
+                    engaged: true,
+                    authority: 'Captain',
+                    note: 'Salven nur über Taktik koordinieren.'
+                },
+                {
+                    id: 'lock-ftl',
+                    label: 'FTL-Autorisierung',
+                    engaged: false,
+                    authority: 'Captain & Navigation',
+                    note: 'Sprunglösung 4B wartet auf Freigabe.'
+                },
+                {
+                    id: 'lock-aux',
+                    label: 'Hilfssysteme Override',
+                    engaged: true,
+                    authority: 'XO',
+                    note: 'Engineering darf Notleistung abrufen.'
+                }
+            ],
+            priorityBroadcasts: [
+                { id: 'macro-allhands', label: 'Stationsdurchsage' },
+                { id: 'macro-battle', label: 'Gefechtsstationen', tone: 'danger' },
+                { id: 'macro-secure', label: 'Sichere Verbindung CIC', tone: 'ghost' }
+            ],
+            pendingRequests: [
+                {
+                    id: 'request-medbay',
+                    label: 'MedBay: Evakuierungsfreigabe anfordern',
+                    status: 'ausstehend'
+                },
+                {
+                    id: 'request-dock',
+                    label: 'Dockkontrolle: Priorität Versorgungsschleuse',
+                    status: 'bewertet'
+                }
+            ],
+            recentOrders: [
+                '05:18 - Alarmstufe Gelb bestätigt, Gefechtsprofil Energie aktiv.',
+                '05:10 - Konvoi Gamma angewiesen Geschwindigkeit halten.',
+                '04:55 - Sensor-Scan Sequenz Delta autorisiert.'
+            ]
+        },
+        helm: {
+            vector: {
+                velocity: '126 m/s',
+                impulse: 62,
+                impulseStatus: 'stabil',
+                inertialDampers: 88,
+                damperStatus: 'warning',
+                rcs: 74,
+                rcsStatus: 'bereit',
+                heading: '218° Mark 4',
+                drift: '0.3°',
+                orientation: { pitch: 1.5, yaw: 0.2, roll: -2.1 }
+            },
+            thrusters: [
+                {
+                    id: 'main-thrust',
+                    label: 'Hauptschub',
+                    output: 62,
+                    note: 'Impuls auf Halteposition begrenzen.'
+                },
+                {
+                    id: 'man-thrust',
+                    label: 'Manöverdüsen',
+                    output: 54,
+                    note: 'Autotrim aktiv.'
+                },
+                {
+                    id: 'vtol-ring',
+                    label: 'Heberinge',
+                    output: 12,
+                    note: 'Bereit für Dockmanöver.'
+                }
+            ],
+            autopilotModes: [
+                {
+                    id: 'manual',
+                    label: 'Manuell',
+                    description: 'Direkter Steuerbefehl durch Helm.'
+                },
+                {
+                    id: 'hold',
+                    label: 'Position halten',
+                    description: 'Orbitale Drift ausgleichen.',
+                    active: true
+                },
+                {
+                    id: 'approach',
+                    label: 'Andock-Anflug',
+                    description: 'Schleusenvektor Dock 3.'
+                }
+            ],
+            maneuvers: [
+                {
+                    id: 'maneuver-final',
+                    label: 'Andock-Final',
+                    status: 'laufend',
+                    eta: '00:04',
+                    note: 'Halteschlepper synchronisiert Kurs.'
+                },
+                {
+                    id: 'maneuver-trim',
+                    label: 'Drift-Korrektur',
+                    status: 'geplant',
+                    eta: '00:12',
+                    note: 'Auslösen nach Freigabe Navigation.'
+                }
+            ],
+            flightPlan: {
+                currentWaypoint: 'NV-Station Theta',
+                nextWaypoint: 'Sammelpunkt Epsilon',
+                arrivalIn: '00:32',
+                clearance: 'Flugkontrolle Theta bestätigt Kurs',
+                checkpoints: [
+                    'Relais Sigma – passiert',
+                    'NV-Station Theta – anlaufend',
+                    'Sammelpunkt Epsilon – in 00:32'
+                ]
+            },
+            warnings: [
+                'Trägheitsdämpfer bei 88% – innerhalb Grenzwert.',
+                'Annäherungssensor meldet Frachter bei 12 km.'
+            ]
+        },
+        navigation: {
+            solution: {
+                designation: 'Sprunglösung 4B',
+                target: 'Sammelpunkt Epsilon',
+                eta: '00:32',
+                windowOpens: '00:18',
+                status: 'bereit',
+                confidence: 92,
+                jumpEnergy: 84,
+                constraints: [
+                    'Gravitationsschlag oberhalb Schwelle 4.6 – Flugbahn begrenzen.',
+                    'Maximale Reaktorleistung 85% nicht überschreiten.'
+                ]
+            },
+            alternatives: [
+                {
+                    id: 'alt-nebelrand',
+                    label: 'Route über Nebelrand',
+                    eta: '+00:24',
+                    risk: 'Niedrig'
+                },
+                {
+                    id: 'alt-relay',
+                    label: 'Sprung via Relais Sigma',
+                    eta: '-00:08',
+                    risk: 'Sensorschatten'
+                }
+            ],
+            jumpWindows: [
+                {
+                    id: 'window-primary',
+                    destination: 'Sammelpunkt Epsilon',
+                    opens: '00:18',
+                    duration: '05:00',
+                    status: 'berechnet'
+                },
+                {
+                    id: 'window-alt',
+                    destination: 'NV-Station Theta',
+                    opens: '00:42',
+                    duration: '04:20',
+                    status: 'vorläufig'
+                }
+            ],
+            tasks: [
+                {
+                    id: 'task-grav-profile',
+                    label: 'Gravitationsprofil Delta synchronisieren',
+                    note: 'Sensorarray Beta liefert Daten.'
+                },
+                {
+                    id: 'task-helm-verify',
+                    label: 'Helmvektor bestätigen',
+                    checked: true,
+                    note: 'Freigabe 05:10 erhalten.'
+                },
+                {
+                    id: 'task-ftl-reserve',
+                    label: 'Sprungfenster bei FTL reservieren'
+                }
+            ],
+            markers: [
+                {
+                    id: 'marker-77c',
+                    label: 'Anomalie 77C',
+                    type: 'Gravimetrisch',
+                    bearing: '214°',
+                    distance: '3.2 AE'
+                },
+                {
+                    id: 'marker-buoy',
+                    label: 'Leuchtboje Theta-4',
+                    type: 'Navigationsbake',
+                    bearing: '186°',
+                    distance: '1.1 AE'
+                }
+            ],
+            logs: [
+                '05:16 - Lösung 4B aktualisiert, ETA bestätigt.',
+                '05:08 - Anomalie 77C in Karte vermerkt.',
+                '04:59 - Sensorrelais Sigma neu kalibriert.'
+            ]
+        },
+        tactical: {
+            readiness: {
+                alert: 'Gelb',
+                weaponReadiness: 88,
+                shieldReadiness: 73,
+                countermeasures: 'Bereit',
+                targeting: 'Stabil'
+            },
+            contacts: [
+                {
+                    id: 'contact-aurora',
+                    designation: 'Kontakt AUR-3',
+                    type: 'Fregatte',
+                    allegiance: 'Unbekannt',
+                    range: '18.2 ls',
+                    vector: 'Annähernd',
+                    threat: 'hoch',
+                    lock: 62,
+                    status: 'Verfolgt',
+                    note: 'Signatur pulsiert, ECM möglich.'
+                },
+                {
+                    id: 'contact-gamma2',
+                    designation: 'Gamma-2',
+                    type: 'Transporter',
+                    allegiance: 'Verbündet',
+                    range: '4.6 ls',
+                    vector: 'Parallel',
+                    threat: 'gering',
+                    lock: 95,
+                    status: 'Eskortiert'
+                },
+                {
+                    id: 'contact-drone',
+                    designation: 'Signal 77C',
+                    type: 'Drohne',
+                    allegiance: 'Unklar',
+                    range: '2.1 ls',
+                    vector: 'Stationär',
+                    threat: 'moderat',
+                    lock: 48,
+                    status: 'Scan läuft'
+                }
+            ],
+            weaponControls: {
+                safeties: [
+                    { id: 'safety-phaser', label: 'Phaser Hauptbänke scharf', engaged: true },
+                    { id: 'safety-torpedo', label: 'Torpedorohre bewaffnen', engaged: false },
+                    { id: 'safety-point', label: 'Punktverteidigung aktiv', engaged: true }
+                ],
+                salvoModes: [
+                    {
+                        id: 'precision',
+                        label: 'Präzisionssalve',
+                        description: 'Kurzfeuer mit minimaler Streuung.'
+                    },
+                    {
+                        id: 'suppress',
+                        label: 'Unterdrückungsfeuer',
+                        description: 'Erhöhte Frequenz, hoher Verbrauch.'
+                    },
+                    {
+                        id: 'spread',
+                        label: 'Breitband-Salve',
+                        description: 'Mehrere Ziele, geringere Genauigkeit.'
+                    }
+                ],
+                selected: 'precision'
+            },
+            shieldDirectives: {
+                sectors: [
+                    { id: 'front', label: 'Front', load: 62 },
+                    { id: 'port', label: 'Backbord', load: 58 },
+                    { id: 'starboard', label: 'Steuerbord', load: 51 },
+                    { id: 'aft', label: 'Heck', load: 49 }
+                ],
+                note: 'Stöße aus Richtung AUR-3 erwartet.'
+            },
+            logs: [
+                '05:19 - Schildverstärkung Front auf 62% gesetzt.',
+                '05:14 - Feuerleitlösung für AUR-3 aktualisiert.',
+                '05:02 - ECM-Paket Beta bereit, auf Abruf.'
+            ]
+        },
+        comms: {
+            channels: [
+                {
+                    id: 'channel-long',
+                    label: 'Langstrecke',
+                    frequency: '7.12 GHz',
+                    snr: 92,
+                    status: 'stabil',
+                    encryption: 'Sigma-7',
+                    traffic: 'Konvoi-Status'
+                },
+                {
+                    id: 'channel-short',
+                    label: 'Kurzstrecke',
+                    frequency: '2.44 GHz',
+                    snr: 78,
+                    status: 'überwachung',
+                    encryption: 'Beta-4',
+                    traffic: 'Dockkontrolle'
+                },
+                {
+                    id: 'channel-secure',
+                    label: 'Sicherer Kanal',
+                    frequency: '19.8 GHz',
+                    snr: 88,
+                    status: 'aktiv',
+                    encryption: 'Omega-Prime',
+                    traffic: 'CIC-Link'
+                }
+            ],
+            hailingQueue: [
+                {
+                    id: 'hail-aur3',
+                    name: 'Fregatte AUR-3',
+                    priority: 'hoch',
+                    state: 'Antwort erwartet',
+                    time: '00:02'
+                },
+                {
+                    id: 'hail-theta',
+                    name: 'Station Theta',
+                    priority: 'normal',
+                    state: 'Kanal offen',
+                    time: '00:05'
+                }
+            ],
+            encryptionModes: [
+                { id: 'enc-sigma', label: 'Sigma-7 Standard', active: true },
+                { id: 'enc-omega', label: 'Omega-Prime gesichert' },
+                { id: 'enc-open', label: 'Offener Kanal' }
+            ],
+            macros: [
+                { id: 'macro-hello', label: 'Standardbegrüßung' },
+                { id: 'macro-warning', label: 'Warnung – Abstand halten', tone: 'danger' },
+                { id: 'macro-distress', label: 'Notruf weiterleiten', tone: 'ghost' }
+            ],
+            log: [
+                '05:18 - Verbindung CIC gesichert (Omega-Prime).',
+                '05:12 - Konvoi Gamma meldet Status grün.',
+                '05:07 - Dockkontrolle erfragt Kurskorrektur 0.5° Steuerbord.'
+            ]
+        },
+        sensors: {
+            sweeps: [
+                {
+                    id: 'sweep-broad',
+                    label: 'Weitbereich EM',
+                    status: 'laufend',
+                    progress: 68,
+                    band: 'EM',
+                    eta: '00:06'
+                },
+                {
+                    id: 'sweep-thermal',
+                    label: 'Thermalscan Fokus',
+                    status: 'geplant',
+                    progress: 0,
+                    band: 'IR',
+                    eta: '00:14'
+                },
+                {
+                    id: 'sweep-spectral',
+                    label: 'Spektralanalyse 77C',
+                    status: 'aktiv',
+                    progress: 42,
+                    band: 'Spektrum',
+                    eta: '00:09'
+                }
+            ],
+            noiseLevel: 12,
+            radiationLevel: 0.6,
+            calibrationDue: '06:40',
+            contacts: [
+                {
+                    id: 'contact-aur3',
+                    label: 'Kontakt AUR-3',
+                    classification: 'Unbekannt',
+                    range: '18.2 ls',
+                    vector: 'Annähernd',
+                    signature: 'Warp 4.6',
+                    confidence: 71,
+                    note: 'Signatur weist Impulsspitzen auf.'
+                },
+                {
+                    id: 'contact-gamma2',
+                    label: 'Gamma-2 Transport',
+                    classification: 'Verbündet',
+                    range: '4.6 ls',
+                    vector: 'Parallel',
+                    signature: 'Warp 5.0',
+                    confidence: 95,
+                    note: 'IFF bestätigt.'
+                },
+                {
+                    id: 'contact-anom77c',
+                    label: 'Anomalie 77C',
+                    classification: 'Anomalie',
+                    range: '2.1 ls',
+                    vector: 'Stationär',
+                    signature: 'Grav 3.4',
+                    confidence: 62,
+                    note: 'Fluktuationen steigen.'
+                }
+            ],
+            analysis: [
+                {
+                    id: 'analysis-aur3',
+                    label: 'Spektralfilter AUR-3',
+                    assignedTo: 'Taktik',
+                    status: 'laufend'
+                },
+                {
+                    id: 'analysis-77c',
+                    label: 'Gravmetrie 77C',
+                    assignedTo: 'Wissenschaft',
+                    status: 'laufend'
+                }
+            ],
+            queues: [
+                { id: 'queue-long', label: 'Langstrecken-Sweep', status: 'geplant' },
+                { id: 'queue-drift', label: 'Driftdetektion', status: 'bereit' }
+            ],
+            logs: [
+                '05:17 - Signatur von AUR-3 mit 71% bestätigt.',
+                '05:11 - Spektralanalyse 77C gestartet.',
+                '05:05 - Sensorarray Beta kalibriert.'
+            ]
+        }
+    },
     systems: [
         {
             id: 'life-support',
@@ -936,6 +1433,7 @@ function parseScenarioXml(xmlText) {
     }
 
     return {
+        bridge: parseBridge(doc),
         systems: parseSystems(doc),
         damageControl: parseDamageControl(doc),
         lifeSupport: parseLifeSupport(doc),
@@ -944,6 +1442,560 @@ function parseScenarioXml(xmlText) {
         propulsion: parseEngineeringPropulsion(doc),
         ftl: parseEngineeringFtl(doc),
         defense: parseDefense(doc)
+    };
+}
+
+function parseBridge(doc) {
+    const bridgeRoot = doc.querySelector('scenario > ship > bridge');
+    if (!bridgeRoot) {
+        return null;
+    }
+
+    return {
+        command: parseBridgeCommand(findChild(bridgeRoot, 'command')),
+        helm: parseBridgeHelm(findChild(bridgeRoot, 'helm')),
+        navigation: parseBridgeNavigation(findChild(bridgeRoot, 'navigation')),
+        tactical: parseBridgeTactical(findChild(bridgeRoot, 'tactical')),
+        comms: parseBridgeComms(findChild(bridgeRoot, 'comms')),
+        sensors: parseBridgeSensors(findChild(bridgeRoot, 'sensors'))
+    };
+}
+
+function parseBridgeCommand(commandRoot) {
+    if (!commandRoot) {
+        return null;
+    }
+
+    const alertRoot = findChild(commandRoot, 'alertState');
+    const alertState = alertRoot
+        ? {
+              current:
+                  alertRoot.getAttribute('current') ||
+                  alertRoot.getAttribute('level') ||
+                  alertRoot.getAttribute('status') ||
+                  '',
+              currentLabel: alertRoot.getAttribute('label') || '',
+              lastChange: alertRoot.getAttribute('lastChange') || alertRoot.getAttribute('time') || '',
+              officer: alertRoot.getAttribute('officer') || alertRoot.getAttribute('author') || '',
+              readiness:
+                  alertRoot.getAttribute('readiness') ||
+                  getChildText(alertRoot, ['readiness', 'note']) ||
+                  '',
+              states: Array.from(alertRoot.children)
+                  .filter((child) => isTag(child, 'state'))
+                  .map((stateEl) => {
+                      const label =
+                          getChildText(stateEl, ['label', 'name']) ||
+                          stateEl.getAttribute('label') ||
+                          stateEl.getAttribute('name') ||
+                          stateEl.getAttribute('id') ||
+                          '';
+                      const text = (stateEl.textContent || '').trim();
+                      const description =
+                          getChildText(stateEl, 'description') ||
+                          stateEl.getAttribute('description') ||
+                          (text && text !== label ? text : '');
+                      return {
+                          id: stateEl.getAttribute('id') || null,
+                          label: label || text || 'Zustand',
+                          description
+                      };
+                  })
+          }
+        : null;
+
+    const missionsRoot = findChild(commandRoot, 'missions');
+    const missionDirectives = missionsRoot
+        ? Array.from(missionsRoot.children)
+              .filter((child) => isTag(child, 'mission'))
+              .map((missionEl) => ({
+                  id: missionEl.getAttribute('id') || null,
+                  label:
+                      getChildText(missionEl, ['label', 'name']) ||
+                      missionEl.getAttribute('label') ||
+                      missionEl.getAttribute('name') ||
+                      missionEl.getAttribute('id') ||
+                      '',
+                  status: missionEl.getAttribute('status') || '',
+                  progress: toNumber(missionEl.getAttribute('progress')),
+                  owner: missionEl.getAttribute('owner') || missionEl.getAttribute('responsible') || '',
+                  note: getChildText(missionEl, 'note') || missionEl.getAttribute('note') || ''
+              }))
+        : [];
+
+    const locksRoot = findChild(commandRoot, 'locks');
+    const systemLocks = locksRoot
+        ? Array.from(locksRoot.children)
+              .filter((child) => isTag(child, 'lock'))
+              .map((lockEl) => ({
+                  id: lockEl.getAttribute('id') || null,
+                  label:
+                      getChildText(lockEl, ['label', 'name']) ||
+                      lockEl.getAttribute('label') ||
+                      lockEl.getAttribute('name') ||
+                      lockEl.getAttribute('id') ||
+                      '',
+                  engaged: parseBoolean(lockEl.getAttribute('engaged') || lockEl.getAttribute('active')),
+                  authority: lockEl.getAttribute('authority') || '',
+                  note: getChildText(lockEl, 'note') || ''
+              }))
+        : [];
+
+    const broadcastsRoot = findChild(commandRoot, 'broadcasts');
+    const priorityBroadcasts = broadcastsRoot
+        ? Array.from(broadcastsRoot.children)
+              .filter((child) => isTag(child, 'macro'))
+              .map((macroEl) => ({
+                  id: macroEl.getAttribute('id') || null,
+                  label:
+                      (macroEl.textContent || '').trim() ||
+                      macroEl.getAttribute('label') ||
+                      macroEl.getAttribute('name') ||
+                      macroEl.getAttribute('id') ||
+                      '',
+                  tone: macroEl.getAttribute('tone') || ''
+              }))
+        : [];
+
+    const pendingRoot = findChild(commandRoot, 'pendingRequests');
+    const pendingRequests = pendingRoot
+        ? Array.from(pendingRoot.children)
+              .filter((child) => isTag(child, 'request'))
+              .map((requestEl) => ({
+                  id: requestEl.getAttribute('id') || null,
+                  label: (requestEl.textContent || '').trim() || requestEl.getAttribute('label') || '',
+                  status: requestEl.getAttribute('status') || '',
+                  completed: parseBoolean(requestEl.getAttribute('completed') || requestEl.getAttribute('done'))
+              }))
+        : [];
+
+    const recentOrders = parseLogEntries(commandRoot.querySelectorAll('recentOrders > entry'));
+
+    return { alertState, missionDirectives, systemLocks, priorityBroadcasts, pendingRequests, recentOrders };
+}
+
+function parseBridgeHelm(helmRoot) {
+    if (!helmRoot) {
+        return null;
+    }
+
+    const vectorRoot = findChild(helmRoot, 'vector');
+    const vector = vectorRoot
+        ? {
+              velocity: vectorRoot.getAttribute('velocity') || '',
+              impulse: toNumber(vectorRoot.getAttribute('impulse')),
+              impulseStatus: vectorRoot.getAttribute('impulseStatus') || vectorRoot.getAttribute('impulse-status') || '',
+              inertialDampers: toNumber(vectorRoot.getAttribute('inertialDampers') || vectorRoot.getAttribute('dampers')),
+              damperStatus: vectorRoot.getAttribute('damperStatus') || vectorRoot.getAttribute('damper-status') || '',
+              rcs: toNumber(vectorRoot.getAttribute('rcs')),
+              rcsStatus: vectorRoot.getAttribute('rcsStatus') || vectorRoot.getAttribute('rcs-status') || '',
+              heading: vectorRoot.getAttribute('heading') || '',
+              drift: vectorRoot.getAttribute('drift') || '',
+              orientation: {
+                  pitch: toNumber(vectorRoot.getAttribute('pitch')),
+                  yaw: toNumber(vectorRoot.getAttribute('yaw')),
+                  roll: toNumber(vectorRoot.getAttribute('roll'))
+              }
+          }
+        : null;
+
+    const thrustersRoot = findChild(helmRoot, 'thrusters');
+    const thrusters = thrustersRoot
+        ? Array.from(thrustersRoot.children)
+              .filter((child) => isTag(child, 'thruster'))
+              .map((thrusterEl) => ({
+                  id: thrusterEl.getAttribute('id') || null,
+                  label:
+                      getChildText(thrusterEl, ['label', 'name']) ||
+                      thrusterEl.getAttribute('label') ||
+                      thrusterEl.getAttribute('name') ||
+                      thrusterEl.getAttribute('id') ||
+                      '',
+                  output: toNumber(thrusterEl.getAttribute('output')),
+                  note: getChildText(thrusterEl, 'note') || ''
+              }))
+        : [];
+
+    const modesRoot = findChild(helmRoot, 'autopilotModes');
+    const autopilotModes = modesRoot
+        ? Array.from(modesRoot.children)
+              .filter((child) => isTag(child, 'mode'))
+              .map((modeEl) => ({
+                  id: modeEl.getAttribute('id') || null,
+                  value: modeEl.getAttribute('value') || null,
+                  label:
+                      getChildText(modeEl, ['label', 'name']) ||
+                      modeEl.getAttribute('label') ||
+                      modeEl.getAttribute('name') ||
+                      modeEl.getAttribute('id') ||
+                      '',
+                  description: getChildText(modeEl, 'description') || '',
+                  active: parseBoolean(modeEl.getAttribute('active'))
+              }))
+        : [];
+
+    const maneuversRoot = findChild(helmRoot, 'maneuvers');
+    const maneuvers = maneuversRoot
+        ? Array.from(maneuversRoot.children)
+              .filter((child) => isTag(child, 'maneuver'))
+              .map((manEl) => ({
+                  id: manEl.getAttribute('id') || null,
+                  label:
+                      getChildText(manEl, ['label', 'name']) ||
+                      manEl.getAttribute('label') ||
+                      manEl.getAttribute('name') ||
+                      manEl.getAttribute('id') ||
+                      '',
+                  status: manEl.getAttribute('status') || '',
+                  eta: manEl.getAttribute('eta') || '',
+                  note: getChildText(manEl, 'note') || ''
+              }))
+        : [];
+
+    const flightPlanRoot = findChild(helmRoot, 'flightPlan');
+    const flightPlan = flightPlanRoot
+        ? {
+              currentWaypoint: flightPlanRoot.getAttribute('currentWaypoint') || '',
+              nextWaypoint: flightPlanRoot.getAttribute('nextWaypoint') || '',
+              arrivalIn: flightPlanRoot.getAttribute('arrivalIn') || '',
+              clearance: flightPlanRoot.getAttribute('clearance') || '',
+              checkpoints: parseLogEntries(flightPlanRoot.querySelectorAll('checkpoint'))
+          }
+        : null;
+
+    const warnings = parseLogEntries(helmRoot.querySelectorAll('warnings > warning'));
+
+    return { vector, thrusters, autopilotModes, maneuvers, flightPlan, warnings };
+}
+
+function parseBridgeNavigation(navigationRoot) {
+    if (!navigationRoot) {
+        return null;
+    }
+
+    const solutionEl = findChild(navigationRoot, 'solution');
+    const solution = solutionEl
+        ? {
+              designation:
+                  solutionEl.getAttribute('designation') ||
+                  solutionEl.getAttribute('id') ||
+                  getChildText(solutionEl, 'label') ||
+                  '',
+              target: solutionEl.getAttribute('target') || '',
+              eta: solutionEl.getAttribute('eta') || '',
+              windowOpens: solutionEl.getAttribute('windowOpens') || solutionEl.getAttribute('opens') || '',
+              status: solutionEl.getAttribute('status') || '',
+              confidence: toNumber(solutionEl.getAttribute('confidence')),
+              jumpEnergy: toNumber(solutionEl.getAttribute('jumpEnergy') || solutionEl.getAttribute('energy')),
+              constraints: parseLogEntries(solutionEl.querySelectorAll('constraint'))
+          }
+        : null;
+
+    const alternativesRoot = findChild(navigationRoot, 'alternatives');
+    const alternatives = alternativesRoot
+        ? Array.from(alternativesRoot.children)
+              .filter((child) => isTag(child, 'alternative'))
+              .map((altEl) => ({
+                  id: altEl.getAttribute('id') || null,
+                  label:
+                      (altEl.textContent || '').trim() ||
+                      altEl.getAttribute('label') ||
+                      altEl.getAttribute('name') ||
+                      altEl.getAttribute('id') ||
+                      '',
+                  eta: altEl.getAttribute('eta') || '',
+                  risk: altEl.getAttribute('risk') || ''
+              }))
+        : [];
+
+    const windowsRoot = findChild(navigationRoot, 'jumpWindows');
+    const jumpWindows = windowsRoot
+        ? Array.from(windowsRoot.children)
+              .filter((child) => isTag(child, 'window'))
+              .map((windowEl) => ({
+                  id: windowEl.getAttribute('id') || null,
+                  destination: windowEl.getAttribute('destination') || '',
+                  opens: windowEl.getAttribute('opens') || '',
+                  duration: windowEl.getAttribute('duration') || '',
+                  status: windowEl.getAttribute('status') || ''
+              }))
+        : [];
+
+    const tasksRoot = findChild(navigationRoot, 'tasks');
+    const tasks = tasksRoot
+        ? Array.from(tasksRoot.children)
+              .filter((child) => isTag(child, 'task'))
+              .map((taskEl) => ({
+                  id: taskEl.getAttribute('id') || null,
+                  label:
+                      getChildText(taskEl, ['label', 'name']) ||
+                      taskEl.getAttribute('label') ||
+                      taskEl.getAttribute('name') ||
+                      taskEl.getAttribute('id') ||
+                      '',
+                  checked: parseBoolean(taskEl.getAttribute('checked') || taskEl.getAttribute('completed')),
+                  note: getChildText(taskEl, 'note') || ''
+              }))
+        : [];
+
+    const markersRoot = findChild(navigationRoot, 'markers');
+    const markers = markersRoot
+        ? Array.from(markersRoot.children)
+              .filter((child) => isTag(child, 'marker'))
+              .map((markerEl) => ({
+                  id: markerEl.getAttribute('id') || null,
+                  label:
+                      (markerEl.textContent || '').trim() ||
+                      markerEl.getAttribute('label') ||
+                      markerEl.getAttribute('name') ||
+                      markerEl.getAttribute('id') ||
+                      '',
+                  type: markerEl.getAttribute('type') || '',
+                  bearing: markerEl.getAttribute('bearing') || '',
+                  distance: markerEl.getAttribute('distance') || ''
+              }))
+        : [];
+
+    const logs = parseLogEntries(navigationRoot.querySelectorAll('log > entry'));
+
+    return { solution, alternatives, jumpWindows, tasks, markers, logs };
+}
+
+function parseBridgeTactical(tacticalRoot) {
+    if (!tacticalRoot) {
+        return null;
+    }
+
+    const readinessEl = findChild(tacticalRoot, 'readiness');
+    const readiness = readinessEl
+        ? {
+              alert: readinessEl.getAttribute('alert') || readinessEl.getAttribute('status') || '',
+              weaponReadiness: toNumber(readinessEl.getAttribute('weapon') || readinessEl.getAttribute('weapons')),
+              shieldReadiness: toNumber(readinessEl.getAttribute('shields')),
+              countermeasures: readinessEl.getAttribute('countermeasures') || '',
+              targeting: readinessEl.getAttribute('targeting') || ''
+          }
+        : null;
+
+    const contactsRoot = findChild(tacticalRoot, 'contacts');
+    const contacts = contactsRoot
+        ? Array.from(contactsRoot.children)
+              .filter((child) => isTag(child, 'contact'))
+              .map((contactEl) => ({
+                  id: contactEl.getAttribute('id') || null,
+                  designation: contactEl.getAttribute('designation') || contactEl.getAttribute('name') || '',
+                  label: getChildText(contactEl, 'label') || '',
+                  type: contactEl.getAttribute('type') || '',
+                  allegiance: contactEl.getAttribute('allegiance') || '',
+                  range: contactEl.getAttribute('range') || '',
+                  vector: contactEl.getAttribute('vector') || '',
+                  threat: contactEl.getAttribute('threat') || '',
+                  lock: toNumber(contactEl.getAttribute('lock') || contactEl.getAttribute('solution')),
+                  status: contactEl.getAttribute('status') || '',
+                  note: getChildText(contactEl, 'note') || ''
+              }))
+        : [];
+
+    const weaponControlsEl = findChild(tacticalRoot, 'weaponControls');
+    const safeties = weaponControlsEl
+        ? Array.from(weaponControlsEl.querySelectorAll('safeties > safety')).map((safetyEl) => ({
+              id: safetyEl.getAttribute('id') || null,
+              label:
+                  (safetyEl.textContent || '').trim() ||
+                  safetyEl.getAttribute('label') ||
+                  safetyEl.getAttribute('name') ||
+                  safetyEl.getAttribute('id') ||
+                  '',
+              engaged: parseBoolean(safetyEl.getAttribute('engaged') || safetyEl.getAttribute('active')),
+              note: safetyEl.getAttribute('note') || ''
+          }))
+        : [];
+
+    const salvoModes = weaponControlsEl
+        ? Array.from(weaponControlsEl.querySelectorAll('salvoModes > mode')).map((modeEl) => ({
+              id: modeEl.getAttribute('id') || null,
+              value: modeEl.getAttribute('value') || null,
+              label:
+                  (modeEl.textContent || '').trim() ||
+                  modeEl.getAttribute('label') ||
+                  modeEl.getAttribute('name') ||
+                  modeEl.getAttribute('id') ||
+                  '',
+              description: modeEl.getAttribute('description') || getChildText(modeEl, 'description') || ''
+          }))
+        : [];
+
+    const weaponSelected = weaponControlsEl?.getAttribute('selected') || null;
+
+    const shieldsEl = findChild(tacticalRoot, 'shieldDirectives');
+    const sectors = shieldsEl
+        ? Array.from(shieldsEl.querySelectorAll('sector')).map((sectorEl) => ({
+              id: sectorEl.getAttribute('id') || null,
+              label:
+                  (sectorEl.textContent || '').trim() ||
+                  sectorEl.getAttribute('label') ||
+                  sectorEl.getAttribute('name') ||
+                  sectorEl.getAttribute('id') ||
+                  '',
+              load: toNumber(sectorEl.getAttribute('load'))
+          }))
+        : [];
+
+    const shieldNote = shieldsEl ? shieldsEl.getAttribute('note') || getChildText(shieldsEl, 'note') || '' : '';
+
+    const logs = parseLogEntries(tacticalRoot.querySelectorAll('log > entry'));
+
+    return {
+        readiness,
+        contacts,
+        weaponControls: weaponControlsEl
+            ? { safeties, salvoModes, selected: weaponSelected || weaponControlsEl.getAttribute('default') || null }
+            : null,
+        shieldDirectives: shieldsEl ? { sectors, note: shieldNote } : null,
+        logs
+    };
+}
+
+function parseBridgeComms(commsRoot) {
+    if (!commsRoot) {
+        return null;
+    }
+
+    const channelsRoot = findChild(commsRoot, 'channels');
+    const channels = channelsRoot
+        ? Array.from(channelsRoot.children)
+              .filter((child) => isTag(child, 'channel'))
+              .map((channelEl) => ({
+                  id: channelEl.getAttribute('id') || null,
+                  label: channelEl.getAttribute('label') || channelEl.getAttribute('name') || '',
+                  frequency: channelEl.getAttribute('frequency') || '',
+                  snr: toNumber(channelEl.getAttribute('snr')), 
+                  status: channelEl.getAttribute('status') || '',
+                  encryption: channelEl.getAttribute('encryption') || '',
+                  traffic: channelEl.getAttribute('traffic') || ''
+              }))
+        : [];
+
+    const hailingRoot = findChild(commsRoot, 'hailingQueue');
+    const hailingQueue = hailingRoot
+        ? Array.from(hailingRoot.children)
+              .filter((child) => isTag(child, 'contact'))
+              .map((contactEl) => ({
+                  id: contactEl.getAttribute('id') || null,
+                  name: contactEl.getAttribute('name') || contactEl.getAttribute('label') || '',
+                  priority: contactEl.getAttribute('priority') || '',
+                  state: contactEl.getAttribute('state') || '',
+                  time: contactEl.getAttribute('time') || ''
+              }))
+        : [];
+
+    const encryptionRoot = findChild(commsRoot, 'encryptionModes');
+    const encryptionModes = encryptionRoot
+        ? Array.from(encryptionRoot.children)
+              .filter((child) => isTag(child, 'mode'))
+              .map((modeEl) => ({
+                  id: modeEl.getAttribute('id') || null,
+                  value: modeEl.getAttribute('value') || null,
+                  label:
+                      (modeEl.textContent || '').trim() ||
+                      modeEl.getAttribute('label') ||
+                      modeEl.getAttribute('name') ||
+                      modeEl.getAttribute('id') ||
+                      '',
+                  active: parseBoolean(modeEl.getAttribute('active'))
+              }))
+        : [];
+
+    const macrosRoot = findChild(commsRoot, 'macros');
+    const macros = macrosRoot
+        ? Array.from(macrosRoot.children)
+              .filter((child) => isTag(child, 'macro'))
+              .map((macroEl) => ({
+                  id: macroEl.getAttribute('id') || null,
+                  label:
+                      (macroEl.textContent || '').trim() ||
+                      macroEl.getAttribute('label') ||
+                      macroEl.getAttribute('name') ||
+                      macroEl.getAttribute('id') ||
+                      '',
+                  tone: macroEl.getAttribute('tone') || ''
+              }))
+        : [];
+
+    const log = parseLogEntries(commsRoot.querySelectorAll('log > entry'));
+
+    return { channels, hailingQueue, encryptionModes, macros, log };
+}
+
+function parseBridgeSensors(sensorsRoot) {
+    if (!sensorsRoot) {
+        return null;
+    }
+
+    const sweepsRoot = findChild(sensorsRoot, 'sweeps');
+    const sweeps = sweepsRoot
+        ? Array.from(sweepsRoot.children)
+              .filter((child) => isTag(child, 'sweep'))
+              .map((sweepEl) => ({
+                  id: sweepEl.getAttribute('id') || null,
+                  label: sweepEl.getAttribute('label') || sweepEl.getAttribute('name') || '',
+                  status: sweepEl.getAttribute('status') || '',
+                  progress: toNumber(sweepEl.getAttribute('progress')),
+                  band: sweepEl.getAttribute('band') || sweepEl.getAttribute('spectrum') || '',
+                  eta: sweepEl.getAttribute('eta') || ''
+              }))
+        : [];
+
+    const contactsRoot = findChild(sensorsRoot, 'contacts');
+    const contacts = contactsRoot
+        ? Array.from(contactsRoot.children)
+              .filter((child) => isTag(child, 'contact'))
+              .map((contactEl) => ({
+                  id: contactEl.getAttribute('id') || null,
+                  label: contactEl.getAttribute('label') || contactEl.getAttribute('name') || '',
+                  classification: contactEl.getAttribute('classification') || '',
+                  range: contactEl.getAttribute('range') || '',
+                  vector: contactEl.getAttribute('vector') || '',
+                  signature: contactEl.getAttribute('signature') || '',
+                  confidence: toNumber(contactEl.getAttribute('confidence')),
+                  note: getChildText(contactEl, 'note') || ''
+              }))
+        : [];
+
+    const analysisRoot = findChild(sensorsRoot, 'analysis');
+    const analysis = analysisRoot
+        ? Array.from(analysisRoot.children)
+              .filter((child) => isTag(child, 'job'))
+              .map((jobEl) => ({
+                  id: jobEl.getAttribute('id') || null,
+                  label: jobEl.getAttribute('label') || jobEl.getAttribute('name') || '',
+                  assignedTo: jobEl.getAttribute('assignedTo') || jobEl.getAttribute('team') || '',
+                  status: jobEl.getAttribute('status') || ''
+              }))
+        : [];
+
+    const queueRoot = findChild(sensorsRoot, 'queues');
+    const queues = queueRoot
+        ? Array.from(queueRoot.children)
+              .filter((child) => isTag(child, 'job'))
+              .map((jobEl) => ({
+                  id: jobEl.getAttribute('id') || null,
+                  label: jobEl.getAttribute('label') || jobEl.getAttribute('name') || '',
+                  status: jobEl.getAttribute('status') || ''
+              }))
+        : [];
+
+    const logs = parseLogEntries(sensorsRoot.querySelectorAll('log > entry'));
+
+    return {
+        sweeps,
+        noiseLevel: toNumber(sensorsRoot.getAttribute('noiseLevel') || sensorsRoot.getAttribute('noise')),
+        radiationLevel: toNumber(sensorsRoot.getAttribute('radiationLevel') || sensorsRoot.getAttribute('radiation')),
+        calibrationDue: sensorsRoot.getAttribute('calibrationDue') || '',
+        contacts,
+        analysis,
+        queues,
+        logs
     };
 }
 

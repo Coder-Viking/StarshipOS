@@ -1,6 +1,8 @@
 # Fortschrittsnotizen
 
 ## Aktuelle Sitzung
+- Brückenkonsole (BR-01 bis BR-06) mit interaktiven Panels ausgerüstet: Alarm-/Missionssteuerung, Flug- und Navigationsdaten, taktische Zielübersichten, Kommunikationsnetze sowie Sensor-Scanjobs lesen nun Szenariodaten und stellen Statusanzeigen sowie Bedienoptionen bereit.
+- Szenarioparser (`station-scenario.js`) und `scenario-default.xml` um einen vollständigen `<bridge>`-Block erweitert, damit Kommandopult, Helm, Navigation, Taktik, Kommunikation und Sensorik ihre Werte analog zum Maschinenraum aus demselben Dataset beziehen.
 - Maschinenraum-Panels für EN-01 (Reaktorkontrolle) und EN-06 (Schadenskontrolle & Leitungen) um Lageübersichten erweitert: Netzbelastung, Reserven sowie Thermalkreise werden jetzt direkt aus den Szenariodaten angezeigt.
 - Verteidigungs-Szenariodaten (Schilde & Hülle) in Fallback und XML ergänzt, inklusive Sektorstatus, Verstärkungseinstellungen, Notfallbarrieren und struktureller Hotspots.
 - Parser (`station-scenario.js`) um `parseDefense` erweitert, damit Schild- und Hüllenstationen ihre Panels aus dem Szenario speisen.
